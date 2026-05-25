@@ -1,0 +1,11 @@
+
+frontend/build-errors*.txt
+frontend/build-bulk*.txt
+frontend/dist/
+backend/dist/
+frontend/node_modules/
+backend/node_modules/
+.env
+.env.*
+
+.tmp.driveupload/
