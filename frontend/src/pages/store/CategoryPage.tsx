@@ -53,14 +53,14 @@ const CategoryPage: React.FC = () => {
       try {
         setLoading(true);
         const response = await axios.get<CategoryResponse>(
-          `${import.meta.env.VITE_API_URL}/api/seo/store/${tenantSlug}/category/${categorySlug}`
+          `${import.meta.env.VITE_API_URL}/seo/store/${tenantSlug}/category/${categorySlug}`
         );
 
         if (response.data.success) {
           setCategory(response.data.data.category);
           // Fetch products for this category
           const productsResponse = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/products?categoryId=${response.data.data.category.id}`
+            `${import.meta.env.VITE_API_URL}/products?categoryId=${response.data.data.category.id}`
           );
           setProducts(productsResponse.data.data || []);
         } else {

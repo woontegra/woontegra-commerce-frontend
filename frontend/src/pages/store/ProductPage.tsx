@@ -54,7 +54,7 @@ const ProductPage: React.FC = () => {
       try {
         setLoading(true);
         const response = await axios.get<ProductResponse>(
-          `${import.meta.env.VITE_API_URL}/api/seo/store/${tenantSlug}/product/${productSlug}`
+          `${import.meta.env.VITE_API_URL}/seo/store/${tenantSlug}/product/${productSlug}`
         );
 
         if (response.data.success) {

@@ -67,7 +67,7 @@ const StorePage: React.FC = () => {
       try {
         setLoading(true);
         const response = await axios.get<StoreResponse>(
-          `${import.meta.env.VITE_API_URL}/api/seo/store/${tenantSlug}`
+          `${import.meta.env.VITE_API_URL}/seo/store/${tenantSlug}`
         );
 
         if (response.data.success) {
