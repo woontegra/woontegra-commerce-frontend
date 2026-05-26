@@ -14,6 +14,7 @@ import { FeatureProvider }     from './context/FeatureContext';
 import { PermissionProvider }  from './context/PermissionContext';
 import PlanLimitModal from './components/billing/PlanLimitModal';
 import { StorefrontThemedHome } from './pages/store/StorefrontThemedPages';
+import StoreTenantListRedirect from './components/StoreTenantListRedirect';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
@@ -245,6 +246,8 @@ function App() {
                   </Route>
 
                   {/* SEO Store Routes - Public */}
+                  <Route path="/store/:tenantSlug/urunler" element={<StoreTenantListRedirect />} />
+                  <Route path="/store/:tenantSlug/products" element={<StoreTenantListRedirect />} />
                   <Route path="/store/:tenantSlug" element={<StorePage />} />
                   <Route path="/store/:tenantSlug/category/:categorySlug" element={<CategoryPage />} />
                   <Route path="/store/:tenantSlug/product/:productSlug" element={<ProductPage />} />
