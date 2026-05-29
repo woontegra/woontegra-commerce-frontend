@@ -185,17 +185,47 @@ const ActionMenu: React.FC<{
 
 // ── Plan Change Modal ─────────────────────────────────────────────────────────
 
+function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function defaultPlanModalEndDate(cycle: string, existingEnd?: string | null): string {
+  if (existingEnd) {
+    const existing = new Date(existingEnd);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (!Number.isNaN(existing.getTime()) && existing >= todayStart) {
+      return toDateInputValue(existing);
+    }
+  }
+  const end = new Date();
+  if (cycle === 'YEARLY') {
+    end.setFullYear(end.getFullYear() + 1);
+  } else {
+    end.setMonth(end.getMonth() + 1);
+  }
+  return toDateInputValue(end);
+}
+
+/** YYYY-MM-DD → gün sonu UTC ISO (backend normalize ile uyumlu). */
+function subscriptionEndIsoFromDateInput(dateStr: string): string {
+  const [y, m, day] = dateStr.split('-').map(Number);
+  if (!y || !m || !day) return new Date(dateStr).toISOString();
+  return new Date(Date.UTC(y, m - 1, day, 23, 59, 59, 999)).toISOString();
+}
+
 const PlanModal: React.FC<{
   tenant: Tenant; onClose: () => void; onDone: () => void;
 }> = ({ tenant, onClose, onDone }) => {
   const sub = tenant.subscriptions[0];
   const [plan, setPlan]       = useState<Plan>((sub?.plan as Plan) || 'STARTER');
   const [cycle, setCycle]     = useState('MONTHLY');
-  const [endDate, setEndDate] = useState(() => {
-    const d = sub?.endDate ? new Date(sub.endDate) : new Date();
-    if (d < new Date()) d.setFullYear(new Date().getFullYear() + 1);
-    return d.toISOString().split('T')[0];
-  });
+  const [endDate, setEndDate] = useState(() =>
+    defaultPlanModalEndDate('MONTHLY', sub?.endDate),
+  );
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -204,7 +234,7 @@ const PlanModal: React.FC<{
     try {
       await api.post('/admin/subscription/change', {
         tenantId: tenant.id, plan, billingCycle: cycle,
-        endDate: new Date(endDate).toISOString(),
+        endDate: subscriptionEndIsoFromDateInput(endDate),
       });
       toast.success(`Plan ${plan} olarak güncellendi.`);
       onDone();
@@ -248,7 +278,10 @@ const PlanModal: React.FC<{
           {BILLING_CYCLES.map(c => (
             <button
               key={c}
-              onClick={() => setCycle(c)}
+              onClick={() => {
+                setCycle(c);
+                setEndDate(defaultPlanModalEndDate(c));
+              }}
               className={`py-2 rounded-xl border text-xs font-medium transition-all ${
                 cycle === c
                   ? 'border-indigo-500 bg-indigo-900/30 text-indigo-300'
