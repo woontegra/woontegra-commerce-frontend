@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/auth.service';
 import { useAppStore } from '../store/useAppStore';
-import {
-  isSellerLoginSlug,
-  SELLER_LOGIN_ERROR_MESSAGE,
-  SUPER_ADMIN_LOGIN_ERROR_MESSAGE,
-} from '../utils/planDisplay';
+import { resolveLoginErrorMessage } from '../utils/loginErrors';
 
 export default function Login() {
   const [email,      setEmail]      = useState('');
@@ -76,18 +72,8 @@ export default function Login() {
       } else {
         navigate('/dashboard');
       }
-    } catch (err: any) {
-      if (isSellerLoginSlug(tenantSlug)) {
-        setError(SELLER_LOGIN_ERROR_MESSAGE);
-      } else {
-        const msg = err.response?.data?.error || err.response?.data?.message;
-        setError(
-          msg
-          || (err.response?.status === 401
-            ? SUPER_ADMIN_LOGIN_ERROR_MESSAGE
-            : 'Giriş başarısız.'),
-        );
-      }
+    } catch (err: unknown) {
+      setError(resolveLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }

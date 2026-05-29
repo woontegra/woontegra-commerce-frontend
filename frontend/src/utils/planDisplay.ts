@@ -22,15 +22,3 @@ export function getPlanDisplayLabel(plan: PlanTier, tenantStatus?: string | null
   }
   return PLAN_DISPLAY_LABELS[plan] ?? 'Starter';
 }
-
-export function isSellerLoginSlug(raw: string): boolean {
-  const slug = raw.trim();
-  if (!slug) return false;
-  return !['magaza-slug', 'magaza slug'].includes(slug.toLowerCase());
-}
-
-export const SELLER_LOGIN_ERROR_MESSAGE =
-  'E-posta, şifre veya mağaza slug hatalı.';
-
-export const SUPER_ADMIN_LOGIN_ERROR_MESSAGE =
-  'E-posta veya şifre hatalı. Süper admin iseniz mağaza slug alanını boş bırakın.';
