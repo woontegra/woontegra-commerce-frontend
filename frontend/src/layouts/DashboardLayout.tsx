@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBranding } from '../context/BrandingContext';
 import { authService } from '../services/auth.service';
+import {
+  useFeatureContext,
+  getMinPlanForFeature,
+  PLAN_META,
+} from '../context/FeatureContext';
+import type { FeatureKey, PlanTier } from '../context/FeatureContext';
+import { getPlanDisplayLabel } from '../utils/planDisplay';
 import { displayStoreName } from '../utils/displayStoreName';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -10,8 +17,6 @@ import TenantLifecycleBanner from '../components/lifecycle/TenantLifecycleBanner
 import DemoBanner, { useIsDemo } from '../components/DemoBanner';
 import { api } from '../services/apiClient';
 import { unwrapAdmin } from '../utils/adminApi';
-import { useFeatureContext, getMinPlanForFeature, PLAN_META } from '../context/FeatureContext';
-import type { FeatureKey, PlanTier } from '../context/FeatureContext';
 
 // ─── SVG icon helper ──────────────────────────────────────────────────────────
 
@@ -322,10 +327,11 @@ const PLAN_PILL: Record<PlanTier, { bg: string; text: string; icon: string; glow
 };
 
 function PlanSidebarBadge() {
-  const { plan } = useFeatureContext();
+  const { plan, tenantStatus } = useFeatureContext();
   const navigate  = useNavigate();
   const upgradeTo = PLAN_META[plan].upgradeTo;
   const pill = PLAN_PILL[plan];
+  const planLabel = getPlanDisplayLabel(plan, tenantStatus);
 
   return (
     <div className="mx-2 mb-2 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.1] p-4 backdrop-blur-sm">
@@ -338,7 +344,7 @@ function PlanSidebarBadge() {
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Aktif Plan</span>
         </div>
         <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${pill.bg} ${pill.text} ${pill.glow}`}>
-          {PLAN_META[plan].label}
+          {planLabel}
         </span>
       </div>
 
