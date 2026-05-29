@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBranding } from '../context/BrandingContext';
+import { authService } from '../services/auth.service';
 import { displayStoreName } from '../utils/displayStoreName';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -390,10 +391,7 @@ export default function DashboardLayout() {
     setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleLogout = async () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    sessionStorage.removeItem('adminTokenPriorImpersonation');
-    sessionStorage.removeItem('impersonationTenantName');
+    authService.logout();
     logout();
     navigate('/login');
   };

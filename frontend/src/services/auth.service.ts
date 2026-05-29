@@ -1,5 +1,6 @@
 import api from './api';
 import type { AuthResponse, User } from '../types';
+import { notifyAuthLogin, notifyAuthLogout } from './authEvents';
 
 function clearDemoSessionFlags(): void {
   localStorage.removeItem('isDemo');
@@ -17,6 +18,8 @@ function persistAuthSession(token: string, user: User & { isDemo?: boolean }, de
   } else {
     clearDemoSessionFlags();
   }
+
+  notifyAuthLogin();
 }
 
 export const authService = {
@@ -71,7 +74,11 @@ export const authService = {
   logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
     clearDemoSessionFlags();
+    sessionStorage.removeItem('adminTokenPriorImpersonation');
+    sessionStorage.removeItem('impersonationTenantName');
+    notifyAuthLogout();
   },
 
   getCurrentUser() {

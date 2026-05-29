@@ -65,10 +65,7 @@ export default function DemoBanner({ onClose }: Props) {
   if (dismissed) return null;
 
   const handleExit = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('isDemo');
-    localStorage.removeItem('demoMeta');
+    authService.logout();
     navigate('/login');
   };
 

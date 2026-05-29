@@ -4,6 +4,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../services/apiClient';
+import { AUTH_LOGIN_EVENT, AUTH_LOGOUT_EVENT } from '../services/authEvents';
 import { resolveStoreNameFromSettings } from '../utils/displayStoreName';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -142,6 +143,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [branding, setBranding] = useState<Branding>(DEFAULTS);
   const [loading,  setLoading]  = useState(true);
 
+  const resetBranding = useCallback(() => {
+    setBranding(DEFAULTS);
+    injectCssVars(DEFAULTS);
+    setLoading(false);
+  }, []);
+
   const applyBranding = useCallback((b: Partial<Branding>) => {
     setBranding(prev => {
       const next = { ...prev, ...b };
@@ -152,7 +159,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (!token) { setLoading(false); return; }
+    if (!token) {
+      resetBranding();
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const res  = await api.get('/settings');
@@ -187,9 +199,24 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resetBranding]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const onLogin = () => {
+      resetBranding();
+      void refresh();
+    };
+    const onLogout = () => resetBranding();
+
+    window.addEventListener(AUTH_LOGIN_EVENT, onLogin);
+    window.addEventListener(AUTH_LOGOUT_EVENT, onLogout);
+    return () => {
+      window.removeEventListener(AUTH_LOGIN_EVENT, onLogin);
+      window.removeEventListener(AUTH_LOGOUT_EVENT, onLogout);
+    };
+  }, [refresh, resetBranding]);
 
   return (
     <BrandingContext.Provider value={{ branding, loading, refresh, applyBranding }}>

@@ -14,6 +14,12 @@ export default function Login() {
   const navigate = useNavigate();
   const { setUser } = useAppStore();
 
+  const normalizeTenantSlug = (raw: string) => {
+    const slug = raw.trim();
+    const placeholderSlugs = ['magaza-slug', 'magaza slug'];
+    return placeholderSlugs.includes(slug.toLowerCase()) ? '' : slug;
+  };
+
   const handleDemoLogin = async () => {
     setDemoLoading(true);
     setError('');
@@ -41,12 +47,11 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const slug = tenantSlug.trim();
-      const placeholderSlugs = ['magaza-slug', 'magaza slug'];
+      const slug = normalizeTenantSlug(tenantSlug);
       const result = await authService.login(
         email,
         password,
-        placeholderSlugs.includes(slug.toLowerCase()) ? '' : slug,
+        slug,
       );
       const user = (result as any)?.data?.user || (result as any)?.user;
       
@@ -67,11 +72,18 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (err: any) {
+      const slug = normalizeTenantSlug(tenantSlug);
+
+      if (slug) {
+        setError('E-posta, şifre veya mağaza slug hatalı.');
+        return;
+      }
+
       const msg = err.response?.data?.error || err.response?.data?.message;
       setError(
         msg
         || (err.response?.status === 401
-          ? 'E-posta, şifre veya mağaza slug hatalı. Süper admin iseniz slug alanını boş bırakın.'
+          ? 'E-posta veya şifre hatalı. Süper admin iseniz mağaza slug alanını boş bırakın.'
           : 'Giriş başarısız.'),
       );
     } finally {

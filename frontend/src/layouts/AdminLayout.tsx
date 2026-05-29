@@ -5,6 +5,8 @@ import {
   ClipboardList, LogOut, ChevronRight, Menu, X, Shield,
   AlertTriangle, ToggleRight, ScrollText,
 } from 'lucide-react';
+import { authService } from '../services/auth.service';
+import { useAppStore } from '../store/useAppStore';
 
 const NAV_ITEMS = [
   { to: '/admin',                 label: 'Dashboard',      icon: LayoutDashboard, exact: true },
@@ -31,6 +33,7 @@ function useSuperAdminGuard() {
 const AdminLayout: React.FC = () => {
   const location   = useLocation();
   const navigate   = useNavigate();
+  const { logout } = useAppStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isSuperAdmin = useSuperAdminGuard();
 
@@ -60,8 +63,8 @@ const AdminLayout: React.FC = () => {
     exact ? location.pathname === to : location.pathname.startsWith(to);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    authService.logout();
+    logout();
     navigate('/login');
   };
 
