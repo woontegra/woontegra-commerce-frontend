@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/apiClient';
 import { useBranding } from '../context/BrandingContext';
 import toast from 'react-hot-toast';
+import {
+  buildStorefrontListUrl,
+  buildAbsoluteStorefrontListUrl,
+} from '../utils/storefrontUrl';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -435,6 +439,55 @@ export default function Settings() {
       {/* ── DOMAIN TAB ──────────────────────────────────────────────────────── */}
       {activeTab === 'domain' && (
         <div className="space-y-6">
+          <Card title="Vitrin Linkiniz">
+            {branding.storefrontSlug ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Mağaza vitrininize bu linkten erişilir. Test ve paylaşım için kullanın.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    readOnly
+                    value={buildAbsoluteStorefrontListUrl(branding.storefrontSlug)}
+                    className={`${inputCls} flex-1 font-mono text-sm`}
+                  />
+                  <div className="flex gap-2 shrink-0">
+                    <a
+                      href={buildStorefrontListUrl(branding.storefrontSlug)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-800 dark:text-gray-200 text-sm font-medium rounded-xl transition text-center"
+                    >
+                      Aç
+                    </a>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = buildAbsoluteStorefrontListUrl(branding.storefrontSlug!);
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          toast.success('Vitrin linki kopyalandı');
+                        } catch {
+                          toast.error('Kopyalanamadı');
+                        }
+                      }}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition"
+                    >
+                      Kopyala
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 font-mono">
+                  {buildStorefrontListUrl(branding.storefrontSlug)}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 rounded-xl">
+                Vitrin linki henüz oluşturulamadı. Mağaza slug veya subdomain tanımlandığında burada görünür.
+              </p>
+            )}
+          </Card>
+
           <Card title="Özel Domain">
             <div className="space-y-4">
               <div>

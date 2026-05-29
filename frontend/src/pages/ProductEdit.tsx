@@ -21,6 +21,8 @@ import CategoryTreeSelect from '../components/CategoryTreeSelect';
 import attributeService from '../services/attribute.service';
 import type { CategoryAttribute } from '../services/attribute.service';
 import { normalizeImageUrl } from '../utils/imageUtils';
+import { useBranding } from '../context/BrandingContext';
+import { buildStorefrontProductUrl } from '../utils/storefrontUrl';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -756,6 +758,13 @@ function GeneralTab({ form, categories, attrValues, onAttrChange, isAutoBarcode 
   const name       = watch('name');
   const categoryId = watch('categoryId');
   const selected   = categories.find(c => c.id === categoryId);
+  const { branding } = useBranding();
+  const storefrontSlug = branding.storefrontSlug?.trim() || null;
+  const previewSlug = name ? slugify(name) : '';
+  const storefrontPreview =
+    previewSlug && storefrontSlug
+      ? buildStorefrontProductUrl(storefrontSlug, previewSlug)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -782,7 +791,11 @@ function GeneralTab({ form, categories, attrValues, onAttrChange, isAutoBarcode 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
               </svg>
               URL önizleme:&nbsp;
-              <span className="font-mono text-indigo-500 font-medium">/urun/{slugify(name)}</span>
+              {storefrontPreview ? (
+                <span className="font-mono text-indigo-500 font-medium">{storefrontPreview}</span>
+              ) : (
+                <span className="font-mono text-slate-400">/store/urun/{slugify(name)}</span>
+              )}
             </div>
           )}
         </Field>

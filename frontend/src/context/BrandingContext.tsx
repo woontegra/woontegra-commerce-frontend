@@ -22,6 +22,11 @@ export interface Branding {
   language:      string;
   customDomain:  string | null;
   domainVerified: boolean;
+  /** Kiracı slug (DB). */
+  slug:             string | null;
+  subdomain:        string | null;
+  /** Vitrin ?tenant= değeri: slug, yoksa subdomain. */
+  storefrontSlug:   string | null;
 }
 
 const DEFAULTS: Branding = {
@@ -39,6 +44,9 @@ const DEFAULTS: Branding = {
   language:       'tr',
   customDomain:   null,
   domainVerified: false,
+  slug:             null,
+  subdomain:        null,
+  storefrontSlug:   null,
 };
 
 interface BrandingContextType {
@@ -164,6 +172,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
         language:       data.language       ?? DEFAULTS.language,
         customDomain:   data.customDomain   ?? null,
         domainVerified: data.domainVerified ?? false,
+        slug:             data.slug             ?? null,
+        subdomain:        data.subdomain        ?? null,
+        storefrontSlug:   data.storefrontSlug   ?? data.slug ?? data.subdomain ?? null,
       };
 
       setBranding(next);

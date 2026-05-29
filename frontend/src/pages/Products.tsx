@@ -14,6 +14,8 @@ import ProductTrendyolSettingsModal from '../components/trendyol/ProductTrendyol
 import ProductsCatalogOnboarding from '../components/products/ProductsCatalogOnboarding';
 import { BulkPriceAdjustInputs } from '../components/pricing/BulkPriceAdjustInputs';
 import { hasPriceAdjustment, parseOptionalSigned } from '../utils/priceAdjustInput';
+import { useBranding } from '../context/BrandingContext';
+import { buildStorefrontProductUrl } from '../utils/storefrontUrl';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +217,12 @@ const ProductRow = React.memo(function ProductRow({
   const price    = getProductPrice(product);
   const stock    = getProductStock(product);
   const variants = getVariantCount(product);
+  const { branding } = useBranding();
+  const storefrontSlug = branding.storefrontSlug?.trim() || null;
+  const storefrontHref =
+    product.slug && storefrontSlug
+      ? buildStorefrontProductUrl(storefrontSlug, product.slug)
+      : null;
 
   return (
     <tr className={`border-b border-slate-100 hover:bg-slate-50/60 transition-colors group ${selected ? 'bg-indigo-50/40' : ''}`}>
@@ -234,14 +242,14 @@ const ProductRow = React.memo(function ProductRow({
           <ProductThumb src={img} name={product.name}/>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-800 truncate">{product.name}</p>
-            {product.slug && (
+            {product.slug && storefrontHref && (
               <a
-                href={`/products/${product.slug}`}
+                href={storefrontHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="inline-flex items-center gap-0.5 text-[11px] text-emerald-600 hover:text-emerald-700 hover:underline font-mono truncate mt-0.5 max-w-full"
-                title={`/products/${product.slug}`}
+                title={storefrontHref}
               >
                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
