@@ -4,6 +4,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../services/apiClient';
+import { resolveStoreNameFromSettings } from '../utils/displayStoreName';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,9 +158,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       const res  = await api.get('/settings');
       const data = (res.data as any).data ?? {};
 
+      const resolvedName = resolveStoreNameFromSettings(data);
+
       const next: Branding = {
-        siteName:       data.siteName       ?? DEFAULTS.siteName,
-        logoUrl:        data.logoUrl        ?? data.logo ?? null,
+        siteName:       resolvedName || DEFAULTS.siteName,
+        logoUrl:        data.tenantLogoUrl ?? data.logoUrl ?? data.logo ?? null,
         logo:           data.logo           ?? null,
         faviconUrl:     data.faviconUrl     ?? null,
         primaryColor:   data.primaryColor   ?? DEFAULTS.primaryColor,

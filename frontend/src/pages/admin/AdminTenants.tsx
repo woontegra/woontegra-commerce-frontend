@@ -32,6 +32,15 @@ interface Page {
 const PLANS = ['STARTER', 'PRO', 'ENTERPRISE'] as const;
 type Plan = typeof PLANS[number];
 
+/** Tenant oluşturma modalında seçilebilir paketler */
+const CREATE_PLAN_OPTIONS = [
+  { value: 'TRIAL',       label: 'Trial / Demo', hint: '14 gün deneme, abonelik oluşturulmaz' },
+  { value: 'STARTER',     label: 'Starter',      hint: 'Aktif abonelik — aylık varsayılan' },
+  { value: 'PRO',         label: 'Professional', hint: 'Pro plan — aktif abonelik' },
+  { value: 'ENTERPRISE',  label: 'Enterprise',   hint: 'Kurumsal plan — aktif abonelik' },
+] as const;
+type CreatePlanValue = typeof CREATE_PLAN_OPTIONS[number]['value'];
+
 const BILLING_CYCLES = ['MONTHLY', 'YEARLY'] as const;
 
 const PLAN_BADGE: Record<string, string> = {
@@ -518,6 +527,7 @@ const AdminTenants: React.FC = () => {
   const [cOwnerPass, setCOwnerPass]   = useState('');
   const [cOwnerFn, setCOwnerFn]       = useState('');
   const [cOwnerLn, setCOwnerLn]       = useState('');
+  const [cPlan, setCPlan]             = useState<CreatePlanValue>('TRIAL');
 
   const fetchTenants = useCallback(async () => {
     setLoading(true);
@@ -744,6 +754,10 @@ const AdminTenants: React.FC = () => {
                               {fmtDate(sub.startDate)} → {fmtDate(sub.endDate)}
                             </p>
                           </div>
+                        ) : t.status === 'TRIAL' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-blue-900/30 text-blue-300 border-blue-700/40">
+                            Trial / Demo
+                          </span>
                         ) : (
                           <span className="text-gray-600 text-xs">Abonelik yok</span>
                         )}
@@ -848,6 +862,24 @@ const AdminTenants: React.FC = () => {
               <input value={cSub} onChange={e => setCSub(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="acme" />
               <label className="block text-xs text-gray-400">Özel domain</label>
               <input value={cDomain} onChange={e => setCDomain(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="shop.ornek.com" />
+              <label className="block text-xs text-gray-400">Paket / Plan</label>
+              <select
+                value={cPlan}
+                onChange={e => setCPlan(e.target.value as CreatePlanValue)}
+                className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+              >
+                {CREATE_PLAN_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-500 -mt-1">
+                {CREATE_PLAN_OPTIONS.find(o => o.value === cPlan)?.hint}
+              </p>
+              {cPlan !== 'TRIAL' && (
+                <p className="text-[11px] text-amber-400/90">
+                  Ücretli plan için aşağıdaki ilk kullanıcı alanları zorunludur.
+                </p>
+              )}
               <div className="border-t border-gray-800 pt-3 mt-2 space-y-2">
                 <p className="text-xs font-semibold text-gray-400">İlk kullanıcı (opsiyonel)</p>
                 <input value={cOwnerEmail} onChange={e => setCOwnerEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="owner@email.com" />
@@ -868,10 +900,16 @@ const AdminTenants: React.FC = () => {
                     toast.error('Sahip kullanıcı için şifre en az 8 karakter olmalı.');
                     return;
                   }
+                  if (cPlan !== 'TRIAL' && (!cOwnerEmail.trim() || !cOwnerPass)) {
+                    toast.error('Ücretli plan için ilk kullanıcı e-posta ve şifre zorunludur.');
+                    return;
+                  }
                   setCreateBusy(true);
                   try {
                     const body: Record<string, unknown> = {
                       name: cName.trim(),
+                      initialPlan: cPlan,
+                      ...(cPlan !== 'TRIAL' && { billingCycle: 'MONTHLY' }),
                       ...(cSlug.trim() && { slug: cSlug.trim() }),
                       ...(cSub.trim() && { subdomain: cSub.trim() }),
                       ...(cDomain.trim() && { customDomain: cDomain.trim() }),
@@ -887,10 +925,15 @@ const AdminTenants: React.FC = () => {
                     }
                     const res = await api.post('/admin/tenants', body);
                     unwrapAdmin(res);
-                    toast.success('Tenant oluşturuldu.');
+                    toast.success(
+                      cPlan === 'TRIAL'
+                        ? 'Tenant oluşturuldu (14 gün trial).'
+                        : `Tenant oluşturuldu (${cPlan} plan).`,
+                    );
                     setCreateOpen(false);
                     setCName(''); setCSlug(''); setCSub(''); setCDomain('');
                     setCOwnerEmail(''); setCOwnerPass(''); setCOwnerFn(''); setCOwnerLn('');
+                    setCPlan('TRIAL');
                     fetchTenants();
                   } catch (e: any) {
                     toast.error(e?.message || 'Oluşturulamadı.');

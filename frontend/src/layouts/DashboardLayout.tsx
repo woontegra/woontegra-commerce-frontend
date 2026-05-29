@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBranding } from '../context/BrandingContext';
+import { displayStoreName } from '../utils/displayStoreName';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/usePermissions';
 import NotificationDropdown from '../components/NotificationDropdown';
@@ -448,11 +449,11 @@ export default function DashboardLayout() {
           {!collapsed && (
             <div className="flex items-center gap-3 min-w-0">
               {branding.logoUrl ? (
-                <img src={branding.logoUrl} alt={branding.siteName} className="h-7 max-w-[140px] object-contain" />
+                <img src={branding.logoUrl} alt={displayStoreName(branding.siteName)} className="h-7 max-w-[140px] object-contain" />
               ) : (
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-brand-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-brand-500/20">W</div>
-                  <span className="text-sm font-bold text-white tracking-tight truncate">{branding.siteName}</span>
+                  <span className="text-sm font-bold text-white tracking-tight truncate">{displayStoreName(branding.siteName)}</span>
                 </div>
               )}
             </div>

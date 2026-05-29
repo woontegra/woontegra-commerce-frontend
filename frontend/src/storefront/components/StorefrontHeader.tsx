@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import type { StorefrontTenantInfo } from '../../contexts/StorefrontTenantContext';
+import { displayStorefrontName } from '../../utils/displayStoreName';
 import { useStorefrontCart } from '../hooks/StorefrontCartProvider';
 import { useStorefrontAuth } from '../hooks/StorefrontAuthProvider';
 
@@ -29,19 +30,21 @@ export function StorefrontHeader({ tenant, storeLink }: Props) {
     navigate(storeLink(`/store/urunler?search=${encodeURIComponent(term)}`));
   };
 
+  const displayName = displayStorefrontName(tenant.name);
+
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4">
         <div className="h-16 flex items-center justify-between gap-4">
           <Link to={home} className="flex items-center gap-2 font-semibold text-lg truncate shrink-0">
             {tenant.logoUrl ? (
-              <img src={tenant.logoUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />
+              <img src={tenant.logoUrl} alt={displayName} className="h-9 w-9 rounded-lg object-cover" />
             ) : (
               <span className="h-9 w-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm">
-                {tenant.name.slice(0, 1).toUpperCase()}
+                {displayName.slice(0, 1).toUpperCase()}
               </span>
             )}
-            <span className="truncate max-w-[10rem] sm:max-w-none">{tenant.name}</span>
+            <span className="truncate max-w-[10rem] sm:max-w-none">{displayName}</span>
           </Link>
 
           <form onSubmit={onSearch} className="hidden md:flex flex-1 max-w-md mx-4">
