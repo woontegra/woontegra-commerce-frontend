@@ -4,7 +4,7 @@ import {
   ArrowLeft, Users, Package,
   CreditCard, CheckCircle, XCircle, Loader2,
   Crown, Calendar, DollarSign, LogIn, Ban, UserCheck, Activity,
-  Globe, AlertTriangle,
+  Globe, AlertTriangle, UserPlus,
 } from 'lucide-react';
 import { api } from '../../services/apiClient';
 import toast from 'react-hot-toast';
@@ -134,6 +134,54 @@ const AdminTenantDetail: React.FC = () => {
   const [manualSaving, setManualSaving]   = useState(false);
   const [subBusyId, setSubBusyId]         = useState<string | null>(null);
   const [verifyDomainId, setVerifyDomainId] = useState<string | null>(null);
+  const [addUserOpen, setAddUserOpen]     = useState(false);
+  const [addUserBusy, setAddUserBusy]     = useState(false);
+  const [auFirstName, setAuFirstName]     = useState('');
+  const [auLastName, setAuLastName]       = useState('');
+  const [auEmail, setAuEmail]             = useState('');
+  const [auPassword, setAuPassword]       = useState('');
+  const [auRole, setAuRole]               = useState('OWNER');
+
+  const resetAddUserForm = () => {
+    setAuFirstName('');
+    setAuLastName('');
+    setAuEmail('');
+    setAuPassword('');
+    setAuRole('OWNER');
+  };
+
+  const createTenantUser = async () => {
+    if (!tenant) return;
+    const email = auEmail.trim();
+    if (!email || auPassword.length < 8) {
+      toast.error('E-posta ve en az 8 karakterlik şifre gerekli.');
+      return;
+    }
+    setAddUserBusy(true);
+    try {
+      await api.post(
+        '/admin/users',
+        {
+          email,
+          password: auPassword,
+          firstName: auFirstName.trim() || 'User',
+          lastName: auLastName.trim() || '',
+          tenantId: tenant.id,
+          role: auRole,
+        },
+        { skipErrorToast: true },
+      );
+      toast.success(`${auRole === 'OWNER' ? 'Satıcı (Owner)' : 'Kullanıcı'} oluşturuldu. Mağaza slug ile panele giriş yapabilir.`);
+      resetAddUserForm();
+      setAddUserOpen(false);
+      await loadTenant();
+    } catch (e: any) {
+      const msg = e?.message || 'Kullanıcı oluşturulamadı.';
+      toast.error(msg);
+    } finally {
+      setAddUserBusy(false);
+    }
+  };
 
   const loadTenant = useCallback(async () => {
     if (!id) return;
@@ -711,10 +759,103 @@ const AdminTenantDetail: React.FC = () => {
 
       {/* Users table */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-2">
-          <Users className="w-4 h-4 text-gray-400" />
-          <h3 className="text-sm font-semibold text-gray-300">Kullanıcılar ({tenant.users.length})</h3>
+        <div className="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Users className="w-4 h-4 text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-300">Kullanıcılar ({tenant.users.length})</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAddUserOpen(o => !o)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-violet-700/80 hover:bg-violet-600 text-white transition-colors"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            {addUserOpen ? 'Formu Gizle' : 'Satıcı / Owner Ekle'}
+          </button>
         </div>
+
+        {addUserOpen && (
+          <div className="px-6 py-5 border-b border-gray-800 bg-gray-950/40 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-white">Satıcı / Owner Ekle</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Kullanıcı <span className="text-gray-400 font-medium">{tenant.name}</span> mağazasına atanır
+                (slug: <span className="font-mono text-gray-400">{tenant.slug}</span>).
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Ad</label>
+                <input
+                  value={auFirstName}
+                  onChange={e => setAuFirstName(e.target.value)}
+                  placeholder="Ad"
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Soyad</label>
+                <input
+                  value={auLastName}
+                  onChange={e => setAuLastName(e.target.value)}
+                  placeholder="Soyad"
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">E-posta *</label>
+                <input
+                  type="email"
+                  value={auEmail}
+                  onChange={e => setAuEmail(e.target.value)}
+                  placeholder="satici@ornek.com"
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Şifre * (min 8)</label>
+                <input
+                  type="password"
+                  value={auPassword}
+                  onChange={e => setAuPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Rol</label>
+                <select
+                  value={auRole}
+                  onChange={e => setAuRole(e.target.value)}
+                  className="w-full sm:max-w-xs bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                >
+                  <option value="OWNER">OWNER (Satıcı / mağaza sahibi)</option>
+                  <option value="ADMIN">ADMIN (panel yöneticisi)</option>
+                  <option value="STAFF">STAFF (personel)</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setAddUserOpen(false); resetAddUserForm(); }}
+                className="px-4 py-2 rounded-xl text-sm text-gray-400 hover:bg-gray-800"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                disabled={addUserBusy}
+                onClick={() => void createTenantUser()}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 flex items-center gap-2"
+              >
+                {addUserBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                Kullanıcı Oluştur
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="divide-y divide-gray-800/60">
           {tenant.users.map((u) => (
             <div key={u.id} className="px-6 py-3 flex flex-wrap items-center gap-3">
@@ -729,8 +870,10 @@ const AdminTenantDetail: React.FC = () => {
                 </p>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
-                u.role === 'ADMIN'     ? 'bg-blue-900/40 text-blue-300' :
+                u.role === 'OWNER'    ? 'bg-amber-900/40 text-amber-300' :
+                u.role === 'ADMIN'    ? 'bg-blue-900/40 text-blue-300' :
                 u.role === 'MANAGER'  ? 'bg-purple-900/40 text-purple-300' :
+                u.role === 'STAFF'    ? 'bg-teal-900/40 text-teal-300' :
                 'bg-gray-800 text-gray-400'
               }`}>{u.role}</span>
               <span className={`text-xs ${u.isActive ? 'text-green-400' : 'text-red-400'}`}>
