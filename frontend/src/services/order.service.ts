@@ -2,6 +2,9 @@ import apiClient from './apiClient';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export type OrderSource = 'STOREFRONT' | 'TRENDYOL';
+export type OrderSourceFilter = 'all' | 'storefront' | 'trendyol';
+
 export type OrderStatus =
   | 'PENDING'
   | 'PROCESSING'
@@ -130,6 +133,20 @@ export interface Order {
   shippedAt?:              string | null;
   shippingNotificationSentAt?: string | null;
   admin?:           AdminOrderMeta;
+  /** Unified list (storefront + Trendyol merge) */
+  source?:               OrderSource;
+  sourceLabel?:          string;
+  displayOrderNumber?:   string;
+  customerName?:         string;
+  customerEmail?:        string;
+  fulfillmentStatus?:    string;
+  externalStatus?:       string;
+  externalStatusLabel?:  string;
+  orderDate?:            string;
+  sourceSyncedAt?:       string;
+  canEditStatus?:        boolean;
+  canEditShipping?:      boolean;
+  cargoTrackingNumber?:  string | null;
 }
 
 export interface UpdateOrderShippingDto {
@@ -189,6 +206,7 @@ export interface GetOrdersQuery {
   search?:          string;
   paymentProvider?: OrderPaymentProviderFilter | '';
   paymentStatus?:   OrderPaymentStatusFilter | '';
+  source?:          OrderSourceFilter | '';
 }
 
 // ── Service ────────────────────────────────────────────────────────────────

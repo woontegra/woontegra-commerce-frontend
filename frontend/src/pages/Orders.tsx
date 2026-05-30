@@ -12,6 +12,7 @@ import type {
   GetOrdersQuery,
   OrderPaymentProviderFilter,
   OrderPaymentStatusFilter,
+  OrderSourceFilter,
 } from '../services/order.service';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/EmptyState';
@@ -80,14 +81,30 @@ function fmtDate(iso: string) {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, label }: { status: string; label?: string }) {
   return (
     <span
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
         STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600 border border-gray-200'
       }`}
     >
-      {STATUS_LABELS[status] ?? status}
+      {label ?? STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+function SourceBadge({ order }: { order: Order }) {
+  const isTrendyol = order.source === 'TRENDYOL';
+  const label = order.sourceLabel ?? (isTrendyol ? 'Trendyol' : 'Woontegra');
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+        isTrendyol
+          ? 'bg-orange-50 text-orange-700 border border-orange-100'
+          : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+      }`}
+    >
+      {label}
     </span>
   );
 }
@@ -120,6 +137,13 @@ function StatusDropdown({ order }: { order: Order }) {
   const [open, setOpen] = useState(false);
   const updateStatus = useUpdateOrderStatus();
   const cancelOrder  = useCancelOrder();
+
+  const statusKey = order.fulfillmentStatus ?? order.status;
+
+  if (order.canEditStatus === false || order.source === 'TRENDYOL') {
+    const label = order.externalStatusLabel ?? STATUS_LABELS[statusKey] ?? statusKey;
+    return <StatusBadge status={statusKey} label={label} />;
+  }
 
   const nexts = NEXT_STATUSES[order.status] ?? [];
   if (!nexts.length) return <StatusBadge status={order.status} />;
@@ -199,6 +223,12 @@ const PAYMENT_STATUS_OPTIONS: { value: OrderPaymentStatusFilter | ''; label: str
   })),
 ];
 
+const SOURCE_OPTIONS: { value: OrderSourceFilter | ''; label: string }[] = [
+  { value: '', label: 'Tüm Kaynaklar' },
+  { value: 'storefront', label: 'Woontegra' },
+  { value: 'trendyol', label: 'Trendyol' },
+];
+
 const PAYMENT_PROVIDER_COLORS: Record<string, string> = {
   PAYTR:            'bg-indigo-50 text-indigo-700 border border-indigo-100',
   BANK_TRANSFER:    'bg-sky-50 text-sky-700 border border-sky-100',
@@ -217,6 +247,13 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 function PaymentProviderBadge({ order }: { order: Order }) {
+  if (order.source === 'TRENDYOL') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+        Pazaryeri
+      </span>
+    );
+  }
   const label = order.payment?.providerLabel
     ?? order.admin?.payment.methodLabel
     ?? 'Belirtilmemiş';
@@ -234,6 +271,13 @@ function PaymentProviderBadge({ order }: { order: Order }) {
 }
 
 function PaymentStatusBadge({ order }: { order: Order }) {
+  if (order.source === 'TRENDYOL') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+        Pazaryeri
+      </span>
+    );
+  }
   const label = order.payment?.statusLabel
     ?? order.admin?.payment.statusLabel
     ?? 'Belirsiz';
@@ -320,6 +364,10 @@ export default function Orders() {
     patchFilters({ paymentStatus: v, page: 1 });
   };
 
+  const handleSourceChange = (v: OrderSourceFilter | '') => {
+    patchFilters({ source: v, page: 1 });
+  };
+
   const handleClear = () => {
     setSearchInput('');
     setSearchParams(buildOrderListSearchParams(ORDER_LIST_DEFAULT_STATE), { replace: true });
@@ -329,7 +377,8 @@ export default function Orders() {
     !!urlState.search
     || !!urlState.status
     || !!urlState.paymentProvider
-    || !!urlState.paymentStatus;
+    || !!urlState.paymentStatus
+    || !!urlState.source;
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -456,6 +505,18 @@ export default function Orders() {
             ))}
           </select>
 
+          <select
+            value={urlState.source}
+            onChange={(e) => handleSourceChange(e.target.value as OrderSourceFilter | '')}
+            className="py-2 pl-3 pr-8 text-sm border border-gray-200 rounded-lg
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400
+                       bg-white text-gray-900"
+          >
+            {SOURCE_OPTIONS.map((o) => (
+              <option key={o.value || 'all'} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
           <button
             type="submit"
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700
@@ -512,6 +573,9 @@ export default function Orders() {
                 <tr className="border-b border-gray-100 bg-gray-50/60">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Sipariş
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    Kaynak
                   </th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Müşteri
@@ -594,28 +658,40 @@ export default function Orders() {
 // ── Order row ──────────────────────────────────────────────────────────────
 
 function OrderRow({ order }: { order: Order }) {
-  const customerName = order.customer
-    ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
-    : '—';
+  const customerName = order.customerName
+    ?? (order.customer
+      ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
+      : '—');
+
+  const displayNumber = order.displayOrderNumber ?? order.orderNumber;
+  const displayDate = order.orderDate ?? order.createdAt;
+  const isTrendyol = order.source === 'TRENDYOL';
 
   const shippingPrice = order.admin?.totals.shippingPrice ?? order.shippingPrice ?? 0;
 
   return (
     <tr className="hover:bg-gray-50/60 transition-colors group">
       <td className="px-5 py-4">
-        <div className="text-sm font-semibold text-gray-900">{order.orderNumber}</div>
-        {order.admin?.isStorefrontOrder && (
+        <div className="text-sm font-semibold text-gray-900">{displayNumber}</div>
+        {order.admin?.isStorefrontOrder && !isTrendyol && (
           <div className="text-[10px] text-indigo-600 font-medium mt-0.5">Vitrin</div>
         )}
+        <div className="flex flex-wrap gap-1 mt-1.5 sm:hidden">
+          <SourceBadge order={order} />
+        </div>
         <div className="flex flex-wrap gap-1 mt-1.5 md:hidden">
           <PaymentProviderBadge order={order} />
           <PaymentStatusBadge order={order} />
         </div>
       </td>
 
+      <td className="px-5 py-4 hidden sm:table-cell">
+        <SourceBadge order={order} />
+      </td>
+
       <td className="px-5 py-4">
         <div className="text-sm font-medium text-gray-900">{customerName}</div>
-        <div className="text-xs text-gray-400 mt-0.5">{order.customer?.email}</div>
+        <div className="text-xs text-gray-400 mt-0.5">{order.customer?.email ?? order.customerEmail}</div>
       </td>
 
       <td className="px-5 py-4 hidden md:table-cell">
@@ -642,16 +718,26 @@ function OrderRow({ order }: { order: Order }) {
       </td>
 
       <td className="px-5 py-4">
-        <div className="text-sm text-gray-600">{fmtDate(order.createdAt)}</div>
+        <div className="text-sm text-gray-600">{fmtDate(displayDate)}</div>
       </td>
 
       <td className="px-5 py-4 text-right">
-        <Link
-          to={`/dashboard/orders/${order.id}`}
-          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-        >
-          Detay →
-        </Link>
+        {isTrendyol ? (
+          <Link
+            to="/dashboard/trendyol-orders"
+            className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+            title="Trendyol siparişleri sayfasında görüntüleyin (salt okunur)"
+          >
+            Trendyol →
+          </Link>
+        ) : (
+          <Link
+            to={`/dashboard/orders/${order.id}`}
+            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+          >
+            Detay →
+          </Link>
+        )}
       </td>
     </tr>
   );

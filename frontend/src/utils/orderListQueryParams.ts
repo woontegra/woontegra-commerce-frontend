@@ -2,6 +2,7 @@ import type {
   GetOrdersQuery,
   OrderPaymentProviderFilter,
   OrderPaymentStatusFilter,
+  OrderSourceFilter,
   OrderStatus,
 } from '../services/order.service';
 
@@ -35,6 +36,8 @@ export const ORDER_LIST_DEFAULT_PAGE = 1;
 export const ORDER_LIST_DEFAULT_LIMIT = 20;
 export const ORDER_LIST_PAGE_SIZES = [10, 20, 50] as const;
 
+export const VALID_ORDER_SOURCES = ['all', 'storefront', 'trendyol'] as const satisfies readonly OrderSourceFilter[];
+
 export type OrderListUrlState = {
   page:            number;
   limit:           number;
@@ -42,6 +45,7 @@ export type OrderListUrlState = {
   search:          string;
   paymentProvider: OrderPaymentProviderFilter | '';
   paymentStatus:   OrderPaymentStatusFilter | '';
+  source:          OrderSourceFilter | '';
 };
 
 export const ORDER_LIST_DEFAULT_STATE: OrderListUrlState = {
@@ -51,6 +55,7 @@ export const ORDER_LIST_DEFAULT_STATE: OrderListUrlState = {
   search:          '',
   paymentProvider: '',
   paymentStatus:   '',
+  source:          '',
 };
 
 export function isValidOrderStatus(v: string): v is OrderStatus {
@@ -63,6 +68,10 @@ export function isValidPaymentProvider(v: string): v is OrderPaymentProviderFilt
 
 export function isValidPaymentStatus(v: string): v is OrderPaymentStatusFilter {
   return (VALID_PAYMENT_STATUSES as readonly string[]).includes(v);
+}
+
+export function isValidOrderSource(v: string): v is OrderSourceFilter {
+  return (VALID_ORDER_SOURCES as readonly string[]).includes(v);
 }
 
 function parsePositiveInt(raw: string | null, fallback: number, allowed?: readonly number[]): number {
@@ -88,6 +97,7 @@ export function parseOrderListSearchParams(searchParams: URLSearchParams): {
   const searchRaw = searchParams.get('search');
   const providerRaw = searchParams.get('paymentProvider');
   const paymentStatusRaw = searchParams.get('paymentStatus');
+  const sourceRaw = searchParams.get('source');
 
   if (pageRaw != null) {
     const page = parsePositiveInt(pageRaw, ORDER_LIST_DEFAULT_PAGE);
@@ -130,6 +140,14 @@ export function parseOrderListSearchParams(searchParams: URLSearchParams): {
     }
   }
 
+  if (sourceRaw != null && sourceRaw !== '') {
+    if (isValidOrderSource(sourceRaw)) {
+      state.source = sourceRaw;
+    } else {
+      needsReplace = true;
+    }
+  }
+
   const cleaned = buildOrderListSearchParams(state);
   const current = searchParams.toString();
   const cleanedStr = cleaned.toString();
@@ -154,6 +172,7 @@ export function buildOrderListSearchParams(state: OrderListUrlState): URLSearchP
   if (state.search.trim()) params.set('search', state.search.trim());
   if (state.paymentProvider) params.set('paymentProvider', state.paymentProvider);
   if (state.paymentStatus) params.set('paymentStatus', state.paymentStatus);
+  if (state.source && state.source !== 'all') params.set('source', state.source);
 
   return params;
 }
@@ -166,6 +185,7 @@ export function orderListStateToApiQuery(state: OrderListUrlState): GetOrdersQue
     ...(state.search.trim() ? { search: state.search.trim() } : {}),
     ...(state.paymentProvider ? { paymentProvider: state.paymentProvider } : {}),
     ...(state.paymentStatus ? { paymentStatus: state.paymentStatus } : {}),
+    ...(state.source && state.source !== 'all' ? { source: state.source } : {}),
   };
 }
 
