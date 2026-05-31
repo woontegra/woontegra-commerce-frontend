@@ -22,6 +22,9 @@ interface MarketplaceQuestion {
   answeredAt:         string | null;
 }
 
+const ANSWER_MIN = 10;
+const ANSWER_MAX = 2000;
+
 const STATUS_LABEL: Record<QuestionStatus, string> = {
   WAITING_ANSWER:   'Cevap Bekliyor',
   PENDING_APPROVAL: 'Onay Bekliyor',
@@ -49,6 +52,202 @@ function fmtDate(iso: string) {
   });
 }
 
+function canAnswerQuestion(q: MarketplaceQuestion): boolean {
+  return q.status === 'WAITING_ANSWER' && q.type === 'PRODUCT_QUESTION';
+}
+
+function QuestionDetailModal({
+  question,
+  onClose,
+}: {
+  question: MarketplaceQuestion;
+  onClose:  () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Soru Detayı</h3>
+            <p className="text-sm text-slate-500 mt-1">{question.sourceLabel} · {TYPE_LABEL[question.type]}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+            aria-label="Kapat"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 text-sm">
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Durum</p>
+            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_CLS[question.status]}`}>
+              {STATUS_LABEL[question.status]}
+            </span>
+          </div>
+
+          {question.productName && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Ürün</p>
+              <p className="text-slate-800 font-medium">{question.productName}</p>
+              {question.barcode && (
+                <p className="text-xs text-slate-500 mt-0.5">Barkod: {question.barcode}</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Müşteri</p>
+            <p className="text-slate-700">{question.customerName ?? '—'}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Soru</p>
+            <p className="text-slate-800 whitespace-pre-wrap">{question.questionText}</p>
+            <p className="text-xs text-slate-400 mt-2">{fmtDate(question.askedAt)}</p>
+          </div>
+
+          {question.answerText && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Cevap</p>
+              <p className="text-slate-800 whitespace-pre-wrap bg-slate-50 rounded-xl p-3 border border-slate-100">
+                {question.answerText}
+              </p>
+              {question.answeredAt && (
+                <p className="text-xs text-slate-400 mt-2">{fmtDate(question.answeredAt)}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium border border-slate-200 rounded-xl hover:bg-slate-50"
+          >
+            Kapat
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnswerQuestionModal({
+  question,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  question: MarketplaceQuestion;
+  onClose:  () => void;
+  onSubmit: (text: string) => void;
+  loading:  boolean;
+}) {
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (trimmed.length < ANSWER_MIN) {
+      setError(`Cevap en az ${ANSWER_MIN} karakter olmalıdır.`);
+      return;
+    }
+    if (trimmed.length > ANSWER_MAX) {
+      setError(`Cevap en fazla ${ANSWER_MAX} karakter olabilir.`);
+      return;
+    }
+    setError('');
+    onSubmit(trimmed);
+  };
+
+  const charCount = text.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-bold text-slate-900">Soruyu Cevapla</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Cevabınız Trendyol onay sürecine gönderilecektir.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {question.productName && (
+            <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Ürün</p>
+              <p className="text-sm font-medium text-slate-800">{question.productName}</p>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Müşteri</p>
+            <p className="text-sm text-slate-700">{question.customerName ?? '—'}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Soru</p>
+            <p className="text-sm text-slate-800 whitespace-pre-wrap">{question.questionText}</p>
+          </div>
+
+          <div>
+            <label htmlFor="answerText" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Cevabınız <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="answerText"
+              value={text}
+              onChange={e => {
+                setText(e.target.value);
+                if (error) setError('');
+              }}
+              rows={5}
+              maxLength={ANSWER_MAX}
+              placeholder="Müşteriye gönderilecek cevabı yazın…"
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 resize-y min-h-[120px]"
+              disabled={loading}
+              autoFocus
+            />
+            <div className="flex items-center justify-between mt-1.5">
+              {error
+                ? <p className="text-xs text-red-600">{error}</p>
+                : <p className="text-xs text-slate-400">En az {ANSWER_MIN} karakter</p>
+              }
+              <p className={`text-xs ${charCount > ANSWER_MAX ? 'text-red-600' : 'text-slate-400'}`}>
+                {charCount} / {ANSWER_MAX}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 text-sm font-medium border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={loading || text.trim().length < ANSWER_MIN}
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Gönderiliyor…' : 'Cevabı Gönder'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function MarketplaceQuestions() {
   const [items, setItems]       = useState<MarketplaceQuestion[]>([]);
   const [total, setTotal]         = useState(0);
@@ -58,6 +257,9 @@ export default function MarketplaceQuestions() {
   const [statusFilter, setStatusFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('TRENDYOL');
   const [search, setSearch]       = useState('');
+  const [detailQuestion, setDetailQuestion] = useState<MarketplaceQuestion | null>(null);
+  const [answerQuestion, setAnswerQuestion] = useState<MarketplaceQuestion | null>(null);
+  const [submitting, setSubmitting]         = useState(false);
 
   const limit = 20;
 
@@ -107,6 +309,25 @@ export default function MarketplaceQuestions() {
       toast.error(extractErrorMessage(err, 'Sorular senkronize edilemedi.'));
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleAnswerSubmit = async (text: string) => {
+    if (!answerQuestion) return;
+    setSubmitting(true);
+    try {
+      await apiClient.post(
+        `/marketplace-questions/${answerQuestion.id}/answer`,
+        { text },
+        { skipErrorToast: true, timeout: 60_000 },
+      );
+      toast.success('Cevap Trendyol\'a gönderildi. Onay süreci bekleniyor.');
+      setAnswerQuestion(null);
+      await fetchQuestions();
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Cevap gönderilemedi.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -207,6 +428,7 @@ export default function MarketplaceQuestions() {
                 <th className="text-left px-4 py-3 font-semibold">Ürün / Soru</th>
                 <th className="text-left px-4 py-3 font-semibold">Tarih</th>
                 <th className="text-left px-4 py-3 font-semibold">Durum</th>
+                <th className="text-left px-4 py-3 font-semibold">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -230,6 +452,35 @@ export default function MarketplaceQuestions() {
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_CLS[q.status]}`}>
                       {STATUS_LABEL[q.status] ?? q.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDetailQuestion(q)}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+                      >
+                        Detay
+                      </button>
+                      {canAnswerQuestion(q) ? (
+                        <button
+                          type="button"
+                          onClick={() => setAnswerQuestion(q)}
+                          className="text-xs font-semibold text-orange-700 hover:text-orange-900 px-2.5 py-1.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100"
+                        >
+                          Cevapla
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Yalnızca cevap bekleyen ürün soruları cevaplanabilir"
+                          className="text-xs font-semibold text-slate-400 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 cursor-not-allowed"
+                        >
+                          Cevapla
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -262,6 +513,22 @@ export default function MarketplaceQuestions() {
             </button>
           </div>
         </div>
+      )}
+
+      {detailQuestion && (
+        <QuestionDetailModal
+          question={detailQuestion}
+          onClose={() => setDetailQuestion(null)}
+        />
+      )}
+
+      {answerQuestion && (
+        <AnswerQuestionModal
+          question={answerQuestion}
+          onClose={() => !submitting && setAnswerQuestion(null)}
+          onSubmit={handleAnswerSubmit}
+          loading={submitting}
+        />
       )}
     </div>
   );
