@@ -118,8 +118,6 @@ export function useUploadTrendyolInvoiceFile(orderId: string) {
   });
 }
 
-export type CargoLabelFormat = 'A4' | 'STICKER';
-
 export interface CargoLabelItemResult {
   format:  string;
   content: string;
@@ -127,21 +125,20 @@ export interface CargoLabelItemResult {
 }
 
 export interface CargoLabelResult {
-  requestedFormat:     CargoLabelFormat;
-  deliveryType:      'pdf_url' | 'zpl' | 'pdf_base64';
+  deliveryType:        'pdf_url' | 'zpl' | 'pdf_base64';
   cargoTrackingNumber: string;
+  cargoProviderName?:  string | null;
   labels:              CargoLabelItemResult[];
 }
 
 export function useFetchTrendyolCargoLabel(orderId: string) {
   return useMutation({
-    mutationFn: async (format: CargoLabelFormat) => {
+    mutationFn: async () => {
       const res = await apiClient.get<{ success: boolean; data: CargoLabelResult }>(
         `/trendyol/orders/${orderId}/cargo-label`,
         {
-          params:         { format },
           skipErrorToast: true,
-          timeout:        60_000,
+          timeout:        90_000,
         },
       );
       return res.data.data;

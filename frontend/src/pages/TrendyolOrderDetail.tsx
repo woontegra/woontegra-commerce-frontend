@@ -7,7 +7,6 @@ import {
   useUploadTrendyolInvoiceFile,
   useFetchTrendyolCargoLabel,
   MAX_TRENDYOL_INVOICE_PDF_BYTES,
-  type CargoLabelFormat,
   type CargoLabelResult,
 } from '../hooks/useTrendyolOrder';
 import { useSyncTrendyolOrders } from '../hooks/useOrders';
@@ -30,12 +29,10 @@ function isHttpsUrl(url: string): boolean {
 
 function CargoLabelPreviewModal({
   data,
-  format,
   orderNumber,
   onClose,
 }: {
   data:        CargoLabelResult;
-  format:      CargoLabelFormat;
   orderNumber: string;
   onClose:     () => void;
 }) {
@@ -53,7 +50,7 @@ function CargoLabelPreviewModal({
       setLoading(true);
       setPreviewError('');
       try {
-        const url = await buildCargoLabelPreviewUrl(data, format);
+        const url = await buildCargoLabelPreviewUrl(data);
         if (!url) {
           setPreviewError('Etiket önizlemesi oluşturulamadı.');
           return;
@@ -72,18 +69,19 @@ function CargoLabelPreviewModal({
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [data, format, isPdf]);
-
-  const formatLabel = format === 'A4' ? 'A4 Etiket' : 'Sticker Etiket';
+  }, [data, isPdf]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="px-6 py-5 border-b border-slate-100 shrink-0">
-          <h3 className="text-base font-bold text-slate-900">{formatLabel} Önizleme</h3>
+          <h3 className="text-base font-bold text-slate-900">Kargo Etiketi Önizleme (ZPL)</h3>
           <p className="text-sm text-slate-500 mt-1">
             Sipariş <span className="font-medium text-slate-700">{orderNumber}</span>
             {' · '}Takip: <span className="font-mono text-xs">{data.cargoTrackingNumber}</span>
+            {data.cargoProviderName && (
+              <> · Kargo: <span className="text-slate-600">{data.cargoProviderName}</span></>
+            )}
           </p>
         </div>
 
@@ -611,11 +609,8 @@ export default function TrendyolOrderDetail() {
   const [rawOpen, setRawOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceFileModalOpen, setInvoiceFileModalOpen] = useState(false);
-  const [labelFormatLoading, setLabelFormatLoading] = useState<CargoLabelFormat | null>(null);
-  const [cargoLabelPreview, setCargoLabelPreview] = useState<{
-    data:   CargoLabelResult;
-    format: CargoLabelFormat;
-  } | null>(null);
+  const [cargoLabelLoading, setCargoLabelLoading] = useState(false);
+  const [cargoLabelPreview, setCargoLabelPreview] = useState<CargoLabelResult | null>(null);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -646,14 +641,14 @@ export default function TrendyolOrderDetail() {
   const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
   const lineTotal = order.items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
   const hasCargoTracking = Boolean(order.cargoTrackingNumber?.trim());
+  const labelReadyStatuses = ['Picking', 'Invoiced', 'Shipped', 'Delivered'];
+  const isLabelReady = labelReadyStatuses.includes(order.status);
 
-  const handleCargoLabel = (format: CargoLabelFormat) => {
-    setLabelFormatLoading(format);
-    fetchCargoLabel.mutate(format, {
-      onSuccess: (data) => {
-        setCargoLabelPreview({ data, format });
-      },
-      onSettled: () => setLabelFormatLoading(null),
+  const handleCargoLabel = () => {
+    setCargoLabelLoading(true);
+    fetchCargoLabel.mutate(undefined, {
+      onSuccess: (data) => setCargoLabelPreview(data),
+      onSettled: () => setCargoLabelLoading(false),
     });
   };
 
@@ -943,7 +938,8 @@ export default function TrendyolOrderDetail() {
                 <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3">
                   <p className="text-sm text-indigo-800 font-medium">Kargo etiketi</p>
                   <p className="text-xs text-indigo-700/80 mt-1 leading-relaxed">
-                    Trendyol akışında önce kargo etiketi yazdırılır. Etiket alındıktan sonra fatura gönderimi yapılabilir.
+                    Trendyol common-label ile ZPL etiket alınır (TEX/Aras, Trendyol öder).
+                    Sipariş PICKING veya INVOICED aşamasında olmalıdır. Önizleme sonrası yazdırabilirsiniz.
                   </p>
                 </div>
 
@@ -953,51 +949,33 @@ export default function TrendyolOrderDetail() {
                   </p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={!hasCargoTracking || labelFormatLoading !== null}
-                    onClick={() => handleCargoLabel('A4')}
-                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
-                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {labelFormatLoading === 'A4' ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
-                    )}
-                    A4 Etiket Yazdır
-                  </button>
+                {hasCargoTracking && !isLabelReady && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    Etiket için sipariş durumu PICKING veya INVOICED olmalıdır. Mevcut: {statusLabel}.
+                  </p>
+                )}
 
-                  <button
-                    type="button"
-                    disabled={!hasCargoTracking || labelFormatLoading !== null}
-                    onClick={() => handleCargoLabel('STICKER')}
-                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
-                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {labelFormatLoading === 'STICKER' ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                    )}
-                    Sticker Etiket Yazdır
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={!hasCargoTracking || !isLabelReady || cargoLabelLoading}
+                  onClick={handleCargoLabel}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                             text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
+                             hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cargoLabelLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                        d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                  )}
+                  Kargo Etiketi Yazdır
+                </button>
               </div>
 
               <div className="border-t border-slate-100" />
@@ -1233,8 +1211,7 @@ export default function TrendyolOrderDetail() {
 
       {cargoLabelPreview && (
         <CargoLabelPreviewModal
-          data={cargoLabelPreview.data}
-          format={cargoLabelPreview.format}
+          data={cargoLabelPreview}
           orderNumber={order.orderNumber}
           onClose={() => setCargoLabelPreview(null)}
         />

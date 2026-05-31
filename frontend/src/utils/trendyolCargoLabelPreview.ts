@@ -1,9 +1,4 @@
-import type { CargoLabelFormat, CargoLabelResult } from '../hooks/useTrendyolOrder';
-
-const LABELARY_SIZES: Record<CargoLabelFormat, string> = {
-  A4:      '10x15',
-  STICKER: '4x6',
-};
+import type { CargoLabelResult } from '../hooks/useTrendyolOrder';
 
 export function getCargoLabelPdfUrl(data: CargoLabelResult): string | null {
   const primary = data.labels[0];
@@ -14,18 +9,15 @@ export function getCargoLabelPdfUrl(data: CargoLabelResult): string | null {
   return null;
 }
 
-export async function buildCargoLabelPreviewUrl(
-  data: CargoLabelResult,
-  format: CargoLabelFormat,
-): Promise<string | null> {
+/** ZPL etiketini Labelary ile PNG önizlemeye çevirir (4x6 termal boyut). */
+export async function buildCargoLabelPreviewUrl(data: CargoLabelResult): Promise<string | null> {
   const pdfUrl = getCargoLabelPdfUrl(data);
   if (pdfUrl) return pdfUrl;
 
   const primary = data.labels[0];
   if (!primary?.content || data.deliveryType !== 'zpl') return null;
 
-  const labelSize = LABELARY_SIZES[format];
-  const response = await fetch(`https://api.labelary.com/v1/printers/8dpmm/labels/${labelSize}/0/`, {
+  const response = await fetch('https://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
     method:  'POST',
     headers: { Accept: 'image/png' },
     body:    primary.content,
