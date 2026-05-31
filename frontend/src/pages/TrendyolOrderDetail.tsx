@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useTrendyolOrder, useSendTrendyolInvoiceLink } from '../hooks/useTrendyolOrder';
+import { useTrendyolOrder, useSendTrendyolInvoiceLink, useUploadTrendyolInvoiceFile, MAX_TRENDYOL_INVOICE_PDF_BYTES } from '../hooks/useTrendyolOrder';
 import { extractTrendyolInvoice, invoiceStatusLabel } from '../utils/trendyolOrderInvoice';
 import { normalizeImageUrl } from '../utils/imageUtils';
 
@@ -317,12 +317,152 @@ function InvoiceLinkModal({
   );
 }
 
+function InvoiceFileModal({
+  orderNumber,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  orderNumber: string;
+  onClose:     () => void;
+  onSubmit:    (data: { file: File; invoiceNumber?: string; invoiceDateTime?: string }) => void;
+  loading:     boolean;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDateTime, setInvoiceDateTime] = useState('');
+  const [fileError, setFileError] = useState('');
+
+  const validateFile = (selected: File | null): string | null => {
+    if (!selected) return 'PDF fatura dosyası zorunludur.';
+    const isPdf = selected.type === 'application/pdf' || selected.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) return 'Sadece PDF dosyası seçebilirsiniz.';
+    if (selected.size > MAX_TRENDYOL_INVOICE_PDF_BYTES) {
+      return 'Fatura dosyası en fazla 10 MB olabilir.';
+    }
+    return null;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] ?? null;
+    setFile(selected);
+    setFileError(validateFile(selected) ?? '');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = validateFile(file);
+    if (err) {
+      setFileError(err);
+      return;
+    }
+    setFileError('');
+    onSubmit({
+      file: file!,
+      invoiceNumber:   invoiceNumber.trim() || undefined,
+      invoiceDateTime: invoiceDateTime.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-bold text-slate-900">PDF Fatura Yükle</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Sipariş <span className="font-medium text-slate-700">{orderNumber}</span> için PDF faturayı Trendyol&apos;a yükleyin.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label htmlFor="invoicePdf" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              PDF Dosyası <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="invoicePdf"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              disabled={loading}
+            />
+            {file && !fileError && (
+              <p className="text-xs text-slate-500 mt-1.5">
+                {file.name} · {(file.size / (1024 * 1024)).toFixed(2)} MB
+              </p>
+            )}
+            {fileError && <p className="text-xs text-red-600 mt-1.5">{fileError}</p>}
+            <p className="text-xs text-slate-400 mt-1">Maksimum 10 MB, yalnızca PDF.</p>
+          </div>
+
+          <div>
+            <label htmlFor="invoiceFileNumber" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fatura No <span className="text-slate-400 font-normal normal-case">(opsiyonel)</span>
+            </label>
+            <input
+              id="invoiceFileNumber"
+              type="text"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              placeholder="Örn. ABC2026001"
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+              disabled={loading}
+            />
+            <p className="text-xs text-slate-400 mt-1">Mikro ihracat / yurt dışı paketlerde gerekebilir.</p>
+          </div>
+
+          <div>
+            <label htmlFor="invoiceFileDateTime" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fatura Tarihi <span className="text-slate-400 font-normal normal-case">(opsiyonel)</span>
+            </label>
+            <input
+              id="invoiceFileDateTime"
+              type="datetime-local"
+              value={invoiceDateTime}
+              onChange={(e) => setInvoiceDateTime(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-orange-600 text-sm font-semibold text-white hover:bg-orange-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading && (
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              Yükle
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function TrendyolOrderDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const { data: order, isLoading, isError } = useTrendyolOrder(id);
   const sendInvoiceLink = useSendTrendyolInvoiceLink(id);
+  const uploadInvoiceFile = useUploadTrendyolInvoiceFile(id);
   const [rawOpen, setRawOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoiceFileModalOpen, setInvoiceFileModalOpen] = useState(false);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -627,12 +767,25 @@ export default function TrendyolOrderDetail() {
           >
             <div className="space-y-4">
               <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
-                <p className="text-sm text-emerald-800 font-medium">Fatura linki</p>
+                <p className="text-sm text-emerald-800 font-medium">Fatura gönderimi</p>
                 <p className="text-xs text-emerald-700/80 mt-1 leading-relaxed">
-                  Fatura PDF&apos;ini harici bir serviste barındırıp HTTPS linkini Trendyol&apos;a gönderebilirsiniz.
-                  PDF yükleme sonraki fazda eklenecektir.
+                  Faturanızı PDF olarak yükleyebilir veya erişilebilir HTTPS fatura linkini Trendyol&apos;a gönderebilirsiniz.
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setInvoiceFileModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                           text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
+                           hover:bg-orange-100 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                PDF Fatura Yükle
+              </button>
 
               <button
                 type="button"
@@ -798,6 +951,19 @@ export default function TrendyolOrderDetail() {
             });
           }}
           loading={sendInvoiceLink.isPending}
+        />
+      )}
+
+      {invoiceFileModalOpen && (
+        <InvoiceFileModal
+          orderNumber={order.orderNumber}
+          onClose={() => setInvoiceFileModalOpen(false)}
+          onSubmit={(data) => {
+            uploadInvoiceFile.mutate(data, {
+              onSuccess: () => setInvoiceFileModalOpen(false),
+            });
+          }}
+          loading={uploadInvoiceFile.isPending}
         />
       )}
     </div>
