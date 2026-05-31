@@ -13,6 +13,7 @@ import { hasPlanAccess } from '../utils/planAccess';
 import { displayStoreName } from '../utils/displayStoreName';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/usePermissions';
+import { useMarketplaceQuestionStats } from '../hooks/useMarketplaceQuestionStats';
 import NotificationDropdown from '../components/NotificationDropdown';
 import TenantLifecycleBanner from '../components/lifecycle/TenantLifecycleBanner';
 import DemoBanner, { useIsDemo } from '../components/DemoBanner';
@@ -179,7 +180,28 @@ function SidebarLockBadge({ requiredPlan }: { requiredPlan: PlanTier }) {
 
 // ─── Single sidebar link ──────────────────────────────────────────────────────
 
-function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+function SidebarCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const label = count > 99 ? '99+' : String(count);
+  return (
+    <span
+      title={`${count} cevap bekleyen soru`}
+      className="ml-auto flex-shrink-0 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white tabular-nums"
+    >
+      {label}
+    </span>
+  );
+}
+
+function SidebarLink({
+  item,
+  collapsed,
+  badgeCount = 0,
+}: {
+  item:        NavItem;
+  collapsed:   boolean;
+  badgeCount?: number;
+}) {
   const location = useLocation();
   const { plan, tenantStatus } = useFeatureContext();
 
@@ -203,7 +225,7 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
       }
       className={[
         'group flex items-center rounded-xl transition-all duration-200 ease-out',
-        collapsed ? 'justify-center p-3 w-full' : 'gap-3 px-3 py-2.5',
+        collapsed ? 'justify-center p-3 w-full relative' : 'gap-3 px-3 py-2.5',
         'hover:bg-white/[0.08] hover:translate-x-0.5',
         isActive
           ? 'bg-gradient-to-r from-brand-500/20 to-brand-500/5 text-white shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)] border-l-2 border-brand-400'
@@ -211,18 +233,25 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
         featureLocked ? 'opacity-60' : '',
       ].filter(Boolean).join(' ')}
     >
-      <Icon
-        d={item.icon}
-        className={`flex-shrink-0 transition-colors duration-200 ${
-          collapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'
-        } ${
-          isActive
-            ? 'text-brand-400'
-            : featureLocked
-              ? 'text-slate-500 group-hover:text-slate-400'
-              : 'text-slate-500 group-hover:text-brand-300'
-        }`}
-      />
+      <span className={`relative flex-shrink-0 ${collapsed ? '' : ''}`}>
+        <Icon
+          d={item.icon}
+          className={`flex-shrink-0 transition-colors duration-200 ${
+            collapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'
+          } ${
+            isActive
+              ? 'text-brand-400'
+              : featureLocked
+                ? 'text-slate-500 group-hover:text-slate-400'
+                : 'text-slate-500 group-hover:text-brand-300'
+          }`}
+        />
+        {collapsed && badgeCount > 0 && !featureLocked && (
+          <span className="absolute -top-1 -right-1 min-w-[0.9rem] h-[0.9rem] px-0.5 flex items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold text-white leading-none">
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </span>
+        )}
+      </span>
       {!collapsed && (
         <>
           <span className={`truncate flex-1 text-[13px] font-medium ${
@@ -230,6 +259,9 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
           }`}>
             {item.label}
           </span>
+          {!featureLocked && badgeCount > 0 && (
+            <SidebarCountBadge count={badgeCount} />
+          )}
           {featureLocked && requiredPlan && (
             <SidebarLockBadge requiredPlan={requiredPlan} />
           )}
@@ -242,12 +274,13 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
 // ─── Collapsible group ────────────────────────────────────────────────────────
 
 function NavSection({
-  group, collapsed, open, onToggle,
+  group, collapsed, open, onToggle, navBadges,
 }: {
-  group:    NavGroup;
-  collapsed: boolean;
-  open:     boolean;
-  onToggle: () => void;
+  group:      NavGroup;
+  collapsed:  boolean;
+  open:       boolean;
+  onToggle:   () => void;
+  navBadges?: Record<string, number>;
 }) {
   const location    = useLocation();
 
@@ -268,7 +301,12 @@ function NavSection({
     return (
       <div className="space-y-0.5">
         {visibleItems.map(item => (
-          <SidebarLink key={item.to} item={item} collapsed />
+          <SidebarLink
+            key={item.to}
+            item={item}
+            collapsed
+            badgeCount={navBadges?.[item.to] ?? 0}
+          />
         ))}
       </div>
     );
@@ -300,7 +338,12 @@ function NavSection({
       {effectiveOpen && (
         <div className={collapsed ? 'space-y-1' : 'mt-1.5 space-y-1 pl-1'}>
           {visibleItems.map(item => (
-            <SidebarLink key={item.to} item={item} collapsed={collapsed} />
+            <SidebarLink
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              badgeCount={navBadges?.[item.to] ?? 0}
+            />
           ))}
         </div>
       )}
@@ -387,6 +430,11 @@ export default function DashboardLayout() {
   const { user, logout } = useAppStore();
   const { canAccessPlatformAdmin } = usePermissions();
   const { branding }     = useBranding();
+  const { waitingAnswer } = useMarketplaceQuestionStats();
+
+  const navBadges: Record<string, number> = {
+    '/dashboard/marketplace-questions': waitingAnswer,
+  };
 
   const [collapsed,         setCollapsed]         = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -513,6 +561,7 @@ export default function DashboardLayout() {
                   collapsed={collapsed}
                   open={openGroups[group.id] ?? false}
                   onToggle={() => toggleGroup(group.id)}
+                  navBadges={navBadges}
                 />
               </div>
             ))}

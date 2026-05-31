@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient, { extractErrorMessage } from '../services/apiClient';
+import { notifyMarketplaceQuestionStatsRefresh } from '../hooks/useMarketplaceQuestionStats';
 
 type QuestionSource = 'TRENDYOL' | 'HEPSIBURADA' | 'N11' | 'PAZARAMA' | 'WOONTEGRA' | 'AMAZON';
 type QuestionStatus = 'WAITING_ANSWER' | 'PENDING_APPROVAL' | 'ANSWERED' | 'EXPIRED' | 'CLOSED';
@@ -305,6 +306,7 @@ export default function MarketplaceQuestions() {
       );
       setPage(1);
       await fetchQuestions();
+      notifyMarketplaceQuestionStatsRefresh();
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Sorular senkronize edilemedi.'));
     } finally {
@@ -324,6 +326,7 @@ export default function MarketplaceQuestions() {
       toast.success('Cevap Trendyol\'a gönderildi. Onay süreci bekleniyor.');
       setAnswerQuestion(null);
       await fetchQuestions();
+      notifyMarketplaceQuestionStatsRefresh();
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Cevap gönderilemedi.'));
     } finally {
