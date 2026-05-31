@@ -1,8 +1,16 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useTrendyolOrder } from '../hooks/useTrendyolOrder';
+import { useTrendyolOrder, useSendTrendyolInvoiceLink } from '../hooks/useTrendyolOrder';
 import { extractTrendyolInvoice, invoiceStatusLabel } from '../utils/trendyolOrderInvoice';
 import { normalizeImageUrl } from '../utils/imageUtils';
+
+function isHttpsUrl(url: string): boolean {
+  try {
+    return new URL(url.trim()).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 const STATUS_LABEL: Record<string, string> = {
   Created:     'Yeni',
@@ -184,10 +192,137 @@ function LoadingSkeleton() {
   );
 }
 
+function InvoiceLinkModal({
+  orderNumber,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  orderNumber: string;
+  onClose:     () => void;
+  onSubmit:    (data: { invoiceLink: string; invoiceNumber?: string; invoiceDateTime?: string }) => void;
+  loading:     boolean;
+}) {
+  const [invoiceLink, setInvoiceLink] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDateTime, setInvoiceDateTime] = useState('');
+  const [linkError, setLinkError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const link = invoiceLink.trim();
+    if (!link) {
+      setLinkError('Fatura linki zorunludur.');
+      return;
+    }
+    if (!isHttpsUrl(link)) {
+      setLinkError('Fatura linki HTTPS olmalıdır (https:// ile başlamalı).');
+      return;
+    }
+    setLinkError('');
+    onSubmit({
+      invoiceLink: link,
+      invoiceNumber:   invoiceNumber.trim() || undefined,
+      invoiceDateTime: invoiceDateTime.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-bold text-slate-900">Fatura Linki Gönder</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Sipariş <span className="font-medium text-slate-700">{orderNumber}</span> için fatura linkini Trendyol&apos;a iletin.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label htmlFor="invoiceLink" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fatura Linki <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="invoiceLink"
+              type="url"
+              value={invoiceLink}
+              onChange={(e) => {
+                setInvoiceLink(e.target.value);
+                if (linkError) setLinkError('');
+              }}
+              placeholder="https://..."
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+              disabled={loading}
+              autoFocus
+            />
+            {linkError && <p className="text-xs text-red-600 mt-1.5">{linkError}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="invoiceNumber" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fatura No <span className="text-slate-400 font-normal normal-case">(opsiyonel)</span>
+            </label>
+            <input
+              id="invoiceNumber"
+              type="text"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              placeholder="Örn. ABC2026001"
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+              disabled={loading}
+            />
+            <p className="text-xs text-slate-400 mt-1">Mikro ihracat / yurt dışı paketlerde gerekebilir.</p>
+          </div>
+
+          <div>
+            <label htmlFor="invoiceDateTime" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fatura Tarihi <span className="text-slate-400 font-normal normal-case">(opsiyonel)</span>
+            </label>
+            <input
+              id="invoiceDateTime"
+              type="datetime-local"
+              value={invoiceDateTime}
+              onChange={(e) => setInvoiceDateTime(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-orange-600 text-sm font-semibold text-white hover:bg-orange-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading && (
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              Gönder
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function TrendyolOrderDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const { data: order, isLoading, isError } = useTrendyolOrder(id);
+  const sendInvoiceLink = useSendTrendyolInvoiceLink(id);
   const [rawOpen, setRawOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -491,30 +626,27 @@ export default function TrendyolOrderDetail() {
             }
           >
             <div className="space-y-4">
-              <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
-                <p className="text-sm text-amber-800 font-medium">Operasyon bilgisi</p>
-                <p className="text-xs text-amber-700/80 mt-1 leading-relaxed">
-                  Trendyol siparişleri şu anda otomatik senkronizasyon ile görüntülenir.
-                  Fatura gönderme ve kargo aksiyonları sonraki fazda bu ekrandan yönetilecektir.
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
+                <p className="text-sm text-emerald-800 font-medium">Fatura linki</p>
+                <p className="text-xs text-emerald-700/80 mt-1 leading-relaxed">
+                  Fatura PDF&apos;ini harici bir serviste barındırıp HTTPS linkini Trendyol&apos;a gönderebilirsiniz.
+                  PDF yükleme sonraki fazda eklenecektir.
                 </p>
               </div>
 
               <button
                 type="button"
-                disabled
-                title="Fatura entegrasyonu sonraki fazda"
+                onClick={() => setInvoiceModalOpen(true)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                           text-slate-400 bg-slate-50 border border-slate-200 rounded-xl cursor-not-allowed"
+                           text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
+                           hover:bg-orange-100 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                Fatura Gönder / Yükle
+                Fatura Linki Gönder
               </button>
-              <p className="text-xs text-center text-slate-400">
-                Fatura gönderme entegrasyonu sonraki fazda eklenecek.
-              </p>
 
               <Link
                 to="/dashboard/trendyol-orders"
@@ -655,6 +787,19 @@ export default function TrendyolOrderDetail() {
           </div>
         )}
       </div>
+
+      {invoiceModalOpen && (
+        <InvoiceLinkModal
+          orderNumber={order.orderNumber}
+          onClose={() => setInvoiceModalOpen(false)}
+          onSubmit={(data) => {
+            sendInvoiceLink.mutate(data, {
+              onSuccess: () => setInvoiceModalOpen(false),
+            });
+          }}
+          loading={sendInvoiceLink.isPending}
+        />
+      )}
     </div>
   );
 }

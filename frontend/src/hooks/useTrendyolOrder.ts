@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import apiClient from '../services/apiClient';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import apiClient, { extractErrorMessage } from '../services/apiClient';
 
 export interface TrendyolOrderItemRow {
   id:          string;
@@ -43,5 +44,33 @@ export function useTrendyolOrder(id: string) {
       return res.data.data;
     },
     enabled: !!id,
+  });
+}
+
+export interface SendTrendyolInvoiceLinkInput {
+  invoiceLink:      string;
+  invoiceNumber?:   string;
+  invoiceDateTime?: string;
+}
+
+export function useSendTrendyolInvoiceLink(orderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: SendTrendyolInvoiceLinkInput) => {
+      const res = await apiClient.post<{ success: boolean; message: string; data: TrendyolOrderDetail }>(
+        `/trendyol/orders/${orderId}/invoice/link`,
+        body,
+        { skipErrorToast: true },
+      );
+      return res.data;
+    },
+    onSuccess: (result) => {
+      qc.setQueryData(['trendyol-order', orderId], result.data);
+      qc.invalidateQueries({ queryKey: ['trendyol-order', orderId] });
+      toast.success(result.message ?? 'Fatura linki Trendyol\'a gönderildi.');
+    },
+    onError: (err: unknown) => {
+      toast.error(extractErrorMessage(err, 'Fatura linki gönderilemedi.'));
+    },
   });
 }
