@@ -641,8 +641,6 @@ export default function TrendyolOrderDetail() {
   const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
   const lineTotal = order.items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
   const hasCargoTracking = Boolean(order.cargoTrackingNumber?.trim());
-  const labelReadyStatuses = ['Picking', 'Invoiced', 'Shipped', 'Delivered'];
-  const isLabelReady = labelReadyStatuses.includes(order.status);
 
   const handleCargoLabel = () => {
     setCargoLabelLoading(true);
@@ -938,8 +936,8 @@ export default function TrendyolOrderDetail() {
                 <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3">
                   <p className="text-sm text-indigo-800 font-medium">Kargo etiketi</p>
                   <p className="text-xs text-indigo-700/80 mt-1 leading-relaxed">
-                    Trendyol common-label ile ZPL etiket alınır (TEX/Aras, Trendyol öder).
-                    Sipariş PICKING veya INVOICED aşamasında olmalıdır. Önizleme sonrası yazdırabilirsiniz.
+                    Kargo etiketi Trendyol common-label servisi üzerinden alınır. Trendyol panelindeki gibi
+                    uygun siparişlerde etiket yazdırabilirsiniz. Önizleme sonrası yazdırabilirsiniz.
                   </p>
                 </div>
 
@@ -949,33 +947,50 @@ export default function TrendyolOrderDetail() {
                   </p>
                 )}
 
-                {hasCargoTracking && !isLabelReady && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                    Etiket için sipariş durumu PICKING veya INVOICED olmalıdır. Mevcut: {statusLabel}.
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  disabled={!hasCargoTracking || !isLabelReady || cargoLabelLoading}
-                  onClick={handleCargoLabel}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                             text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
-                             hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {cargoLabelLoading ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                        d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                  )}
-                  Kargo Etiketi Yazdır
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!hasCargoTracking || cargoLabelLoading}
+                    onClick={handleCargoLabel}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
+                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {cargoLabelLoading ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    )}
+                    Kargo Etiketi A4 Yazdır
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasCargoTracking || cargoLabelLoading}
+                    onClick={handleCargoLabel}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
+                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {cargoLabelLoading ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    )}
+                    Kargo Etiketini Sticker Yazdır
+                  </button>
+                </div>
               </div>
 
               <div className="border-t border-slate-100" />
