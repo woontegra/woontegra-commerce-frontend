@@ -8,10 +8,21 @@ const PLAN_DISPLAY_LABELS: Record<PlanTier, string> = {
 
 /** Backend / admin panel plan kodlarını sidebar tier'a çevirir. */
 export function normalizePlanTier(value: unknown): PlanTier {
-  const raw = String(value ?? '').toUpperCase().trim();
-  if (raw === 'PRO' || raw === 'PROFESSIONAL') return 'PRO';
+  const raw = String(value ?? '')
+    .toUpperCase()
+    .trim()
+    .replace(/İ/g, 'I');
+
+  if (
+    raw === 'PRO'
+    || raw === 'PROFESSIONAL'
+    || raw === 'PROFESIONEL'
+    || raw === 'PROFESSIONEL'
+  ) {
+    return 'PRO';
+  }
   if (raw === 'ENTERPRISE') return 'ENTERPRISE';
-  if (raw === 'STARTER') return 'STARTER';
+  if (raw === 'STARTER' || raw === 'TRIAL') return 'STARTER';
   return 'STARTER';
 }
 

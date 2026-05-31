@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import api from '../services/api';
 import { AUTH_LOGIN_EVENT, AUTH_LOGOUT_EVENT } from '../services/authEvents';
 import { normalizePlanTier } from '../utils/planDisplay';
+import { hasPlanAccess } from '../utils/planAccess';
 
 // ── Plan type ─────────────────────────────────────────────────────────────────
 export type PlanTier = 'STARTER' | 'PRO' | 'ENTERPRISE';
@@ -143,8 +144,19 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [fetchFlags, resetFeatures]);
 
   const isEnabled = useCallback(
-    (key: FeatureKey): boolean => flags[key] ?? false,
-    [flags],
+    (key: FeatureKey): boolean => {
+      if (String(tenantStatus ?? '').toUpperCase() === 'TRIAL') {
+        return flags[key] ?? false;
+      }
+
+      const minPlan = getMinPlanForFeature(key);
+      if (hasPlanAccess(plan, minPlan, tenantStatus)) {
+        return true;
+      }
+
+      return flags[key] ?? false;
+    },
+    [flags, plan, tenantStatus],
   );
 
   return (

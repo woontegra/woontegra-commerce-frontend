@@ -9,6 +9,7 @@ import {
 } from '../context/FeatureContext';
 import type { FeatureKey, PlanTier } from '../context/FeatureContext';
 import { getPlanDisplayLabel } from '../utils/planDisplay';
+import { hasPlanAccess } from '../utils/planAccess';
 import { displayStoreName } from '../utils/displayStoreName';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -180,14 +181,16 @@ function SidebarLockBadge({ requiredPlan }: { requiredPlan: PlanTier }) {
 
 function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const location = useLocation();
-  const { isEnabled } = useFeatureContext();
+  const { plan, tenantStatus } = useFeatureContext();
 
   const isActive = item.to === '/dashboard'
     ? location.pathname === '/dashboard'
     : location.pathname === item.to || location.pathname.startsWith(item.to + '/');
 
-  const featureLocked = item.featureKey ? !isEnabled(item.featureKey) : false;
   const requiredPlan  = item.featureKey ? getMinPlanForFeature(item.featureKey) : null;
+  const featureLocked = requiredPlan
+    ? !hasPlanAccess(plan, requiredPlan, tenantStatus)
+    : false;
 
   return (
     <Link

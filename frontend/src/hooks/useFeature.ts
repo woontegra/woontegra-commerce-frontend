@@ -1,5 +1,6 @@
 import { useFeatureContext, PLAN_META, getMinPlanForFeature } from '../context/FeatureContext';
 import type { FeatureKey, PlanTier } from '../context/FeatureContext';
+import { hasPlanAccess } from '../utils/planAccess';
 
 /**
  * Returns whether a feature flag is enabled for the current tenant.
@@ -27,7 +28,7 @@ export function useFeatureFlags() {
  *   const { plan, isPro, isEnterprise, upgradeRequired } = usePlan();
  */
 export function usePlan() {
-  const { plan, loading } = useFeatureContext();
+  const { plan, tenantStatus, loading } = useFeatureContext();
   const meta = PLAN_META[plan];
 
   return {
@@ -46,8 +47,7 @@ export function usePlan() {
     /**
      * Returns true if the current plan doesn't include the feature.
      */
-    upgradeRequired:   (key: FeatureKey) => !PLAN_META[plan] || getMinPlanForFeature(key) !== plan
-                         && plan === 'STARTER' && getMinPlanForFeature(key) !== 'STARTER'
-                         || plan === 'PRO'     && getMinPlanForFeature(key) === 'ENTERPRISE',
+    upgradeRequired:   (key: FeatureKey) =>
+      !hasPlanAccess(plan, getMinPlanForFeature(key), tenantStatus),
   };
 }
