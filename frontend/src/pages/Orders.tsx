@@ -5,6 +5,7 @@ import {
   useOrderStats,
   useUpdateOrderStatus,
   useCancelOrder,
+  useSyncTrendyolOrders,
 } from '../hooks/useOrders';
 import type {
   Order,
@@ -112,13 +113,15 @@ function SourceBadge({ order }: { order: Order }) {
 function StatCard({
   label,
   value,
+  subtitle,
   icon,
   color,
 }: {
-  label: string;
-  value: string | number;
-  icon:  React.ReactNode;
-  color: string;
+  label:    string;
+  value:    string | number;
+  subtitle?: string;
+  icon:     React.ReactNode;
+  color:    string;
 }) {
   return (
     <Card className="flex items-center gap-4 p-5">
@@ -126,6 +129,9 @@ function StatCard({
       <div>
         <p className="text-sm text-gray-500 font-medium">{label}</p>
         <p className="text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+        {subtitle && (
+          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+        )}
       </div>
     </Card>
   );
@@ -339,6 +345,7 @@ export default function Orders() {
 
   const { data: result, isLoading, isFetching } = useOrders(apiQuery);
   const { data: stats }                          = useOrderStats();
+  const syncTrendyolOrders                       = useSyncTrendyolOrders();
 
   const orders     = result?.orders     ?? [];
   const total      = result?.total      ?? 0;
@@ -385,18 +392,47 @@ export default function Orders() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Siparişler</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Tüm müşteri siparişlerinizi yönetin</p>
+          <p className="text-sm text-gray-500 mt-0.5">Woontegra ve Trendyol siparişlerinizi tek listeden yönetin</p>
         </div>
+        <button
+          type="button"
+          onClick={() => syncTrendyolOrders.mutate()}
+          disabled={syncTrendyolOrders.isPending}
+          title="Trendyol'dan siparişleri şimdi senkronize eder"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600
+                     disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg
+                     transition-colors shrink-0"
+        >
+          <svg
+            className={`w-4 h-4 ${syncTrendyolOrders.isPending ? 'animate-spin' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          {syncTrendyolOrders.isPending ? 'Çekiliyor...' : 'Trendyol Siparişlerini Çek'}
+        </button>
       </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Toplam Sipariş"
-          value={stats?.total ?? '—'}
+          value={stats?.totalCount ?? stats?.total ?? '—'}
+          subtitle={
+            stats != null && (stats.storefrontCount != null || stats.trendyolCount != null)
+              ? `Woontegra: ${stats.storefrontCount ?? 0} · Trendyol: ${stats.trendyolCount ?? 0}`
+              : undefined
+          }
           color="bg-indigo-50"
           icon={
             <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,6 +444,11 @@ export default function Orders() {
         <StatCard
           label="Bekleyen"
           value={stats?.pending ?? '—'}
+          subtitle={
+            stats != null && (stats.storefrontPending != null || stats.trendyolPending != null)
+              ? `Woontegra: ${stats.storefrontPending ?? 0} · Trendyol: ${stats.trendyolPending ?? 0}`
+              : undefined
+          }
           color="bg-amber-50"
           icon={
             <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,6 +460,7 @@ export default function Orders() {
         <StatCard
           label="Ödendi"
           value={stats?.paid ?? '—'}
+          subtitle="Woontegra vitrin siparişleri"
           color="bg-green-50"
           icon={
             <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,6 +476,7 @@ export default function Orders() {
               ? fmtCurrency(stats.todayRevenue)
               : '—'
           }
+          subtitle="Woontegra vitrin siparişleri"
           color="bg-purple-50"
           icon={
             <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -724,11 +767,11 @@ function OrderRow({ order }: { order: Order }) {
       <td className="px-5 py-4 text-right">
         {isTrendyol ? (
           <Link
-            to="/dashboard/trendyol-orders"
+            to={`/dashboard/orders/trendyol/${order.id}`}
             className="text-orange-600 hover:text-orange-800 text-sm font-medium"
-            title="Trendyol siparişleri sayfasında görüntüleyin (salt okunur)"
+            title="Trendyol sipariş detayı"
           >
-            Trendyol →
+            Detay →
           </Link>
         ) : (
           <Link

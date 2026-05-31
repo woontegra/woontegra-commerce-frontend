@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import apiClient from '../services/apiClient';
 import {
   orderService,
   type OrderStatus,
@@ -125,6 +126,32 @@ export function useDeleteOrder() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error ?? 'Silme işlemi başarısız.');
+    },
+  });
+}
+
+/** Trendyol siparişlerini manuel çeker (POST /api/trendyol/orders/sync). */
+export function useSyncTrendyolOrders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<{ success: boolean; message?: string; error?: string }>(
+        '/trendyol/orders/sync',
+        {},
+        { skipErrorToast: true },
+      );
+      return res.data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.stats() });
+      toast.success(data.message ?? 'Trendyol siparişleri güncellendi');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error
+        ?? err.response?.data?.message
+        ?? 'Trendyol siparişleri çekilemedi.';
+      toast.error(msg);
     },
   });
 }

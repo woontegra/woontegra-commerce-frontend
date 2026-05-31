@@ -157,10 +157,15 @@ export interface UpdateOrderShippingDto {
 }
 
 export interface OrderStats {
-  total:        number;
-  pending:      number;
-  paid:         number;
-  todayRevenue: number;
+  total:              number;
+  pending:            number;
+  paid:               number;
+  todayRevenue:       number;
+  storefrontCount?:   number;
+  trendyolCount?:     number;
+  totalCount?:        number;
+  storefrontPending?: number;
+  trendyolPending?:   number;
 }
 
 export interface OrdersResponse {

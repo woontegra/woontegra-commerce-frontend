@@ -46,6 +46,7 @@ const CouponManagement = lazy(() => import('./pages/CouponManagement'));
 const Coupons          = lazy(() => import('./pages/Coupons'));
 const ShippingManagement = lazy(() => import('./pages/ShippingManagement'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
+const TrendyolOrderDetail = lazy(() => import('./pages/TrendyolOrderDetail'));
 const Returns = lazy(() => import('./pages/Returns'));
 const ReturnDetail = lazy(() => import('./pages/ReturnDetail'));
 const Checkout = lazy(() => import('./pages/Checkout'));
@@ -280,7 +281,8 @@ function App() {
           <Route path="coupons"           element={<Coupons />} />
           <Route path="coupon-management" element={<CouponManagement />} />
           <Route path="shipping-management" element={<ShippingManagement />} />
-                    <Route path="orders/:orderId" element={<OrderDetail />} />
+          <Route path="orders/trendyol/:id" element={<TrendyolOrderDetail />} />
+          <Route path="orders/:orderId" element={<OrderDetail />} />
                     <Route path="returns" element={<Returns />} />
                     <Route path="returns/:id" element={<ReturnDetail />} />
           <Route path="checkout" element={<Checkout />} />
