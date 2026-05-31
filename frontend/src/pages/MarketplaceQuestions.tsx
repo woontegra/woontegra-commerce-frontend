@@ -49,11 +49,6 @@ function fmtDate(iso: string) {
   });
 }
 
-function truncate(text: string, max = 80) {
-  const t = text.trim();
-  return t.length <= max ? t : `${t.slice(0, max)}…`;
-}
-
 export default function MarketplaceQuestions() {
   const [items, setItems]       = useState<MarketplaceQuestion[]>([]);
   const [total, setTotal]         = useState(0);
@@ -118,10 +113,10 @@ export default function MarketplaceQuestions() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="w-full space-y-6 pb-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Müşteri Soruları</h1>
+          <h1 className="text-xl font-semibold text-slate-900">Müşteri Soruları</h1>
           <p className="text-sm text-slate-500 mt-1">
             Pazaryeri müşteri sorularını tek ekrandan görüntüleyin. İlk faz: Trendyol ürün soruları.
           </p>
@@ -170,7 +165,7 @@ export default function MarketplaceQuestions() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { setPage(1); fetchQuestions(); } }}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px] flex-1"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[200px] flex-1 max-w-md"
         />
         <button
           type="button"
@@ -201,8 +196,9 @@ export default function MarketplaceQuestions() {
       )}
 
       {!loading && items.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-slate-50 text-slate-600 border-b border-slate-100">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Kaynak</th>
@@ -223,11 +219,11 @@ export default function MarketplaceQuestions() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{TYPE_LABEL[q.type] ?? q.type}</td>
                   <td className="px-4 py-3 text-slate-700">{q.customerName ?? '—'}</td>
-                  <td className="px-4 py-3 max-w-xs">
+                  <td className="px-4 py-3">
                     {q.productName && (
-                      <p className="font-medium text-slate-800 truncate">{q.productName}</p>
+                      <p className="font-medium text-slate-800">{q.productName}</p>
                     )}
-                    <p className="text-slate-500 text-xs mt-0.5">{truncate(q.questionText)}</p>
+                    <p className="text-slate-500 text-xs mt-0.5 line-clamp-2">{q.questionText}</p>
                   </td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(q.askedAt)}</td>
                   <td className="px-4 py-3">
@@ -239,6 +235,7 @@ export default function MarketplaceQuestions() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
