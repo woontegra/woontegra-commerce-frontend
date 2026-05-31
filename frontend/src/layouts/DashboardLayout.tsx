@@ -74,6 +74,7 @@ const IC = {
   domain:       'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9',
   users:        'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   support:      'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z',
+  questions:    'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
   bell:         'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
   settings:     'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4',
   admin:        'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
@@ -120,9 +121,10 @@ const NAV: NavGroup[] = [
   {
     id: 'integrations', label: 'Entegrasyon', defaultOpen: false,
     items: [
-      { label: 'Entegrasyonlar', to: '/dashboard/integrations', icon: IC.integrations                           },
-      { label: 'Pazaryerleri',   to: '/dashboard/marketplaces', icon: IC.marketplace                            },
-      { label: 'Geliştirici',   to: '/dashboard/developer',    icon: IC.developer,   featureKey: 'api_access'  },
+      { label: 'Entegrasyonlar',    to: '/dashboard/integrations',          icon: IC.integrations },
+      { label: 'Pazaryerleri',      to: '/dashboard/marketplaces',          icon: IC.marketplace  },
+      { label: 'Müşteri Soruları',  to: '/dashboard/marketplace-questions', icon: IC.questions, featureKey: 'trendyol' },
+      { label: 'Geliştirici',       to: '/dashboard/developer',             icon: IC.developer,   featureKey: 'api_access'  },
     ],
   },
   {

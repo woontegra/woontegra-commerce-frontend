@@ -61,6 +61,7 @@ const DiscountRules = lazy(() => import('./pages/DiscountRules'));
 const B2BCustomers = lazy(() => import('./pages/B2BCustomers'));
 const TrendyolIntegration  = lazy(() => import('./pages/TrendyolIntegrationPage'));
 const TrendyolOrders       = lazy(() => import('./pages/TrendyolOrders'));
+const MarketplaceQuestions = lazy(() => import('./pages/MarketplaceQuestions'));
 const StoreSettings   = lazy(() => import('./pages/StoreSettings'));
 const PaymentSettingsPage = lazy(() => import('./pages/PaymentSettingsPage'));
 const ShippingSettingsPage = lazy(() => import('./pages/ShippingSettingsPage'));
@@ -296,6 +297,7 @@ function App() {
           <Route path="b2b-customers" element={<B2BCustomers />} />
           <Route path="trendyol-integration" element={<TrendyolIntegration />} />
           <Route path="trendyol-orders"      element={<TrendyolOrders />} />
+          <Route path="marketplace-questions" element={<MarketplaceQuestions />} />
           <Route path="marketplace"          element={<MarketplacePage />} />
           <Route path="marketplaces"         element={<MarketplaceHub />} />
           <Route path="marketplaces/:slug"   element={<MarketplaceDetail />} />
