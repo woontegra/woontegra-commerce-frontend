@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import {
   useTrendyolOrder,
   useSendTrendyolInvoiceLink,
@@ -14,6 +13,12 @@ import {
 import { useSyncTrendyolOrders } from '../hooks/useOrders';
 import { extractTrendyolInvoice, invoiceStatusLabel } from '../utils/trendyolOrderInvoice';
 import { normalizeImageUrl } from '../utils/imageUtils';
+import {
+  buildCargoLabelPreviewUrl,
+  downloadCargoLabelFiles,
+  getCargoLabelPdfUrl,
+  printCargoLabelPreview,
+} from '../utils/trendyolCargoLabelPreview';
 
 function isHttpsUrl(url: string): boolean {
   try {
@@ -23,49 +28,133 @@ function isHttpsUrl(url: string): boolean {
   }
 }
 
-function downloadTextFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+function CargoLabelPreviewModal({
+  data,
+  format,
+  orderNumber,
+  onClose,
+}: {
+  data:        CargoLabelResult;
+  format:      CargoLabelFormat;
+  orderNumber: string;
+  onClose:     () => void;
+}) {
+  const [previewUrl, setPreviewUrl]   = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState('');
+  const [loading, setLoading]         = useState(true);
 
-function handleCargoLabelResult(data: CargoLabelResult, orderNumber: string) {
-  const primary = data.labels[0];
-  if (!primary) {
-    toast.error('Kargo etiketi içeriği alınamadı.');
-    return;
-  }
+  const pdfUrl = getCargoLabelPdfUrl(data);
+  const isPdf    = Boolean(pdfUrl);
 
-  if (data.deliveryType === 'pdf_url' && (primary.url || /^https?:\/\//i.test(primary.content))) {
-    window.open(primary.url ?? primary.content, '_blank', 'noopener,noreferrer');
-    toast.success('Kargo etiketi yeni sekmede açıldı.');
-    return;
-  }
+  useEffect(() => {
+    let objectUrl: string | null = null;
 
-  if (data.deliveryType === 'pdf_base64' || primary.content.startsWith('%PDF')) {
-    downloadTextFile(primary.content, `${orderNumber}-kargo-etiketi.pdf`, 'application/pdf');
-    toast.success('Kargo etiketi PDF olarak indirildi.');
-    return;
-  }
+    async function loadPreview() {
+      setLoading(true);
+      setPreviewError('');
+      try {
+        const url = await buildCargoLabelPreviewUrl(data, format);
+        if (!url) {
+          setPreviewError('Etiket önizlemesi oluşturulamadı.');
+          return;
+        }
+        objectUrl = isPdf ? null : url;
+        setPreviewUrl(url);
+      } catch (err) {
+        setPreviewError(err instanceof Error ? err.message : 'Önizleme yüklenemedi.');
+      } finally {
+        setLoading(false);
+      }
+    }
 
-  data.labels.forEach((label, index) => {
-    const suffix = data.labels.length > 1 ? `-${index + 1}` : '';
-    downloadTextFile(
-      label.content,
-      `${orderNumber}-kargo-etiketi${suffix}.zpl`,
-      'text/plain',
-    );
-  });
+    loadPreview();
 
-  if (data.requestedFormat === 'A4' && data.deliveryType === 'zpl') {
-    toast.success('Trendyol ZPL etiket döndürdü. Termal yazıcı için indirildi.');
-  } else {
-    toast.success('Sticker etiket indirildi.');
-  }
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [data, format, isPdf]);
+
+  const formatLabel = format === 'A4' ? 'A4 Etiket' : 'Sticker Etiket';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="px-6 py-5 border-b border-slate-100 shrink-0">
+          <h3 className="text-base font-bold text-slate-900">{formatLabel} Önizleme</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Sipariş <span className="font-medium text-slate-700">{orderNumber}</span>
+            {' · '}Takip: <span className="font-mono text-xs">{data.cargoTrackingNumber}</span>
+          </p>
+        </div>
+
+        <div className="px-6 py-4 overflow-auto flex-1 min-h-[280px] bg-slate-50">
+          {loading && (
+            <div className="flex items-center justify-center h-64">
+              <svg className="w-8 h-8 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          )}
+
+          {!loading && previewError && (
+            <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-6 text-center">
+              <p className="text-sm text-red-700">{previewError}</p>
+            </div>
+          )}
+
+          {!loading && previewUrl && isPdf && (
+            <iframe
+              title="Kargo etiketi PDF"
+              src={previewUrl}
+              className="w-full h-[480px] rounded-xl border border-slate-200 bg-white"
+            />
+          )}
+
+          {!loading && previewUrl && !isPdf && (
+            <div className="flex justify-center">
+              <img
+                src={previewUrl}
+                alt="Kargo etiketi önizleme"
+                className="max-w-full max-h-[480px] rounded-xl border border-slate-200 bg-white shadow-sm"
+              />
+            </div>
+          )}
+
+          {!loading && !previewError && data.labels.length > 1 && (
+            <p className="text-xs text-slate-500 mt-3 text-center">
+              {data.labels.length} koli etiketi alındı. İlk etiket önizleniyor.
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Kapat
+          </button>
+          <button
+            type="button"
+            disabled={!previewUrl}
+            onClick={() => previewUrl && printCargoLabelPreview(previewUrl, isPdf)}
+            className="flex-1 min-w-[120px] px-4 py-2.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Yazdır
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadCargoLabelFiles(data, orderNumber)}
+            className="flex-1 min-w-[120px] px-4 py-2.5 rounded-xl bg-slate-800 text-sm font-semibold text-white hover:bg-slate-900"
+          >
+            İndir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -523,6 +612,10 @@ export default function TrendyolOrderDetail() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceFileModalOpen, setInvoiceFileModalOpen] = useState(false);
   const [labelFormatLoading, setLabelFormatLoading] = useState<CargoLabelFormat | null>(null);
+  const [cargoLabelPreview, setCargoLabelPreview] = useState<{
+    data:   CargoLabelResult;
+    format: CargoLabelFormat;
+  } | null>(null);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -557,7 +650,9 @@ export default function TrendyolOrderDetail() {
   const handleCargoLabel = (format: CargoLabelFormat) => {
     setLabelFormatLoading(format);
     fetchCargoLabel.mutate(format, {
-      onSuccess: (data) => handleCargoLabelResult(data, order.orderNumber),
+      onSuccess: (data) => {
+        setCargoLabelPreview({ data, format });
+      },
       onSettled: () => setLabelFormatLoading(null),
     });
   };
@@ -1133,6 +1228,15 @@ export default function TrendyolOrderDetail() {
             });
           }}
           loading={uploadInvoiceFile.isPending}
+        />
+      )}
+
+      {cargoLabelPreview && (
+        <CargoLabelPreviewModal
+          data={cargoLabelPreview.data}
+          format={cargoLabelPreview.format}
+          orderNumber={order.orderNumber}
+          onClose={() => setCargoLabelPreview(null)}
         />
       )}
     </div>
