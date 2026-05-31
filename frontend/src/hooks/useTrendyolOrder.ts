@@ -117,3 +117,37 @@ export function useUploadTrendyolInvoiceFile(orderId: string) {
     },
   });
 }
+
+export type CargoLabelFormat = 'A4' | 'STICKER';
+
+export interface CargoLabelItemResult {
+  format:  string;
+  content: string;
+  url?:    string;
+}
+
+export interface CargoLabelResult {
+  requestedFormat:     CargoLabelFormat;
+  deliveryType:      'pdf_url' | 'zpl' | 'pdf_base64';
+  cargoTrackingNumber: string;
+  labels:              CargoLabelItemResult[];
+}
+
+export function useFetchTrendyolCargoLabel(orderId: string) {
+  return useMutation({
+    mutationFn: async (format: CargoLabelFormat) => {
+      const res = await apiClient.get<{ success: boolean; data: CargoLabelResult }>(
+        `/trendyol/orders/${orderId}/cargo-label`,
+        {
+          params:         { format },
+          skipErrorToast: true,
+          timeout:        60_000,
+        },
+      );
+      return res.data.data;
+    },
+    onError: (err: unknown) => {
+      toast.error(extractErrorMessage(err, 'Kargo etiketi alınamadı.'));
+    },
+  });
+}

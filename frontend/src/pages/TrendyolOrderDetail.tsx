@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useTrendyolOrder, useSendTrendyolInvoiceLink, useUploadTrendyolInvoiceFile, MAX_TRENDYOL_INVOICE_PDF_BYTES } from '../hooks/useTrendyolOrder';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import {
+  useTrendyolOrder,
+  useSendTrendyolInvoiceLink,
+  useUploadTrendyolInvoiceFile,
+  useFetchTrendyolCargoLabel,
+  MAX_TRENDYOL_INVOICE_PDF_BYTES,
+  type CargoLabelFormat,
+  type CargoLabelResult,
+} from '../hooks/useTrendyolOrder';
+import { useSyncTrendyolOrders } from '../hooks/useOrders';
 import { extractTrendyolInvoice, invoiceStatusLabel } from '../utils/trendyolOrderInvoice';
 import { normalizeImageUrl } from '../utils/imageUtils';
 
@@ -9,6 +20,51 @@ function isHttpsUrl(url: string): boolean {
     return new URL(url.trim()).protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+function downloadTextFile(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleCargoLabelResult(data: CargoLabelResult, orderNumber: string) {
+  const primary = data.labels[0];
+  if (!primary) {
+    toast.error('Kargo etiketi içeriği alınamadı.');
+    return;
+  }
+
+  if (data.deliveryType === 'pdf_url' && (primary.url || /^https?:\/\//i.test(primary.content))) {
+    window.open(primary.url ?? primary.content, '_blank', 'noopener,noreferrer');
+    toast.success('Kargo etiketi yeni sekmede açıldı.');
+    return;
+  }
+
+  if (data.deliveryType === 'pdf_base64' || primary.content.startsWith('%PDF')) {
+    downloadTextFile(primary.content, `${orderNumber}-kargo-etiketi.pdf`, 'application/pdf');
+    toast.success('Kargo etiketi PDF olarak indirildi.');
+    return;
+  }
+
+  data.labels.forEach((label, index) => {
+    const suffix = data.labels.length > 1 ? `-${index + 1}` : '';
+    downloadTextFile(
+      label.content,
+      `${orderNumber}-kargo-etiketi${suffix}.zpl`,
+      'text/plain',
+    );
+  });
+
+  if (data.requestedFormat === 'A4' && data.deliveryType === 'zpl') {
+    toast.success('Trendyol ZPL etiket döndürdü. Termal yazıcı için indirildi.');
+  } else {
+    toast.success('Sticker etiket indirildi.');
   }
 }
 
@@ -457,12 +513,16 @@ function InvoiceFileModal({
 
 export default function TrendyolOrderDetail() {
   const { id = '' } = useParams<{ id: string }>();
+  const qc = useQueryClient();
   const { data: order, isLoading, isError } = useTrendyolOrder(id);
   const sendInvoiceLink = useSendTrendyolInvoiceLink(id);
   const uploadInvoiceFile = useUploadTrendyolInvoiceFile(id);
+  const fetchCargoLabel = useFetchTrendyolCargoLabel(id);
+  const syncTrendyolOrders = useSyncTrendyolOrders();
   const [rawOpen, setRawOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceFileModalOpen, setInvoiceFileModalOpen] = useState(false);
+  const [labelFormatLoading, setLabelFormatLoading] = useState<CargoLabelFormat | null>(null);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -492,6 +552,23 @@ export default function TrendyolOrderDetail() {
   const statusStyle = STATUS_STYLE[order.status] ?? 'bg-slate-100 text-slate-700 border-slate-200';
   const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
   const lineTotal = order.items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
+  const hasCargoTracking = Boolean(order.cargoTrackingNumber?.trim());
+
+  const handleCargoLabel = (format: CargoLabelFormat) => {
+    setLabelFormatLoading(format);
+    fetchCargoLabel.mutate(format, {
+      onSuccess: (data) => handleCargoLabelResult(data, order.orderNumber),
+      onSettled: () => setLabelFormatLoading(null),
+    });
+  };
+
+  const handleResyncOrder = () => {
+    syncTrendyolOrders.mutate(undefined, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['trendyol-order', id] });
+      },
+    });
+  };
 
   return (
     <div className="w-full space-y-6 pb-10">
@@ -765,50 +842,142 @@ export default function TrendyolOrderDetail() {
               </svg>
             }
           >
-            <div className="space-y-4">
-              <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
-                <p className="text-sm text-emerald-800 font-medium">Fatura gönderimi</p>
-                <p className="text-xs text-emerald-700/80 mt-1 leading-relaxed">
-                  Faturanızı PDF olarak yükleyebilir veya erişilebilir HTTPS fatura linkini Trendyol&apos;a gönderebilirsiniz.
-                </p>
+            <div className="space-y-5">
+              {/* 1. Kargo etiketi */}
+              <div className="space-y-3">
+                <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3">
+                  <p className="text-sm text-indigo-800 font-medium">Kargo etiketi</p>
+                  <p className="text-xs text-indigo-700/80 mt-1 leading-relaxed">
+                    Trendyol akışında önce kargo etiketi yazdırılır. Etiket alındıktan sonra fatura gönderimi yapılabilir.
+                  </p>
+                </div>
+
+                {!hasCargoTracking && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    Kargo takip numarası bulunamadı. Siparişi yeniden senkronize edin.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!hasCargoTracking || labelFormatLoading !== null}
+                    onClick={() => handleCargoLabel('A4')}
+                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
+                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {labelFormatLoading === 'A4' ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    )}
+                    A4 Etiket Yazdır
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!hasCargoTracking || labelFormatLoading !== null}
+                    onClick={() => handleCargoLabel('STICKER')}
+                    className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                               text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl
+                               hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {labelFormatLoading === 'STICKER' ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    )}
+                    Sticker Etiket Yazdır
+                  </button>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setInvoiceFileModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                           text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
-                           hover:bg-orange-100 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                PDF Fatura Yükle
-              </button>
+              <div className="border-t border-slate-100" />
 
+              {/* 2. Fatura gönderimi */}
+              <div className="space-y-3">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
+                  <p className="text-sm text-emerald-800 font-medium">Fatura gönderimi</p>
+                  <p className="text-xs text-emerald-700/80 mt-1 leading-relaxed">
+                    Trendyol akışında kargo etiketi işleminden sonra fatura gönderimi yapılabilir.
+                    PDF yükleyebilir veya HTTPS fatura linki gönderebilirsiniz.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setInvoiceFileModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                             text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
+                             hover:bg-orange-100 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  PDF Fatura Yükle
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setInvoiceModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
+                             text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
+                             hover:bg-orange-100 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Fatura Linki Gönder
+                </button>
+              </div>
+
+              <div className="border-t border-slate-100" />
+
+              {/* 3. Yeniden senkronize */}
               <button
                 type="button"
-                onClick={() => setInvoiceModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold
-                           text-orange-700 bg-orange-50 border border-orange-200 rounded-xl
-                           hover:bg-orange-100 transition-colors"
+                onClick={handleResyncOrder}
+                disabled={syncTrendyolOrders.isPending}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
+                           text-slate-700 bg-slate-50 border border-slate-200 rounded-xl
+                           hover:bg-slate-100 transition-colors disabled:opacity-60"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                Fatura Linki Gönder
+                {syncTrendyolOrders.isPending ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                Siparişi Yeniden Senkronize Et
               </button>
 
               <Link
                 to="/dashboard/trendyol-orders"
-                className="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 text-sm font-medium
-                           text-orange-700 bg-orange-50 border border-orange-100 rounded-xl
-                           hover:bg-orange-100 transition-colors"
+                className="flex items-center justify-center gap-1.5 w-full px-4 py-2 text-xs font-medium
+                           text-slate-500 hover:text-orange-700 transition-colors"
               >
                 Teknik sync ekranı
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
