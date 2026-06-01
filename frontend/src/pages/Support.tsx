@@ -1,525 +1,485 @@
-import React, { useState } from 'react';
-import { useApi } from '../hooks/useErrorHandler';
-import { api } from '../services/apiClient';
-import { toast } from 'react-hot-toast';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
+import {
+  AlertCircle,
+  Loader2,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Ticket,
+} from 'lucide-react';
+import {
+  EMPTY_SUPPORT_SUMMARY,
+  filterTickets,
+  formatSupportDate,
+  priorityBadgeClass,
+  priorityLabel,
+  statusBadgeClass,
+  statusLabel,
+  type SupportSummary,
+  type SupportTicket,
+  type SupportTicketPriority,
+  type SupportTicketStatus,
+} from './supportPageHelpers';
+import {
+  createSupportTicket,
+  fetchSupportTickets,
+} from '../services/support.service';
 
-interface SupportTicket {
-  id: number;
-  subject: string;
-  status: 'open' | 'in_progress' | 'closed';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-  lastMessage: {
-    id: number;
-    message: string;
-    createdAt: string;
-    isInternal: boolean;
-  } | null;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
+type TabKey = 'tickets' | 'chat';
+type ModuleState = 'unknown' | 'available' | 'unavailable';
+
+const inputCls =
+  'w-full bg-white border border-slate-200 text-slate-900 text-[13px] px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-300';
+
+function SummaryMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="wn-card px-4 py-3 min-w-[100px] flex-1">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-[15px] font-semibold mt-1 text-slate-900">{value}</p>
+    </div>
+  );
 }
 
-interface SupportMessage {
-  id: number;
-  message: string;
-  createdAt: string;
-  isInternal: boolean;
+function Panel({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+  return (
+    <div className="wn-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h2 className="text-[13px] font-semibold text-slate-800">{title}</h2>
+        {desc && <p className="text-[12px] text-slate-500 mt-0.5">{desc}</p>}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
 }
 
-interface CreateTicketData {
-  subject: string;
-  message: string;
-  priority: 'low' | 'medium' | 'high';
-}
-
-interface TicketsResponse {
-  tickets: SupportTicket[];
-  pagination?: { total: number };
-}
-
-interface ApiSuccessResponse {
-  success?: boolean;
-}
-
-interface TicketDetailResponse {
-  messages?: SupportMessage[];
-  success?: boolean;
-}
-
-const Support: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'tickets' | 'chat'>('tickets');
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-  const [newTicketModal, setNewTicketModal] = useState(false);
-  const [ticketData, setTicketData] = useState<CreateTicketData>({
+export default function Support() {
+  const [activeTab, setActiveTab] = useState<TabKey>('tickets');
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [summary, setSummary] = useState<SupportSummary>(EMPTY_SUPPORT_SUMMARY);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [moduleState, setModuleState] = useState<ModuleState>('unknown');
+  const [statusFilter, setStatusFilter] = useState<SupportTicketStatus | 'all'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<SupportTicketPriority | 'all'>('all');
+  const [search, setSearch] = useState('');
+  const [showCreateInfo, setShowCreateInfo] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [ticketForm, setTicketForm] = useState({
     subject: '',
     message: '',
-    priority: 'medium',
+    priority: 'medium' as SupportTicketPriority,
+    category: 'GENERAL',
   });
 
-  // Fetch tickets
-  const {
-    data: ticketsResponse,
-    loading: ticketsLoading,
-    execute: fetchTickets,
-  } = useApi<TicketsResponse>(async () => {
-    const { data } = await api.get('/support/tickets');
-    return data;
-  }, {
-    immediate: true,
-  });
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const result = await fetchSupportTickets();
+    if (result.ok) {
+      setTickets(result.tickets);
+      setSummary(result.summary);
+      setModuleState('available');
+      setLoadError(null);
+    } else if (result.reason === 'not_available') {
+      setTickets([]);
+      setSummary(EMPTY_SUPPORT_SUMMARY);
+      setModuleState('unavailable');
+      setLoadError(null);
+    } else {
+      setTickets([]);
+      setSummary(EMPTY_SUPPORT_SUMMARY);
+      setModuleState('unknown');
+      setLoadError(result.message);
+    }
+    setLoading(false);
+  }, []);
 
-  // Create new ticket
-  const {
-    data: createResponse,
-    loading: createLoading,
-    execute: createTicket,
-  } = useApi<ApiSuccessResponse>(async () => {
-    const { data } = await api.post('/support/ticket', ticketData);
-    return data;
-  });
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
 
-  // Fetch ticket details
-  const {
-    data: ticketResponse,
-    loading: ticketLoading,
-    execute: fetchTicket,
-  } = useApi<TicketDetailResponse, [number]>(async (id: number) => {
-    const { data } = await api.get(`/support/ticket/${id}`);
-    return data;
-  }, {
-    immediate: false,
-  });
+  const stats = summary;
+  const filtered = useMemo(
+    () => filterTickets(tickets, statusFilter, priorityFilter, search),
+    [tickets, statusFilter, priorityFilter, search],
+  );
 
-  // Send message
-  const {
-    data: messageResponse,
-    loading: messageLoading,
-    execute: sendMessage,
-  } = useApi<ApiSuccessResponse, [{ ticketId: number; message: string }]>(async (data: { ticketId: number; message: string }) => {
-    const { data: response } = await api.post('/support/message', data);
-    return response;
-  }, {
-    immediate: false,
-  });
+  const canCreate = moduleState === 'available';
+  const filtersDisabled = moduleState !== 'available';
 
-  // Close ticket
-  const {
-    data: closeResponse,
-    loading: closeLoading,
-    execute: closeTicket,
-  } = useApi<ApiSuccessResponse, [number]>(async (id: number) => {
-    const { data } = await api.post('/support/close', { ticketId: id });
-    return data;
-  }, {
-    immediate: false,
-  });
-
-  const tickets = ticketsResponse?.tickets || [];
-  const totalTickets = ticketsResponse?.pagination?.total || 0;
-
-  // Handle ticket selection
-  const handleTicketClick = (ticket: SupportTicket) => {
-    setSelectedTicket(ticket);
-    setActiveTab('chat');
-    fetchTicket(ticket.id);
-  };
-
-  // Handle new ticket creation
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!ticketData.subject.trim() || !ticketData.message.trim()) {
+    if (!canCreate) return;
+    if (!ticketForm.subject.trim() || !ticketForm.message.trim()) {
       toast.error('Konu ve mesaj zorunludur.');
       return;
     }
-
-    createTicket();
-  };
-
-  // Handle message sending
-  const handleSendMessage = (message: string) => {
-    if (!message.trim() || !selectedTicket) return;
-    
-    sendMessage({
-      ticketId: selectedTicket.id,
-      message,
+    if (ticketForm.subject.trim().length < 3) {
+      toast.error('Konu en az 3 karakter olmalıdır.');
+      return;
+    }
+    if (ticketForm.message.trim().length < 10) {
+      toast.error('Mesaj en az 10 karakter olmalıdır.');
+      return;
+    }
+    setCreating(true);
+    const result = await createSupportTicket({
+      subject: ticketForm.subject.trim(),
+      message: ticketForm.message.trim(),
+      priority: ticketForm.priority,
+      category: ticketForm.category.trim() || 'GENERAL',
     });
-  };
-
-  // Handle ticket closing
-  const handleCloseTicket = () => {
-    if (!selectedTicket) return;
-    
-    closeTicket(selectedTicket.id);
-  };
-
-  // Reset form
-  const resetForm = () => {
-    setTicketData({
-      subject: '',
-      message: '',
-      priority: 'medium',
-    });
-    setNewTicketModal(false);
-  };
-
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-green-100 text-green-800';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
-      case 'closed': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+    setCreating(false);
+    if (result.ok) {
+      toast.success('Destek talebiniz oluşturuldu.');
+      setTicketForm({ subject: '', message: '', priority: 'medium', category: 'GENERAL' });
+      setShowCreateInfo(false);
+      void loadTickets();
+    } else {
+      toast.error(result.message);
     }
   };
 
-  // Get priority color
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-orange-100 text-orange-800';
-      case 'low': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const openCreate = () => {
+    if (canCreate) {
+      setShowCreateInfo(true);
+      return;
     }
+    toast('Destek talebi oluşturma modülü sonraki fazda aktif edilecektir.', { icon: 'ℹ️' });
   };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  if (createResponse?.success) {
-    toast.success('Destek talebi oluşturuldu!');
-    resetForm();
-    fetchTickets();
-  }
-
-  if (messageResponse?.success) {
-    toast.success('Mesaj gönderildi!');
-  }
-
-  if (closeResponse?.success) {
-    toast.success('Destek talebi kapatıldı!');
-    setSelectedTicket(null);
-    setActiveTab('tickets');
-    fetchTickets();
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white shadow-sm rounded-lg">
-          {/* Header */}
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Destek Merkezi</h1>
-          </div>
-
-          {/* Tabs */}
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
-              <button
-                onClick={() => setActiveTab('tickets')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'tickets'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Destek Talepleri ({totalTickets})
-              </button>
-              <button
-                onClick={() => setActiveTab('chat')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'chat'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Mesajlaşma
-              </button>
-            </nav>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            {activeTab === 'tickets' && (
-              <div>
-                {/* New Ticket Button */}
-                <div className="mb-6 flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-900">Destek Talepleri</h2>
-                  <button
-                    onClick={() => setNewTicketModal(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Yeni Talep Oluştur
-                  </button>
-                </div>
-
-                {/* Loading State */}
-                {ticketsLoading && (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Destek talepleri yükleniyor...</p>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {!ticketsLoading && tickets.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H7a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002 2v5a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz Destek Talebi Yok</h3>
-                    <p className="text-gray-600 mb-4">
-                      Henüz bir destek talebi oluşturmadınız. Yeni bir talep oluşturmak için "Yeni Talep Oluştur" butonuna tıklayın.
-                    </p>
-                    <button
-                      onClick={() => setNewTicketModal(true)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      İlk Talebi Oluştur
-                    </button>
-                  </div>
-                )}
-
-                {/* Tickets List */}
-                {!ticketsLoading && tickets.length > 0 && (
-                  <div className="space-y-4">
-                    {tickets.map((ticket) => (
-                      <div
-                        key={ticket.id}
-                        onClick={() => handleTicketClick(ticket)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-medium text-gray-900">{ticket.subject}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                                {ticket.status === 'open' ? 'Açık' : 
-                                 ticket.status === 'in_progress' ? 'İşlemde' : 'Kapalı'}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
-                                {ticket.priority === 'high' ? 'Yüksek' : 
-                                 ticket.priority === 'medium' ? 'Orta' : 'Düşük'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            #{ticket.id} • {formatDate(ticket.createdAt)}
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {ticket.lastMessage && (
-                            <div>
-                              <p className="truncate">{ticket.lastMessage.message}</p>
-                              <p className="text-xs text-gray-400">
-                                {formatDate(ticket.lastMessage.createdAt)}
-                                {ticket.lastMessage.isInternal && ' • Destek Ekibi'}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'chat' && selectedTicket && (
-              <div>
-                {/* Chat Header */}
-                <div className="border-b border-gray-200 pb-4 mb-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">{selectedTicket.subject}</h2>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedTicket.status)}`}>
-                          {selectedTicket.status === 'open' ? 'Açık' : 
-                           selectedTicket.status === 'in_progress' ? 'İşlemde' : 'Kapalı'}
-                        </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedTicket.priority)}`}>
-                          {selectedTicket.priority === 'high' ? 'Yüksek' : 
-                           selectedTicket.priority === 'medium' ? 'Orta' : 'Düşük'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        Talep #{selectedTicket.id} • {formatDate(selectedTicket.createdAt)}
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      {selectedTicket.status !== 'closed' && (
-                        <button
-                          onClick={handleCloseTicket}
-                          disabled={closeLoading}
-                          className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                        >
-                          {closeLoading ? 'Kapatılıyor...' : 'Talebi Kapat'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedTicket(null);
-                          setActiveTab('tickets');
-                        }}
-                        className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded text-sm border border-gray-300 hover:bg-gray-50 transition-colors"
-                      >
-                        Listeye Dön
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Messages */}
-                <div className="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg">
-                  {ticketLoading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-gray-600">Mesajlar yükleniyor...</p>
-                    </div>
-                  ) : (
-                    ticketResponse?.messages?.map((message: SupportMessage) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.isInternal ? 'justify-end' : 'justify-start'} mb-4`}
-                      >
-                        <div className={`max-w-xs lg:max-w-md ${message.isInternal ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200'} rounded-lg p-3 shadow-sm`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            {message.isInternal && (
-                              <span className="text-xs bg-blue-700 text-white px-2 py-1 rounded">Destek</span>
-                            )}
-                            <span className="text-xs text-gray-500">
-                              {formatDate(message.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Message Input */}
-                {selectedTicket.status !== 'closed' && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        handleSendMessage(formData.get('message') as string);
-                      }}
-                      className="flex gap-2"
-                    >
-                      <input
-                        type="text"
-                        name="message"
-                        placeholder="Mesajınızı yazın..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        disabled={messageLoading}
-                      />
-                      <button
-                        type="submit"
-                        disabled={messageLoading}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                      >
-                        {messageLoading ? 'Gönderiliyor...' : 'Gönder'}
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+    <div className="w-full space-y-6 pb-10 page-enter">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            Destek Merkezi
+          </h1>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Destek taleplerinizi takip edin, mesajlaşmaları görüntüleyin ve yeni talep oluşturun.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          disabled={!canCreate}
+          title={canCreate ? undefined : 'Sonraki faz — destek modülü henüz aktif değil'}
+          className="btn btn-primary text-[13px] inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          Yeni Talep Oluştur
+          {!canCreate && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
+              Sonraki faz
+            </span>
+          )}
+        </button>
+      </div>
 
-        {/* New Ticket Modal */}
-        {newTicketModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full z-50">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <h3 className="text-lg font-medium text-gray-900">Yeni Destek Talebi</h3>
-                </div>
-                <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Konu
-                    </label>
-                    <input
-                      type="text"
-                      value={ticketData.subject}
-                      onChange={(e) => setTicketData(prev => ({ ...prev, subject: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Destek talebinizin konusu"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Öncelik
-                    </label>
-                    <select
-                      value={ticketData.priority}
-                      onChange={(e) => setTicketData(prev => ({ ...prev, priority: e.target.value as any }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="low">Düşük</option>
-                      <option value="medium">Orta</option>
-                      <option value="high">Yüksek</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Mesaj
-                    </label>
-                    <textarea
-                      value={ticketData.message}
-                      onChange={(e) => setTicketData(prev => ({ ...prev, message: e.target.value }))}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Lütfen sorunuzu detaylı bir şekilde açıklayın..."
-                      required
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={createLoading}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                    >
-                      {createLoading ? 'Oluşturuluyor...' : 'Talep Oluştur'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+      {moduleState === 'unavailable' && (
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-[13px] text-indigo-900">
+          <p className="font-medium">Destek sistemi henüz aktif değil.</p>
+          <p className="text-[12px] text-indigo-800/80 mt-1">
+            Destek talepleri ve mesajlaşma modülü sonraki fazda kullanılabilir olacak.
+          </p>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div>
+              <p className="font-medium">Destek verileri yüklenemedi.</p>
+              <p className="text-[12px] mt-0.5 opacity-90">{loadError}</p>
             </div>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => void loadTickets()}
+            className="btn btn-secondary text-[12px] inline-flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Tekrar Dene
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <SummaryMetric label="Toplam Talep" value={loading ? '…' : stats.total} />
+        <SummaryMetric label="Açık Talepler" value={loading ? '…' : stats.open} />
+        <SummaryMetric label="Yanıt Bekleyen" value={loading ? '…' : stats.waiting} />
+        <SummaryMetric label="Çözülen" value={loading ? '…' : stats.resolved} />
       </div>
+
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
+        <button
+          type="button"
+          onClick={() => setActiveTab('tickets')}
+          className={`px-4 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${
+            activeTab === 'tickets' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          <Ticket className="w-3.5 h-3.5" />
+          Destek Talepleri
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`px-4 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap inline-flex items-center gap-1.5 ${
+            activeTab === 'chat' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          Mesajlaşma
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        <div className="xl:col-span-2 space-y-6">
+          {activeTab === 'tickets' && (
+            <>
+              <Panel title="Filtreler" desc="Talepleri durum, öncelik ve arama ile süzün">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <select
+                    className={inputCls}
+                    value={statusFilter}
+                    disabled={filtersDisabled}
+                    onChange={e => setStatusFilter(e.target.value as SupportTicketStatus | 'all')}
+                  >
+                    <option value="all">Durum: Tümü</option>
+                    <option value="open">Açık</option>
+                    <option value="in_progress">Yanıt Bekleyen</option>
+                    <option value="resolved">Çözüldü</option>
+                    <option value="closed">Kapalı</option>
+                  </select>
+                  <select
+                    className={inputCls}
+                    value={priorityFilter}
+                    disabled={filtersDisabled}
+                    onChange={e => setPriorityFilter(e.target.value as SupportTicketPriority | 'all')}
+                  >
+                    <option value="all">Öncelik: Tümü</option>
+                    <option value="low">Düşük</option>
+                    <option value="medium">Normal</option>
+                    <option value="high">Yüksek</option>
+                  </select>
+                  <input
+                    className={inputCls}
+                    placeholder="Konu veya talep no ara…"
+                    value={search}
+                    disabled={filtersDisabled}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Destek talepleri">
+                <div className="overflow-x-auto -mx-5 px-5">
+                  <table className="w-full min-w-[640px] text-[13px]">
+                    <thead>
+                      <tr className="text-left text-[11px] font-medium text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                        <th className="pb-3 pr-3">Talep No</th>
+                        <th className="pb-3 pr-3">Konu</th>
+                        <th className="pb-3 pr-3">Durum</th>
+                        <th className="pb-3 pr-3">Öncelik</th>
+                        <th className="pb-3 pr-3">Son Güncelleme</th>
+                        <th className="pb-3">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-slate-500">
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto mb-2" />
+                            Destek talepleri yükleniyor…
+                          </td>
+                        </tr>
+                      ) : filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-10 text-center">
+                            <p className="text-slate-700 font-medium">Henüz destek talebi bulunmuyor.</p>
+                            <p className="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">
+                              {moduleState === 'unavailable'
+                                ? 'Destek modülü aktif edildiğinde talepleriniz burada listelenecektir.'
+                                : 'Yeni bir destek talebi oluşturduğunuzda burada listelenecektir.'}
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        filtered.map(ticket => (
+                          <tr key={ticket.id} className="border-b border-slate-50 last:border-0">
+                            <td className="py-3 pr-3 font-mono text-slate-600">#{ticket.id}</td>
+                            <td className="py-3 pr-3 font-medium text-slate-800 max-w-[200px] truncate">
+                              {ticket.subject}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadgeClass(ticket.status)}`}>
+                                {statusLabel(ticket.status)}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-3">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${priorityBadgeClass(ticket.priority)}`}>
+                                {priorityLabel(ticket.priority)}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">
+                              {formatSupportDate(ticket.updatedAt || ticket.createdAt)}
+                            </td>
+                            <td className="py-3">
+                              <button
+                                type="button"
+                                disabled={moduleState !== 'available'}
+                                onClick={() => {
+                                  setActiveTab('chat');
+                                  toast('Mesajlaşma detayı sonraki fazda aktif edilecektir.', { icon: 'ℹ️' });
+                                }}
+                                className="text-[12px] font-medium text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+                              >
+                                Görüntüle
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Panel>
+            </>
+          )}
+
+          {activeTab === 'chat' && (
+            <Panel title="Mesajlaşma" desc="Talep bazlı destek sohbeti">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-8 text-center">
+                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-[14px] font-medium text-slate-800">
+                  Mesajlaşma modülü sonraki fazda aktif edilecek.
+                </p>
+                <p className="text-[12px] text-slate-500 mt-2 max-w-md mx-auto">
+                  Destek talebi detayı ve mesaj geçmişi backend entegrasyonu tamamlandığında
+                  bu sekmeden yönetilebilecek.
+                </p>
+              </div>
+            </Panel>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <Panel title="Destek durumu">
+            <ul className="space-y-2 text-[12px] text-slate-600">
+              <li className="flex justify-between gap-2">
+                <span>Modül durumu</span>
+                <span className="font-medium text-slate-800">
+                  {moduleState === 'available'
+                    ? 'Aktif'
+                    : moduleState === 'unavailable'
+                      ? 'Planlandı'
+                      : loadError
+                        ? 'Bağlantı hatası'
+                        : 'Kontrol ediliyor…'}
+                </span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span>Listelenen talep</span>
+                <span className="font-medium text-slate-800">{filtered.length}</span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span>Aktif filtre</span>
+                <span className="font-medium text-slate-800">
+                  {statusLabel(statusFilter)} · {priorityLabel(priorityFilter)}
+                </span>
+              </li>
+            </ul>
+          </Panel>
+
+          <Panel title="Bilgilendirme">
+            <p className="text-[12px] text-slate-600 leading-relaxed">
+              Destek talepleri oluşturma ve mesajlaşma modülü tenant panelinde kademeli olarak
+              devreye alınacaktır. Bağlantı sorunlarında yalnızca &quot;Tekrar Dene&quot; ile
+              yeniden istek gönderilir; otomatik tekrar yapılmaz.
+            </p>
+          </Panel>
+        </div>
+      </div>
+
+      {showCreateInfo && canCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="wn-card w-full max-w-md shadow-xl">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-[14px] font-semibold text-slate-900">Yeni Destek Talebi</h3>
+            </div>
+            <form onSubmit={handleCreate} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                  Konu
+                </label>
+                <input
+                  className={inputCls}
+                  value={ticketForm.subject}
+                  onChange={e => setTicketForm(f => ({ ...f, subject: e.target.value }))}
+                  placeholder="Destek talebinizin konusu"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                  Kategori
+                </label>
+                <select
+                  className={inputCls}
+                  value={ticketForm.category}
+                  onChange={e => setTicketForm(f => ({ ...f, category: e.target.value }))}
+                >
+                  <option value="GENERAL">Genel</option>
+                  <option value="BILLING">Faturalama</option>
+                  <option value="TECHNICAL">Teknik</option>
+                  <option value="INTEGRATION">Entegrasyon</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                  Öncelik
+                </label>
+                <select
+                  className={inputCls}
+                  value={ticketForm.priority}
+                  onChange={e => setTicketForm(f => ({ ...f, priority: e.target.value as SupportTicketPriority }))}
+                >
+                  <option value="low">Düşük</option>
+                  <option value="medium">Normal</option>
+                  <option value="high">Yüksek</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+                  Mesaj
+                </label>
+                <textarea
+                  className={`${inputCls} min-h-[96px] resize-y`}
+                  value={ticketForm.message}
+                  onChange={e => setTicketForm(f => ({ ...f, message: e.target.value }))}
+                  placeholder="Sorununuzu detaylı açıklayın…"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateInfo(false)}
+                  className="btn btn-secondary text-[13px]"
+                >
+                  İptal
+                </button>
+                <button type="submit" disabled={creating} className="btn btn-primary text-[13px]">
+                  {creating ? 'Gönderiliyor…' : 'Gönder'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default Support;
+}
