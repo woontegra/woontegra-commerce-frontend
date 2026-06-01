@@ -1,326 +1,493 @@
-import { useState, useEffect } from 'react';
-import api from '../services/api';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  CheckCircle,
+  Crown,
+  ExternalLink,
+  Globe,
+  Info,
+  Link2,
+  Loader2,
+  Lock,
+} from 'lucide-react';
+import { useBranding } from '../context/BrandingContext';
+import { useFeatureContext, type PlanTier } from '../context/FeatureContext';
+import {
+  fetchDomainSettings,
+  saveCustomDomain,
+} from '../services/domainSettings.service';
+import type { TenantDomainSettings } from '../types/domainSettings.types';
+import { getErrorMessage } from '../utils/errorMessages';
+import {
+  activeDomainLabel,
+  buildDomainPreview,
+  buildDomainSetupChecklist,
+  buildSubdomainPreview,
+  customDomainSupportLabel,
+  DNS_GUIDE_ITEMS,
+  isEnterprisePlan,
+  planLabel,
+  resolveSubdomainSuffix,
+  resolveVerificationStatus,
+  subdomainStatusLabel,
+  validateCustomDomain,
+  verificationBadgeClass,
+  verificationStatusLabel,
+} from './domainSettingsPageHelpers';
 
-interface DomainSettings {
-  subdomain: string | null;
-  customDomain: string | null;
-  domainVerified: boolean;
-  verificationRecord: string | null;
+const inputCls =
+  'w-full bg-white border border-slate-200 text-slate-900 text-[13px] px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-300';
+
+function SummaryMetric({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="wn-card px-4 py-3 min-w-[120px] flex-1">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-[15px] font-semibold mt-1 text-slate-900 leading-snug break-words">{value}</p>
+      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
 }
 
-export default function DomainSettings() {
-  const [settings, setSettings] = useState<DomainSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [subdomain, setSubdomain] = useState('');
-  const [customDomain, setCustomDomain] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const response = await api.get('/domain/settings');
-      setSettings(response.data.data);
-      setSubdomain(response.data.data.subdomain || '');
-      setCustomDomain(response.data.data.customDomain || '');
-    } catch (error) {
-      console.error('Failed to fetch domain settings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateSubdomain = async () => {
-    if (!subdomain.trim()) {
-      setMessage({ type: 'error', text: 'Subdomain boş olamaz' });
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const response = await api.put('/domain/subdomain', { subdomain });
-      setSettings(response.data.data);
-      setMessage({ type: 'success', text: 'Subdomain başarıyla güncellendi' });
-    } catch (error: any) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Subdomain güncellenemedi' 
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddCustomDomain = async () => {
-    if (!customDomain.trim()) {
-      setMessage({ type: 'error', text: 'Domain boş olamaz' });
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const response = await api.post('/domain/custom', { customDomain });
-      setSettings(response.data.data);
-      setMessage({ 
-        type: 'success', 
-        text: 'Custom domain eklendi. Lütfen DNS ayarlarını yapın.' 
-      });
-    } catch (error: any) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Domain eklenemedi' 
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleVerifyDomain = async () => {
-    setVerifying(true);
-    setMessage(null);
-
-    try {
-      const response = await api.post('/domain/verify');
-      if (response.data.verified) {
-        await fetchSettings();
-        setMessage({ type: 'success', text: 'Domain başarıyla doğrulandı!' });
-      } else {
-        setMessage({ 
-          type: 'error', 
-          text: response.data.message || 'Domain doğrulanamadı' 
-        });
-      }
-    } catch (error: any) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Doğrulama başarısız' 
-      });
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleRemoveCustomDomain = async () => {
-    if (!confirm('Custom domain\'i kaldırmak istediğinizden emin misiniz?')) {
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      await api.delete('/domain/custom');
-      await fetchSettings();
-      setCustomDomain('');
-      setMessage({ type: 'success', text: 'Custom domain kaldırıldı' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Domain kaldırılamadı' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+function Panel({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
+  return (
+    <div className="wn-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h2 className="text-[13px] font-semibold text-slate-800">{title}</h2>
+        {desc && <p className="text-[12px] text-slate-500 mt-0.5">{desc}</p>}
       </div>
-    );
-  }
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+  return (
+    <div>
+      <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+        {label}
+      </label>
+      {children}
+      {hint && <p className="mt-1.5 text-[11px] text-slate-400">{hint}</p>}
+    </div>
+  );
+}
+
+function SaveButton({ saving, onClick, disabled, label = 'Kaydet' }: {
+  saving: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={saving || disabled}
+      className="btn btn-primary text-[13px] inline-flex items-center gap-2"
+    >
+      {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+      {saving ? 'Kaydediliyor…' : label}
+    </button>
+  );
+}
+
+function DomainPreviewPanel({ settings }: { settings: TenantDomainSettings }) {
+  const preview = buildDomainPreview(settings);
 
   return (
-    <div className="space-y-8 p-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Domain Ayarları</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Subdomain ve custom domain yönetimi</p>
-      </div>
-
-      {message && (
-        <div className={`p-4 rounded-xl ${
-          message.type === 'success' 
-            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
-            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Subdomain Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Subdomain</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Mağazanız için benzersiz bir subdomain seçin
-        </p>
-
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={subdomain}
-                onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
-                placeholder="mystore"
-                className="flex-1 px-4 py-2 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <span className="text-gray-500 dark:text-gray-400">.localhost</span>
+    <Panel title="Domain önizleme" desc="Müşterilerin mağazanıza erişeceği adresler">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <Globe className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-2">
+            <div>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">Aktif vitrin</p>
+              {preview.primaryHref ? (
+                <a
+                  href={preview.primaryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 break-all inline-flex items-center gap-1 mt-0.5"
+                >
+                  {preview.primaryLabel}
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
+              ) : (
+                <p className="text-[13px] font-semibold text-slate-700 mt-0.5">{preview.primaryLabel}</p>
+              )}
             </div>
-            {settings?.subdomain && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Mevcut: <span className="font-medium">{settings.subdomain}.localhost</span>
+            <div>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">Subdomain / alternatif</p>
+              {preview.secondaryHref ? (
+                <a
+                  href={preview.secondaryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[12px] text-slate-600 hover:text-indigo-600 break-all inline-flex items-center gap-1 mt-0.5"
+                >
+                  {preview.secondaryLabel}
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                </a>
+              ) : (
+                <p className="text-[12px] text-slate-600 mt-0.5">{preview.secondaryLabel}</p>
+              )}
+            </div>
+            {preview.inactiveNote && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                {preview.inactiveNote}
               </p>
             )}
           </div>
-          <button
-            onClick={handleUpdateSubdomain}
-            disabled={saving || subdomain === settings?.subdomain}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-xl font-medium transition"
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </button>
         </div>
       </div>
+    </Panel>
+  );
+}
 
-      {/* Custom Domain Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Custom Domain</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Kendi domain adınızı kullanın (Enterprise plan gerektirir)
-            </p>
-          </div>
-          <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-xs font-medium">
-            Enterprise
-          </span>
-        </div>
-
-        {!settings?.customDomain ? (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={customDomain}
-                onChange={(e) => setCustomDomain(e.target.value.toLowerCase())}
-                placeholder="www.mydomain.com"
-                className="flex-1 px-4 py-2 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                onClick={handleAddCustomDomain}
-                disabled={saving}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-xl font-medium transition"
-              >
-                {saving ? 'Ekleniyor...' : 'Ekle'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">{settings.customDomain}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {settings.domainVerified ? (
-                    <>
-                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-green-600 dark:text-green-400">Doğrulandı</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <span className="text-sm text-yellow-600 dark:text-yellow-400">Doğrulama bekleniyor</span>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {!settings.domainVerified && (
-                  <button
-                    onClick={handleVerifyDomain}
-                    disabled={verifying}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition"
-                  >
-                    {verifying ? 'Doğrulanıyor...' : 'Doğrula'}
-                  </button>
-                )}
-                <button
-                  onClick={handleRemoveCustomDomain}
-                  disabled={saving}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition"
-                >
-                  Kaldır
-                </button>
-              </div>
-            </div>
-
-            {!settings.domainVerified && settings.verificationRecord && (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                <h3 className="font-medium text-gray-900 dark:text-white mb-2">DNS Ayarları</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Domain'inizi doğrulamak için aşağıdaki TXT kaydını DNS ayarlarınıza ekleyin:
-                </p>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg font-mono text-sm">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Type:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">TXT</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Name:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">@</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Value:</span>
-                      <p className="font-medium text-gray-900 dark:text-white break-all">
-                        {settings.verificationRecord}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                  DNS değişikliklerinin yayılması 24-48 saat sürebilir.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Info Section */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-400 mb-2">Domain Nasıl Çalışır?</h3>
-        <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-300">
-          <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span><strong>Subdomain:</strong> Ücretsiz, anında aktif (örn: mystore.localhost)</span>
+function SetupChecklistPanel({ settings, plan }: { settings: TenantDomainSettings; plan: PlanTier }) {
+  const items = buildDomainSetupChecklist(settings, plan);
+  return (
+    <Panel title="Domain durum kontrolü">
+      <ul className="space-y-2">
+        {items.map(item => (
+          <li key={item.key} className="flex items-center gap-2.5 text-[13px]">
+            <CheckCircle className={`w-4 h-4 shrink-0 ${item.done ? 'text-emerald-500' : 'text-slate-300'}`} />
+            <span className={item.done ? 'text-slate-700' : 'text-slate-500'}>{item.label}</span>
           </li>
-          <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span><strong>Custom Domain:</strong> Enterprise plan, DNS doğrulama gerektirir</span>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function DnsGuidePanel({ hasCustomDomain }: { hasCustomDomain: boolean }) {
+  return (
+    <Panel title="DNS kurulum rehberi" desc="Özel domain bağlantısı için genel bilgiler">
+      <ul className="space-y-2 text-[12px] text-slate-600 leading-relaxed">
+        {DNS_GUIDE_ITEMS.map(item => (
+          <li key={item} className="flex gap-2">
+            <Link2 className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <span>{item}</span>
           </li>
-          <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Her tenant için sadece bir subdomain ve bir custom domain kullanılabilir</span>
-          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-[11px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2.5">
+        {hasCustomDomain
+          ? 'DNS kayıt değerleri doğrulama altyapısı tamamlandığında bu alanda gösterilecektir.'
+          : 'DNS kayıt bilgileri custom domain altyapısı aktif edildiğinde gösterilecektir.'}
+      </p>
+    </Panel>
+  );
+}
+
+function InfoPanel() {
+  return (
+    <Panel title="Bilgilendirme">
+      <div className="flex gap-3">
+        <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+        <ul className="space-y-2 text-[12px] text-slate-600 leading-relaxed">
+          <li>Vitrin linki slug veya subdomain ile <code className="text-[11px]">?tenant=</code> parametresi üzerinden çalışır.</li>
+          <li>Subdomain mağaza oluşturulurken atanır; panelden değiştirme sonraki fazda eklenecektir.</li>
+          <li>Özel domain yönetimi Enterprise plan kapsamındadır.</li>
         </ul>
       </div>
+    </Panel>
+  );
+}
+
+export default function DomainSettings() {
+  const { plan } = useFeatureContext();
+  const { refresh: refreshBranding } = useBranding();
+
+  const [settings, setSettings] = useState<TenantDomainSettings | null>(null);
+  const [customDomainInput, setCustomDomainInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [savingCustom, setSavingCustom] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const enterprise = isEnterprisePlan(plan);
+  const verificationStatus = settings ? resolveVerificationStatus(settings) : 'none';
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fetchDomainSettings();
+      setSettings(data);
+      setCustomDomainInput(data.customDomain ?? '');
+    } catch (e: unknown) {
+      setLoadError(getErrorMessage(e));
+      setSettings(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const customDomainError = useMemo(() => {
+    if (!customDomainInput.trim()) return null;
+    return validateCustomDomain(customDomainInput);
+  }, [customDomainInput]);
+
+  const saveCustom = async () => {
+    if (!enterprise) return;
+    const err = validateCustomDomain(customDomainInput);
+    if (err) {
+      toast.error(err);
+      return;
+    }
+
+    setSavingCustom(true);
+    try {
+      const updated = await saveCustomDomain(customDomainInput.trim().toLowerCase());
+      setSettings(updated);
+      setCustomDomainInput(updated.customDomain ?? '');
+      await refreshBranding();
+      toast.success('Özel domain kaydedildi. DNS doğrulaması tamamlandığında aktif olur.');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setSavingCustom(false);
+    }
+  };
+
+  const removeCustom = async () => {
+    if (!enterprise || !settings?.customDomain) return;
+    if (!window.confirm('Özel domain kaydını kaldırmak istediğinize emin misiniz?')) return;
+
+    setSavingCustom(true);
+    try {
+      const updated = await saveCustomDomain(null);
+      setSettings(updated);
+      setCustomDomainInput('');
+      await refreshBranding();
+      toast.success('Özel domain kaldırıldı.');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setSavingCustom(false);
+    }
+  };
+
+  const suffix = resolveSubdomainSuffix();
+  const subdomainPreview = settings?.subdomain
+    ? buildSubdomainPreview(settings.subdomain)
+    : settings?.storefrontSlug
+      ? buildSubdomainPreview(settings.storefrontSlug)
+      : 'Henüz tanımlı değil';
+
+  return (
+    <div className="w-full space-y-6 pb-10 page-enter">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+          Domain Ayarları
+        </h1>
+        <p className="text-[13px] text-slate-500 mt-1 max-w-2xl leading-relaxed">
+          Mağazanızın vitrin adresini, subdomain bilgisini ve özel domain yapılandırmasını yönetin.
+        </p>
+      </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
+          {loadError}
+          <button type="button" onClick={() => void load()} className="ml-3 font-semibold underline hover:no-underline">
+            Tekrar dene
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <SummaryMetric
+          label="Aktif Domain"
+          value={loading ? '…' : settings ? activeDomainLabel(settings) : '—'}
+          sub={settings?.customDomain && settings.domainVerified ? 'Özel domain aktif' : 'Vitrin slug/subdomain'}
+        />
+        <SummaryMetric
+          label="Subdomain Durumu"
+          value={loading ? '…' : settings ? subdomainStatusLabel(settings) : '—'}
+          sub={settings?.subdomain ? subdomainPreview : 'Panelden değiştirilemez'}
+        />
+        <SummaryMetric
+          label="Custom Domain Durumu"
+          value={loading ? '…' : settings ? customDomainSupportLabel(plan, settings) : '—'}
+          sub={loading ? undefined : verificationStatusLabel(verificationStatus)}
+        />
+        <SummaryMetric
+          label="Plan Yetkisi"
+          value={loading ? '…' : planLabel(plan)}
+          sub={enterprise ? 'Özel domain desteklenir' : 'Özel domain için yükseltme gerekir'}
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        </div>
+      ) : settings ? (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+          <div className="xl:col-span-2 space-y-6">
+            {/* Subdomain — read-only; no tenant save endpoint */}
+            <Panel
+              title="Subdomain Ayarı"
+              desc="Mağaza oluşturulurken atanan subdomain bilgisi"
+            >
+              <div className="space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-[12px] text-slate-600">
+                  Subdomain değişikliği şu an panelden desteklenmiyor. Vitrin erişimi slug/subdomain
+                  tanımlayıcısı ile sağlanır.
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Subdomain" hint="Kayıt sırasında atanır">
+                    <input
+                      className={`${inputCls} bg-slate-50 text-slate-600`}
+                      value={settings.subdomain ?? ''}
+                      readOnly
+                      placeholder="Henüz tanımlı değil"
+                    />
+                  </Field>
+                  <Field label="Vitrin tanımlayıcı (slug)" hint="Checkout ve vitrin linklerinde kullanılır">
+                    <input
+                      className={`${inputCls} bg-slate-50 text-slate-600`}
+                      value={settings.storefrontSlug ?? ''}
+                      readOnly
+                      placeholder="Henüz tanımlı değil"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Subdomain önizleme" hint={`Yerel ortamda ${suffix} kullanılır`}>
+                  <input
+                    className={`${inputCls} bg-slate-50 font-mono text-slate-700`}
+                    value={subdomainPreview}
+                    readOnly
+                  />
+                </Field>
+              </div>
+            </Panel>
+
+            {/* Custom domain */}
+            <Panel
+              title="Custom Domain Ayarı"
+              desc="Kendi alan adınızla vitrin (Enterprise)"
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    <Crown className="w-3 h-3" />
+                    Enterprise
+                  </span>
+                  {!enterprise && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                      Planlandı — plan yükseltme gerekir
+                    </span>
+                  )}
+                  {settings.customDomain && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${verificationBadgeClass(verificationStatus)}`}>
+                      {verificationStatusLabel(verificationStatus)}
+                    </span>
+                  )}
+                </div>
+
+                {!enterprise ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                    <div className="flex gap-3">
+                      <Lock className="w-5 h-5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[13px] font-medium text-slate-800">
+                          Custom domain yönetimi Enterprise plan gerektirir
+                        </p>
+                        <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">
+                          Özel alan adı ekleme ve DNS doğrulama sonraki fazda tüm Enterprise
+                          mağazalar için aktif edilecektir. Şimdilik vitrin slug linkinizi kullanın.
+                        </p>
+                        <Link
+                          to="/dashboard/billing"
+                          className="inline-flex items-center gap-1 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700 mt-2"
+                        >
+                          Planı yükselt
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[12px] text-slate-500 leading-relaxed">
+                      Domain kaydedildikten sonra DNS doğrulaması tamamlanana kadar vitrin slug
+                      linki kullanılmaya devam eder. Otomatik doğrulama kontrolü sonraki fazda
+                      eklenecektir.
+                    </p>
+
+                    <Field
+                      label="Özel domain"
+                      hint={customDomainError ?? 'Örn. shop.firmaniz.com'}
+                    >
+                      <input
+                        className={`${inputCls} font-mono ${customDomainError ? 'border-orange-300' : ''}`}
+                        value={customDomainInput}
+                        onChange={e => setCustomDomainInput(e.target.value.toLowerCase())}
+                        placeholder="shop.firmaniz.com"
+                        disabled={savingCustom}
+                      />
+                    </Field>
+
+                    {settings.customDomain && (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[13px] font-medium text-slate-800 font-mono">
+                            {settings.customDomain}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {settings.domainVerified
+                              ? 'Domain doğrulandı ve vitrinde kullanılabilir.'
+                              : 'DNS doğrulaması bekleniyor.'}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${verificationBadgeClass(verificationStatus)}`}>
+                          {verificationStatusLabel(verificationStatus)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <SaveButton
+                        saving={savingCustom}
+                        onClick={() => void saveCustom()}
+                        disabled={Boolean(customDomainError) || !customDomainInput.trim()}
+                        label={settings.customDomain ? 'Güncelle' : 'Kaydet'}
+                      />
+                      {settings.customDomain && (
+                        <button
+                          type="button"
+                          onClick={() => void removeCustom()}
+                          disabled={savingCustom}
+                          className="px-4 py-2 text-[13px] font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 disabled:opacity-50"
+                        >
+                          Kaldır
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </Panel>
+          </div>
+
+          <div className="space-y-6">
+            <DomainPreviewPanel settings={settings} />
+            <SetupChecklistPanel settings={settings} plan={plan} />
+            <DnsGuidePanel hasCustomDomain={Boolean(settings.customDomain)} />
+            <InfoPanel />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
