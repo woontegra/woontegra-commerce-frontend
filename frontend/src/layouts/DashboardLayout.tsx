@@ -117,7 +117,7 @@ const NAV: NavGroup[] = [
       { label: 'İçe/Dışa Aktar',to: '/dashboard/import-export',       icon: IC.import   },
       { label: 'XML kaynakları', to: '/dashboard/xml-sources',        icon: IC.integrations },
       { label: 'Raporlar',      to: '/dashboard/reports',             icon: IC.reports  },
-      { label: 'Gözlem & Loglar', to: '/dashboard/observability',     icon: IC.admin    },
+      { label: 'İşlem Geçmişi', to: '/dashboard/observability',     icon: IC.admin    },
     ],
   },
   {

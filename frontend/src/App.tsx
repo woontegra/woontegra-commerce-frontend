@@ -40,6 +40,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const DomainSettings = lazy(() => import('./pages/DomainSettings'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Logs = lazy(() => import('./pages/Logs'));
+const Observability = lazy(() => import('./pages/Observability'));
 const Campaigns = lazy(() => import('./pages/Campaigns'));
 const CampaignManagement = lazy(() => import('./pages/CampaignManagement'));
 const CouponManagement = lazy(() => import('./pages/CouponManagement'));
@@ -315,6 +316,7 @@ function App() {
           <Route path="integrations" element={<Integrations />} />
           <Route path="api-tokens" element={<div>API Tokens Page</div>} />
           <Route path="reports"     element={<Reports />} />
+          <Route path="observability" element={<Observability />} />
           <Route 
             path="logs" 
             element={
