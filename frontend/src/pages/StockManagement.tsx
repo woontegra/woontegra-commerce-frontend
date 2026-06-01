@@ -1,193 +1,343 @@
-import { useState } from 'react';
-import type { Stock } from '../types/stock';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  countByStatus,
+  loadStockTableRows,
+  type StockTableRow,
+} from '../utils/stockPageRows';
+import type { StockStatus } from '../types/stock';
 import { stockManagementService } from '../services/stockManagement.service';
-import StockBadge from '../components/stock/StockBadge';
-import StockUpdateForm from '../components/stock/StockUpdateForm';
-import Button from '../components/ui/Button';
+import { Table } from '../components/ui/Table';
+
+// ─── Labels ───────────────────────────────────────────────────────────────────
+
+const STATUS_STYLE: Record<StockStatus, string> = {
+  in_stock:     'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100',
+  low_stock:    'bg-amber-50 text-amber-800 ring-1 ring-amber-100',
+  out_of_stock: 'bg-red-50 text-red-800 ring-1 ring-red-100',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    day:    '2-digit',
+    month:  'short',
+    year:   'numeric',
+    hour:   '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+function matchesSearch(row: StockTableRow, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    row.productName,
+    row.sku,
+    row.variantLabel,
+    row.id,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
+function matchesStatusFilter(row: StockTableRow, filter: string): boolean {
+  if (!filter) return true;
+  return row.status === filter;
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+
+function SummaryMetric({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
+  return (
+    <div className="wn-card px-4 py-3 min-w-[120px] flex-1">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className={`text-xl font-semibold mt-1 tabular-nums ${tone ?? 'text-slate-900'}`}>{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: StockStatus }) {
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${STATUS_STYLE[status]}`}>
+      {stockManagementService.getStatusLabel(status)}
+    </span>
+  );
+}
+
+function TableEmptyState({ loadFailed }: { loadFailed: boolean }) {
+  return (
+    <div className="empty-state py-14 px-6">
+      <div className="empty-state-icon">
+        <svg className="w-10 h-10 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      </div>
+      <p className="empty-state-title">
+        {loadFailed
+          ? 'Stok yönetimi için gerçek ürün verisi bulunamadı.'
+          : 'Henüz stok takibi yapılacak ürün bulunmuyor.'}
+      </p>
+      <p className="empty-state-desc mx-auto">
+        Ürünlerinizde stok bilgisi tanımlandığında bu sayfada stok durumu, düşük stok uyarıları
+        ve tükenen ürünler listelenecektir.
+      </p>
+    </div>
+  );
+}
+
+function FilteredEmptyState() {
+  return (
+    <div className="empty-state py-12 px-6">
+      <p className="empty-state-title">Filtrelere uygun stok kaydı bulunamadı</p>
+      <p className="empty-state-desc mx-auto">Arama veya durum filtresini değiştirerek tekrar deneyin.</p>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StockManagement() {
-  const [stocks, setStocks] = useState<Stock[]>([
+  const [rows, setRows]               = useState<StockTableRow[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [loadFailed, setLoadFailed]   = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery]   = useState('');
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const result = await loadStockTableRows();
+      setRows(result.rows);
+      setLoadFailed(result.loadFailed);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const stats = useMemo(() => countByStatus(rows), [rows]);
+
+  const filteredRows = useMemo(
+    () => rows.filter(r => matchesStatusFilter(r, statusFilter) && matchesSearch(r, searchQuery)),
+    [rows, statusFilter, searchQuery],
+  );
+
+  const hasActiveFilters = Boolean(statusFilter || searchQuery.trim());
+  const showGlobalEmpty  = !loading && rows.length === 0;
+  const showFilteredEmpty = !loading && rows.length > 0 && filteredRows.length === 0;
+
+  const columns = useMemo(() => [
     {
-      id: 'stock-1',
-      productId: 'prod-1',
-      sku: 'TSHIRT-001',
-      quantity: 50,
-      reservedQuantity: 5,
-      availableQuantity: 45,
-      lowStockThreshold: 10,
-      status: 'in_stock',
-      updatedAt: new Date().toISOString(),
+      key:    'product',
+      header: 'Ürün',
+      cell:   (r: StockTableRow) => (
+        <div className="min-w-[160px]">
+          <p className="font-medium text-slate-900">{r.productName}</p>
+          {r.variantId && (
+            <p className="text-[11px] text-slate-500 mt-0.5">{r.variantLabel}</p>
+          )}
+        </div>
+      ),
     },
     {
-      id: 'stock-2',
-      productId: 'prod-2',
-      sku: 'PANTS-001',
-      quantity: 8,
-      reservedQuantity: 2,
-      availableQuantity: 6,
-      lowStockThreshold: 10,
-      status: 'low_stock',
-      updatedAt: new Date().toISOString(),
+      key:    'sku',
+      header: 'SKU',
+      cell:   (r: StockTableRow) => (
+        <span className="font-mono text-[12px] text-slate-700">{r.sku ?? '—'}</span>
+      ),
     },
     {
-      id: 'stock-3',
-      productId: 'prod-3',
-      sku: 'SHOES-001',
-      quantity: 3,
-      reservedQuantity: 3,
-      availableQuantity: 0,
-      lowStockThreshold: 5,
-      status: 'out_of_stock',
-      updatedAt: new Date().toISOString(),
+      key:    'variant',
+      header: 'Varyant',
+      cell:   (r: StockTableRow) => (
+        <span className="text-[13px] text-slate-600">
+          {r.variantId ? r.variantLabel : r.variantLabel ?? '—'}
+        </span>
+      ),
     },
-  ]);
-
-  const [editingStock, setEditingStock] = useState<Stock | null>(null);
-
-  const handleStockUpdate = (updatedStock: Stock) => {
-    setStocks(stocks.map(s => s.id === updatedStock.id ? updatedStock : s));
-    setEditingStock(null);
-  };
-
-  const lowStockCount = stockManagementService.getLowStockProducts(stocks).length;
-  const outOfStockCount = stockManagementService.getOutOfStockProducts(stocks).length;
+    {
+      key:    'status',
+      header: 'Durum',
+      cell:   (r: StockTableRow) => <StatusBadge status={r.status} />,
+    },
+    {
+      key:    'total',
+      header: 'Toplam Stok',
+      align:  'right' as const,
+      cell:   (r: StockTableRow) => (
+        <span className="tabular-nums font-medium text-slate-900">{r.totalStock}</span>
+      ),
+    },
+    {
+      key:    'reserved',
+      header: 'Rezerve',
+      align:  'right' as const,
+      cell:   () => (
+        <span className="text-[12px] text-slate-400">Takip edilmiyor</span>
+      ),
+    },
+    {
+      key:    'available',
+      header: 'Kullanılabilir',
+      align:  'right' as const,
+      cell:   (r: StockTableRow) => (
+        <span className="tabular-nums font-medium text-slate-800">{r.available}</span>
+      ),
+    },
+    {
+      key:    'threshold',
+      header: 'Eşik',
+      align:  'right' as const,
+      cell:   (r: StockTableRow) => (
+        r.threshold != null
+          ? <span className="tabular-nums text-slate-700">{r.threshold}</span>
+          : <span className="text-[12px] text-slate-400">Tanımlanmamış</span>
+      ),
+    },
+    {
+      key:    'activity',
+      header: 'Son Aktivite',
+      cell:   (r: StockTableRow) => (
+        <span className="text-slate-600 whitespace-nowrap text-[13px]">{fmtDate(r.updatedAt)}</span>
+      ),
+    },
+    {
+      key:    'action',
+      header: 'İşlem',
+      align:  'right' as const,
+      cell:   (r: StockTableRow) => (
+        <Link
+          to={`/dashboard/products/${r.productId}/edit`}
+          className="text-indigo-600 font-medium hover:text-indigo-800 hover:underline text-[13px]"
+        >
+          Ürüne git
+        </Link>
+      ),
+    },
+  ], []);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Stok Yönetimi
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Ürün stoklarını yönetin ve takip edin
-        </p>
+    <div className="w-full space-y-6 pb-10 page-enter">
+
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            Stok Yönetimi
+          </h1>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-xl leading-relaxed">
+            Ürün stoklarını takip edin; düşük stok ve tükenen ürünleri görün.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => load(true)}
+          disabled={loading || refreshing}
+          className="btn btn-secondary shrink-0 self-start"
+        >
+          {refreshing ? 'Yenileniyor…' : 'Yenile'}
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="stat-card">
-          <p className="stat-label">Toplam Ürün</p>
-          <p className="stat-value">{stocks.length}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">Stokta</p>
-          <p className="stat-value text-green-600">{stocks.filter(s => s.status === 'in_stock').length}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">Düşük Stok</p>
-          <p className="stat-value text-yellow-600">{lowStockCount}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">Tükendi</p>
-          <p className="stat-value text-red-600">{outOfStockCount}</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <SummaryMetric label="Toplam Kayıt" value={stats.total} />
+        <SummaryMetric label="Stokta" value={stats.inStock} tone="text-emerald-700" />
+        <SummaryMetric label="Düşük Stok" value={stats.lowStock} tone="text-amber-700" />
+        <SummaryMetric label="Tükendi" value={stats.outOfStock} tone="text-red-700" />
       </div>
 
-      {/* Alerts */}
-      {(lowStockCount > 0 || outOfStockCount > 0) && (
+      {(stats.lowStock > 0 || stats.outOfStock > 0) && (
         <div className="space-y-3">
-          {lowStockCount > 0 && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="font-medium text-yellow-900 dark:text-yellow-100">
-                    {lowStockCount} ürün düşük stokta
-                  </p>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                    Stok yenilemesi yapmanız önerilir
-                  </p>
-                </div>
-              </div>
+          {stats.lowStock > 0 && (
+            <div className="wn-card px-4 py-3 border-amber-100 bg-amber-50/50 flex items-start gap-3">
+              <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-[13px] text-amber-900">
+                <span className="font-medium">{stats.lowStock} kayıt</span> düşük stokta
+                {rows.some(r => r.threshold == null) && (
+                  <span className="text-amber-800/80"> (eşik tanımlı olmayan ürünlerde yalnızca stok miktarı gösterilir)</span>
+                )}
+              </p>
             </div>
           )}
-
-          {outOfStockCount > 0 && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="font-medium text-red-900 dark:text-red-100">
-                    {outOfStockCount} ürün stokta yok
-                  </p>
-                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                    Bu ürünler satışa kapalı
-                  </p>
-                </div>
-              </div>
+          {stats.outOfStock > 0 && (
+            <div className="wn-card px-4 py-3 border-red-100 bg-red-50/50 flex items-start gap-3">
+              <svg className="w-4 h-4 text-red-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-[13px] text-red-900">
+                <span className="font-medium">{stats.outOfStock} kayıt</span> stokta yok
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Stock Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-4 py-3 text-left table-header">SKU</th>
-                <th className="px-4 py-3 text-left table-header">Durum</th>
-                <th className="px-4 py-3 text-right table-header">Toplam Stok</th>
-                <th className="px-4 py-3 text-right table-header">Rezerve</th>
-                <th className="px-4 py-3 text-right table-header">Kullanılabilir</th>
-                <th className="px-4 py-3 text-right table-header">Eşik</th>
-                <th className="px-4 py-3 text-right table-header">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {stocks.map((stock) => (
-                <tr key={stock.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                  <td className="px-4 py-3 table-cell font-medium">{stock.sku}</td>
-                  <td className="px-4 py-3">
-                    <StockBadge stock={stock} />
-                  </td>
-                  <td className="px-4 py-3 text-right table-cell font-semibold">{stock.quantity}</td>
-                  <td className="px-4 py-3 text-right table-cell text-yellow-600 dark:text-yellow-400">
-                    {stock.reservedQuantity}
-                  </td>
-                  <td className="px-4 py-3 text-right table-cell font-semibold text-green-600 dark:text-green-400">
-                    {stock.availableQuantity}
-                  </td>
-                  <td className="px-4 py-3 text-right table-cell text-gray-500">
-                    {stock.lowStockThreshold}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setEditingStock(stock)}
-                    >
-                      Güncelle
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="wn-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Ürün adı veya SKU ara…"
+                className="wn-input w-full"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="wn-select sm:w-44"
+              aria-label="Durum filtresi"
+            >
+              <option value="">Tüm durumlar</option>
+              <option value="in_stock">Stokta</option>
+              <option value="low_stock">Düşük stok</option>
+              <option value="out_of_stock">Tükendi</option>
+            </select>
+          </div>
+          {hasActiveFilters && !loading && (
+            <p className="text-[12px] text-slate-500 mt-2">
+              {filteredRows.length} kayıt gösteriliyor
+            </p>
+          )}
+        </div>
+
+        <div className="px-2 sm:px-3 pb-2">
+          <Table
+            data={filteredRows}
+            columns={columns}
+            keyExtractor={r => r.id}
+            loading={loading}
+            emptyState={
+              showGlobalEmpty
+                ? <TableEmptyState loadFailed={loadFailed} />
+                : showFilteredEmpty
+                  ? <FilteredEmptyState />
+                  : undefined
+            }
+          />
         </div>
       </div>
 
-      {/* Update Modal */}
-      {editingStock && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Stok Güncelle - {editingStock.sku}
-            </h3>
-            <StockUpdateForm
-              stock={editingStock}
-              onUpdate={handleStockUpdate}
-              onCancel={() => setEditingStock(null)}
-            />
-          </div>
-        </div>
-      )}
+      <p className="text-[12px] text-slate-400 text-center">
+        Stok güncelleme bu sayfadan yapılmaz; ürün düzenleme ekranından yönetilir.
+      </p>
     </div>
   );
 }
