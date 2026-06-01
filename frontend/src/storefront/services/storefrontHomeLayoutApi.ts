@@ -1,4 +1,5 @@
 import { storePublicClient } from '../../services/storePublicApi';
+import { normalizeLayout } from '../../pages/storefrontBuilderHelpers';
 import type { StorefrontLayout } from '../../types/storefrontBuilder.types';
 
 type HomeLayoutResponse = {
@@ -33,7 +34,7 @@ export async function getStorefrontHomeLayout(
     if (!layout || !Array.isArray(layout.sections)) {
       return { layout: null, tenant: body.tenant ?? null };
     }
-    return { layout, tenant: body.tenant ?? null };
+    return { layout: normalizeLayout(layout), tenant: body.tenant ?? null };
   } catch {
     return { layout: null, tenant: null };
   }

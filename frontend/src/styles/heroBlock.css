@@ -1,0 +1,25 @@
+.hero-block-height {
+  min-height: var(--hero-h-mobile, 460px);
+}
+
+@media (min-width: 768px) {
+  .hero-block-height {
+    min-height: var(--hero-h-tablet, 560px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-block-height {
+    min-height: var(--hero-h-desktop, 700px);
+  }
+}
+
+.hero-block-height--fullscreen {
+  min-height: 80vh;
+}
+
+@media (min-width: 1024px) {
+  .hero-block-height--fullscreen {
+    min-height: calc(100vh - 4rem);
+  }
+}

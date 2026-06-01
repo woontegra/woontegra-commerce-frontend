@@ -1,4 +1,5 @@
 import type { StorefrontBlockType, StorefrontLayout, StorefrontSection } from '../types/storefrontBuilder.types';
+import { mergeHeroSettings } from '../utils/heroBlockHelpers';
 import { buildHeroLayerProps } from '../utils/storefrontImageLayout';
 
 export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
@@ -46,32 +47,86 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         subtitle: 'Öne çıkan ürünleri ve kampanyaları keşfedin',
         buttonText: 'Alışverişe Başla',
         buttonUrl: '/store/urunler',
+        primaryButtonEnabled: true,
+        primaryButtonText: 'Alışverişe Başla',
+        primaryButtonUrl: '/store/urunler',
+        primaryButtonBgColor: '#ffffff',
+        primaryButtonTextColor: '#4f46e5',
+        primaryButtonVariant: 'solid',
+        primaryButtonRadius: 'soft',
+        secondaryButtonEnabled: false,
+        secondaryButtonText: '',
+        secondaryButtonUrl: '',
+        secondaryButtonVariant: 'outline',
+        secondaryButtonBgColor: 'transparent',
+        secondaryButtonTextColor: '#ffffff',
         imageUrl: '',
+        imageTone: 'original',
+        imageFocalPoint: 'center',
+        contentPlacement: 'center',
+        heightPreset: 'wide',
+        heightCustomEnabled: false,
+        heightDesktopPx: 700,
+        heightTabletPx: 560,
+        heightMobilePx: 460,
+        heightPx: 700,
+        contentWidthPreset: 'medium',
+        contentMaxWidthPx: 720,
+        overlayPreset: 'none',
+        titleSizePreset: 'md',
+        subtitleSizePreset: 'md',
+        buttonGroupAlign: 'center',
+        primaryButtonSize: 'md',
+        secondaryButtonSize: 'md',
         alignment: 'center',
+        contentAlign: 'center',
+        contentVerticalAlign: 'center',
+        contentWidth: 'md',
+        contentBoxEnabled: false,
+        contentBoxStyle: 'none',
+        contentBoxColor: '#000000',
+        contentBoxOpacity: 40,
+        widthMode: 'full',
         backgroundType: 'gradient',
         backgroundColor: '#4f46e5',
         textColor: '#ffffff',
+        titleColor: '#ffffff',
+        subtitleColor: '#ffffff',
+        titleSize: 'md',
+        titleWeight: 'bold',
+        titleLineHeight: 1.15,
+        titleLetterSpacing: 0,
+        subtitleSize: 'md',
+        textMaxWidth: 'md',
         imageFit: 'cover',
         imagePosition: 'center',
-        overlayEnabled: true,
-        overlayColor: '#4f46e5',
-        overlayOpacity: 30,
-        height: 'medium',
+        overlayEnabled: false,
+        overlayColor: '#000000',
+        overlayOpacity: 0,
+        height: 'wide',
+        heightMode: 'wide',
+        secondaryButtonRadius: 'soft',
       };
     case 'categoryGrid':
       return {
         title: 'Kategoriler',
         limit: 8,
         showImages: true,
+        showTitle: true,
         columns: 4,
+        displayMode: 'grid',
+        widthMode: 'container',
         viewAllLabel: 'Tüm kategorileri göster',
       };
     case 'featuredProducts':
       return {
         title: 'Öne Çıkan Ürünler',
         limit: 8,
+        columns: 4,
         source: 'featured',
-        cardStyle: 'card',
+        displayMode: 'grid',
+        widthMode: 'container',
+        cardStyle: 'standard',
         showPrice: true,
         showAddToCart: true,
       };
@@ -84,6 +139,9 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         imageUrl: '',
         backgroundColor: '#fffbeb',
         textColor: '#78350f',
+        widthMode: 'container',
+        heightMode: 'medium',
+        textPosition: 'left',
         imageFit: 'cover',
         imagePosition: 'right',
         overlayEnabled: false,
@@ -111,7 +169,11 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
 }
 
 export function mergeSectionSettings(type: string, raw: Record<string, unknown>): Record<string, unknown> {
-  return { ...defaultSettingsForType(type), ...raw };
+  const merged = { ...defaultSettingsForType(type), ...raw };
+  if (type === 'hero') {
+    mergeHeroSettings(raw, merged);
+  }
+  return merged;
 }
 
 export function parseTrustBadges(raw: string): TrustBadgeItem[] {
@@ -227,4 +289,4 @@ export function heroBackgroundStyle(
   return { style, hasImageOverlay: Boolean(imageLayerStyle) };
 }
 
-export { buildHeroLayerProps, buildBannerImageLayerProps, objectFitClass } from '../utils/storefrontImageLayout';
+export { buildHeroLayerProps, buildBannerImageLayerProps, objectFitClass, bannerHeightClass, featuredGridColumnsClass, sectionWidthClass, mapProductCardVariant } from '../utils/storefrontImageLayout';

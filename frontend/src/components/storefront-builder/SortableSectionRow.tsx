@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Pencil, Trash2 } from 'lucide-react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
-import { blockLabel, isKnownBlockType } from '../../pages/storefrontBuilderHelpers';
+import { blockLabel } from '../../pages/storefrontBuilderHelpers';
 
 interface SortableSectionRowProps {
   section: StorefrontSection;
@@ -31,17 +31,15 @@ export default function SortableSectionRow({
     opacity: isDragging ? 0.55 : 1,
   };
 
-  const known = isKnownBlockType(section.type);
-
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors ${
+      className={`group flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-all ${
         isSelected
-          ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200'
-          : 'border-slate-200 bg-white hover:border-slate-300'
-      } ${!section.enabled ? 'opacity-60' : ''}`}
+          ? 'border-indigo-400 bg-indigo-50 shadow-sm ring-2 ring-indigo-200/80'
+          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+      } ${!section.enabled ? 'opacity-55' : ''}`}
     >
       <button
         type="button"
@@ -53,19 +51,9 @@ export default function SortableSectionRow({
         <GripVertical className="w-4 h-4" />
       </button>
 
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex-1 min-w-0 text-left"
-      >
-        <p className="text-[13px] font-medium text-slate-800 truncate">{blockLabel(section.type)}</p>
-        <span
-          className={`inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-            known ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'
-          }`}
-        >
-          {section.type}
-        </span>
+      <button type="button" onClick={onSelect} className="flex-1 min-w-0 text-left">
+        <p className="text-[12px] font-semibold text-slate-800 truncate">{blockLabel(section.type)}</p>
+        <p className="text-[10px] text-slate-500 truncate mt-0.5">{section.type}</p>
       </button>
 
       <label className="flex-shrink-0 flex items-center gap-1.5" title={section.enabled ? 'Aktif' : 'Pasif'}>
@@ -75,9 +63,7 @@ export default function SortableSectionRow({
           onChange={e => onToggleEnabled(e.target.checked)}
           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
         />
-        <span className="text-[11px] text-slate-500 hidden sm:inline">
-          {section.enabled ? 'Aktif' : 'Pasif'}
-        </span>
+        <span className="text-[11px] text-slate-500 hidden sm:inline">{section.enabled ? 'Aktif' : 'Pasif'}</span>
       </label>
 
       <button

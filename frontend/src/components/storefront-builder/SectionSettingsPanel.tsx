@@ -1,14 +1,34 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import {
+  BLOCK_DESCRIPTIONS,
   parseTrustBadges,
   serializeTrustBadges,
   type TrustBadgeItem,
 } from '../../pages/storefrontBuilderHelpers';
 import { ColorField, inputCls } from './builderSettingsUi';
+import HeroSettingsPanel from './HeroSettingsPanel';
 import BuilderImageField from './BuilderImageField';
 
 const labelCls = 'block text-[12px] font-medium text-slate-600 mb-1';
+
+function BlockHint({ type }: { type: string }) {
+  const text = BLOCK_DESCRIPTIONS[type];
+  if (!text) return null;
+  return (
+    <p className="text-[11px] text-slate-500 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2">
+      {text}
+    </p>
+  );
+}
+
+function NextPhaseOption({ label }: { label: string }) {
+  return (
+    <option value="" disabled>
+      {label} (Sonraki faz)
+    </option>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -171,10 +191,11 @@ function HeroHeightField({
 }) {
   return (
     <Field label="Hero yüksekliği">
-      <select className={inputCls} value={value || 'medium'} onChange={e => onChange(e.target.value)}>
+      <select className={inputCls} value={value || 'large'} onChange={e => onChange(e.target.value)}>
         <option value="small">Kompakt</option>
         <option value="medium">Standart</option>
         <option value="large">Geniş</option>
+        <option value="fullscreen">Tam ekran</option>
       </select>
     </Field>
   );
@@ -182,6 +203,7 @@ function HeroHeightField({
 
 function BackgroundImageControls({
   set,
+  patch,
   str,
   bool,
   num,
@@ -191,6 +213,7 @@ function BackgroundImageControls({
   imagePositionDefault = 'center',
 }: {
   set: (key: string, value: unknown) => void;
+  patch: (values: Record<string, unknown>) => void;
   str: (key: string, fallback?: string) => string;
   bool: (key: string, fallback?: boolean) => boolean;
   num: (key: string, fallback?: number) => number;
@@ -205,7 +228,10 @@ function BackgroundImageControls({
       <ImageFitField value={str('imageFit', 'cover')} onChange={v => set('imageFit', v)} />
       <ImagePositionField value={str('imagePosition', imagePositionDefault)} onChange={v => set('imagePosition', v)} />
       {showHeight && (
-        <HeroHeightField value={str('height', 'medium')} onChange={v => set('height', v)} />
+        <HeroHeightField
+          value={str('heightMode', str('height', 'large'))}
+          onChange={v => patch({ heightMode: v, height: v })}
+        />
       )}
       <CheckboxField
         label="Overlay açık"
@@ -307,6 +333,11 @@ interface SectionSettingsPanelProps {
 export default function SectionSettingsPanel({ section, onChange }: SectionSettingsPanelProps) {
   const s = section.settings;
   const set = (key: string, value: unknown) => onChange({ [key]: value });
+  const patch = (values: Record<string, unknown>) => onChange(values);
+  const setImageUrl = (url: string) => {
+    if (url.trim()) patch({ imageUrl: url, backgroundType: 'image' });
+    else patch({ imageUrl: url });
+  };
   const str = (key: string, fallback = '') => String(s[key] ?? fallback);
   const num = (key: string, fallback = 8) => {
     const v = s[key];
@@ -321,57 +352,39 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'hero':
       return (
         <div className="space-y-3">
-          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
-          <Field label="Alt başlık"><TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} /></Field>
-          <Field label="Buton metni"><TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} /></Field>
-          <Field label="Buton URL"><TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} /></Field>
-          <Field label="Arka plan tipi">
-            <select className={inputCls} value={str('backgroundType', 'gradient')} onChange={e => set('backgroundType', e.target.value)}>
-              <option value="gradient">Gradient</option>
-              <option value="solid">Düz renk</option>
-              <option value="image">Görsel</option>
-            </select>
-          </Field>
-          <ColorField label="Arka plan rengi" value={str('backgroundColor', '#4f46e5')} onChange={v => set('backgroundColor', v)} />
-          <ColorField label="Metin rengi" value={str('textColor', '#ffffff')} onChange={v => set('textColor', v)} />
-          <BuilderImageField
-            value={str('imageUrl')}
-            onChange={v => set('imageUrl', v)}
-            recommendedSize="1920×700"
-            helperText="Arka plan tipi “Görsel” seçiliyken kullanılır."
-            folder="banners"
-          />
-          {str('backgroundType', 'gradient') === 'image' && (
-            <BackgroundImageControls
-              set={set}
-              str={str}
-              bool={bool}
-              num={num}
-              showHeight
-              showOverlayColor
-            />
-          )}
-          <Field label="Hizalama">
-            <select className={inputCls} value={str('alignment', 'center')} onChange={e => set('alignment', e.target.value)}>
-              <option value="left">Sol</option>
-              <option value="center">Orta</option>
-              <option value="right">Sağ</option>
-            </select>
-          </Field>
+          <BlockHint type="hero" />
+          <HeroSettingsPanel section={section} onChange={onChange} />
         </div>
       );
 
     case 'categoryGrid':
       return (
         <div className="space-y-3">
+          <BlockHint type="categoryGrid" />
           <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
-          <Field label="Limit"><NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} /></Field>
+          <CheckboxField label="Başlık göster" checked={bool('showTitle', true)} onChange={v => set('showTitle', v)} />
+          <Field label="Görünüm tipi">
+            <select className={inputCls} value={str('displayMode', 'grid')} onChange={e => set('displayMode', e.target.value)}>
+              <option value="grid">Grid</option>
+              <option value="list">Yatay liste</option>
+              <NextPhaseOption label="Carousel" />
+            </select>
+          </Field>
+          <Field label="Maksimum kategori sayısı">
+            <NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} />
+          </Field>
           <CheckboxField label="Kategori görsellerini göster" checked={bool('showImages', true)} onChange={v => set('showImages', v)} />
           <Field label="Kolon sayısı">
             <select className={inputCls} value={String(num('columns', 4))} onChange={e => set('columns', Number(e.target.value))}>
               <option value="2">2 kolon</option>
               <option value="3">3 kolon</option>
               <option value="4">4 kolon</option>
+            </select>
+          </Field>
+          <Field label="Genişlik tipi">
+            <select className={inputCls} value={str('widthMode', 'container')} onChange={e => set('widthMode', e.target.value)}>
+              <option value="container">Container</option>
+              <option value="full">Tam genişlik</option>
             </select>
           </Field>
           <Field label="Tüm kategoriler buton metni">
@@ -383,18 +396,46 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'featuredProducts':
       return (
         <div className="space-y-3">
+          <BlockHint type="featuredProducts" />
           <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
-          <Field label="Limit"><NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} /></Field>
+          <Field label="Görünüm tipi">
+            <select className={inputCls} value={str('displayMode', 'grid')} onChange={e => set('displayMode', e.target.value)}>
+              <option value="grid">Grid</option>
+              <NextPhaseOption label="Carousel" />
+            </select>
+          </Field>
+          <Field label="Kolon sayısı">
+            <select className={inputCls} value={String(num('columns', 4))} onChange={e => set('columns', Number(e.target.value))}>
+              <option value="2">2 kolon</option>
+              <option value="3">3 kolon</option>
+              <option value="4">4 kolon</option>
+              <option value="5">5 kolon</option>
+            </select>
+          </Field>
+          <Field label="Ürün sayısı">
+            <select className={inputCls} value={String(num('limit', 8))} onChange={e => set('limit', Number(e.target.value))}>
+              <option value="4">4 ürün</option>
+              <option value="8">8 ürün</option>
+              <option value="12">12 ürün</option>
+            </select>
+          </Field>
+          <Field label="Genişlik tipi">
+            <select className={inputCls} value={str('widthMode', 'container')} onChange={e => set('widthMode', e.target.value)}>
+              <option value="container">Container</option>
+              <option value="full">Tam genişlik</option>
+            </select>
+          </Field>
           <Field label="Kaynak">
             <select className={inputCls} value={str('source', 'featured')} onChange={e => set('source', e.target.value)}>
               <option value="featured">Öne çıkan ürünler</option>
               <option value="latest">Yeni ürünler</option>
             </select>
           </Field>
-          <Field label="Ürün kartı tipi">
-            <select className={inputCls} value={str('cardStyle', 'card')} onChange={e => set('cardStyle', e.target.value)}>
-              <option value="card">Kartlı</option>
-              <option value="plain">Sade</option>
+          <Field label="Kart görünümü">
+            <select className={inputCls} value={str('cardStyle', 'standard')} onChange={e => set('cardStyle', e.target.value)}>
+              <option value="standard">Standart</option>
+              <option value="compact">Kompakt</option>
+              <option value="imageFocus">Büyük görsel</option>
             </select>
           </Field>
           <CheckboxField label="Fiyat göster" checked={bool('showPrice', true)} onChange={v => set('showPrice', v)} />
@@ -405,19 +446,43 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'campaignBanner':
       return (
         <div className="space-y-3">
+          <BlockHint type="campaignBanner" />
           <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
           <Field label="Alt başlık"><TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} /></Field>
           <Field label="Buton metni"><TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} /></Field>
           <Field label="Buton URL"><TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} /></Field>
+          <Field label="Genişlik tipi">
+            <select className={inputCls} value={str('widthMode', 'container')} onChange={e => set('widthMode', e.target.value)}>
+              <option value="full">Tam genişlik</option>
+              <option value="container">Container</option>
+            </select>
+          </Field>
+          <Field label="Banner yüksekliği">
+            <select className={inputCls} value={str('heightMode', 'medium')} onChange={e => set('heightMode', e.target.value)}>
+              <option value="small">Küçük</option>
+              <option value="medium">Orta</option>
+              <option value="large">Büyük</option>
+            </select>
+          </Field>
+          <Field label="Metin konumu">
+            <select className={inputCls} value={str('textPosition', 'left')} onChange={e => set('textPosition', e.target.value)}>
+              <option value="left">Sol</option>
+              <option value="center">Orta</option>
+              <option value="right">Sağ</option>
+            </select>
+          </Field>
           <BuilderImageField
             value={str('imageUrl')}
-            onChange={v => set('imageUrl', v)}
-            recommendedSize="1600×500"
+            onChange={setImageUrl}
+            recommendedSize="1920×500 px"
+            helperText="Kampanya bandının arka plan görseli. Yükleme sonrası medya kütüphanesine eklenir."
+            usageHint="Metin alanı solda kalacak şekilde görselin sağ veya merkez bölgesine odaklanın."
             folder="banners"
           />
           {str('imageUrl') && (
             <BackgroundImageControls
               set={set}
+              patch={patch}
               str={str}
               bool={bool}
               num={num}
@@ -443,12 +508,15 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'textImage':
       return (
         <div className="space-y-3">
+          <BlockHint type="textImage" />
           <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
           <Field label="Metin"><TextArea value={str('text')} onChange={v => set('text', v)} rows={4} /></Field>
           <BuilderImageField
             value={str('imageUrl')}
             onChange={v => set('imageUrl', v)}
-            recommendedSize="900×700"
+            recommendedSize="900×700 px"
+            helperText="Metin bloğunun yanında gösterilen içerik görseli."
+            usageHint="Kareye yakın veya 4:3 oranlı görseller en iyi sonucu verir."
             folder="builder"
           />
           <ImageFitField value={str('imageFit', 'cover')} onChange={v => set('imageFit', v)} />

@@ -21,15 +21,28 @@ const BACKEND_BASE: string = (() => {
  */
 export function normalizeImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
 
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    // Fix records stored with wrong localhost port (e.g. 3001 instead of 3000)
-    return url.replace(/http:\/\/localhost:\d+/, BACKEND_BASE);
+  if (trimmed.startsWith('//')) {
+    if (typeof window !== 'undefined') {
+      return `${window.location.protocol}${trimmed}`;
+    }
+    return `https:${trimmed}`;
   }
 
-  if (url.startsWith('/')) return `${BACKEND_BASE}${url}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.replace(/http:\/\/localhost:\d+/, BACKEND_BASE);
+  }
 
-  return `${BACKEND_BASE}/${url}`;
+  if (trimmed.startsWith('/')) return `${BACKEND_BASE}${trimmed}`;
+
+  return `${BACKEND_BASE}/${trimmed}`;
+}
+
+/** @deprecated Use normalizeImageUrl — kept for storefront imports */
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  return normalizeImageUrl(url);
 }
 
 /**

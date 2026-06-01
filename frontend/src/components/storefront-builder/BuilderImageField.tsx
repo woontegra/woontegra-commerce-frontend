@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
 import { inputCls } from './builderSettingsUi';
 import { normalizeImageUrl } from '../../utils/imageUtils';
@@ -13,8 +14,11 @@ type BuilderImageFieldProps = {
   label?: string;
   value: string;
   onChange: (url: string) => void;
+  onUploadComplete?: (url: string) => void;
   helperText?: string;
   recommendedSize?: string;
+  usageHint?: string;
+  acceptedFormats?: string;
   accept?: string;
   maxSizeMb?: number;
   folder?: MediaFolderSlug;
@@ -24,8 +28,11 @@ export default function BuilderImageField({
   label = 'Görsel',
   value,
   onChange,
+  onUploadComplete,
   helperText,
   recommendedSize,
+  usageHint,
+  acceptedFormats = 'JPG, PNG, WEBP, SVG',
   accept = 'image/jpeg,image/png,image/webp,image/svg+xml,.jpg,.jpeg,.png,.webp,.svg',
   maxSizeMb = 5,
   folder = 'builder',
@@ -48,11 +55,15 @@ export default function BuilderImageField({
       setError(validationError);
       return;
     }
+    const previous = trimmed;
     setUploading(true);
     try {
       const url = await uploadBuilderImage(file, folder);
       onChange(url);
+      onUploadComplete?.(url);
+      toast.success('Görsel yüklendi ve medya kütüphanesine eklendi.');
     } catch (e: unknown) {
+      onChange(previous);
       setError(e instanceof Error ? e.message : 'Görsel yüklenemedi.');
     } finally {
       setUploading(false);
@@ -64,12 +75,19 @@ export default function BuilderImageField({
     <div className="space-y-3">
       <div>
         <label className="block text-[12px] font-medium text-slate-600 mb-1">{label}</label>
-        {(helperText || recommendedSize) && (
-          <p className="text-[11px] text-slate-500 mb-2">
-            {helperText}
-            {helperText && recommendedSize ? ' · ' : ''}
-            {recommendedSize && `Önerilen: ${recommendedSize}`}
-          </p>
+        {(helperText || recommendedSize || usageHint) && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-1 mb-2">
+            {helperText && <p className="text-[11px] text-slate-600">{helperText}</p>}
+            {recommendedSize && (
+              <p className="text-[11px] text-slate-700">
+                <span className="font-medium">Önerilen ölçü:</span> {recommendedSize}
+              </p>
+            )}
+            {usageHint && <p className="text-[11px] text-slate-500">{usageHint}</p>}
+            <p className="text-[10px] text-slate-400">
+              Format: {acceptedFormats} · Maks. {maxSizeMb} MB
+            </p>
+          </div>
         )}
       </div>
 

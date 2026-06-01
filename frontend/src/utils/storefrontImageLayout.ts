@@ -20,7 +20,7 @@ export function hexToRgba(hex: string, opacityPercent: number): string {
   const trimmed = hex.trim();
   const match = /^#?([0-9a-f]{6})$/i.exec(trimmed);
   if (!match) {
-    return `rgba(79, 70, 229, ${opacityPercent / 100})`;
+    return `rgba(0, 0, 0, ${opacityPercent / 100})`;
   }
   const int = parseInt(match[1], 16);
   const r = (int >> 16) & 255;
@@ -44,14 +44,70 @@ export function cssBackgroundPosition(position: string): string {
   }
 }
 
-export function heroHeightClass(height: string): string {
-  switch (height) {
+export function resolveHeroHeightMode(settings: Record<string, unknown>): string {
+  return str(settings, 'heightMode', str(settings, 'height', 'medium'));
+}
+
+export function resolveHeroContentAlign(settings: Record<string, unknown>): string {
+  return str(settings, 'contentAlign', str(settings, 'alignment', 'center'));
+}
+
+export function resolveHeroBackgroundType(settings: Record<string, unknown>, hasImage: boolean): string {
+  const raw = str(settings, 'backgroundType', hasImage ? 'image' : 'gradient');
+  if (raw === 'solid') return 'color';
+  if (raw === 'color') return 'color';
+  if (raw === 'image') return 'image';
+  return raw;
+}
+
+/** Hero görseli: imageUrl varsa bas; yalnızca düz renk modunda görseli gizle. */
+export function shouldRenderHeroImage(
+  settings: Record<string, unknown>,
+  imageUrl: string | null,
+): boolean {
+  const hasImage = !!imageUrl?.trim();
+  if (!hasImage) return false;
+  const bgType = resolveHeroBackgroundType(settings, true);
+  return bgType !== 'color';
+}
+
+export function heroHeightModeClass(heightMode: string): string {
+  switch (heightMode) {
     case 'small':
       return 'min-h-[280px] sm:min-h-[320px]';
+    case 'fullscreen':
+      return 'min-h-[85vh] sm:min-h-screen';
     case 'large':
       return 'min-h-[480px] sm:min-h-[560px]';
     default:
       return 'min-h-[360px] sm:min-h-[420px]';
+  }
+}
+
+/** @deprecated use heroHeightModeClass */
+export function heroHeightClass(height: string): string {
+  return heroHeightModeClass(height);
+}
+
+export function heroWidthModeClass(widthMode: string): string {
+  switch (widthMode) {
+    case 'narrow':
+      return 'max-w-4xl mx-auto w-full';
+    case 'container':
+      return 'max-w-6xl mx-auto w-full';
+    default:
+      return 'w-full';
+  }
+}
+
+export function heroVerticalJustifyClass(verticalAlign: string): string {
+  switch (verticalAlign) {
+    case 'top':
+      return 'justify-start';
+    case 'bottom':
+      return 'justify-end';
+    default:
+      return 'justify-center';
   }
 }
 
@@ -61,8 +117,34 @@ export function heroAlignClass(alignment: string): string {
   return 'text-center items-center';
 }
 
+export function sectionWidthClass(widthMode: string): string {
+  switch (widthMode) {
+    case 'full':
+      return 'w-full px-4';
+    case 'narrow':
+      return 'max-w-4xl mx-auto w-full px-4';
+    default:
+      return 'max-w-6xl mx-auto w-full px-4';
+  }
+}
+
+export function featuredGridColumnsClass(columns: number): string {
+  if (columns === 2) return 'grid-cols-2';
+  if (columns === 3) return 'grid-cols-2 sm:grid-cols-3';
+  if (columns === 5) return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
+  if (columns === 4) return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
+  return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
+}
+
+export function mapProductCardVariant(cardStyle: string): 'card' | 'plain' {
+  if (cardStyle === 'plain' || cardStyle === 'compact') return 'plain';
+  return 'card';
+}
+
 export type HeroLayerProps = {
   heightClass: string;
+  widthClass: string;
+  verticalJustifyClass: string;
   textColor: string;
   alignClass: string;
   baseStyle?: Record<string, string>;
@@ -76,23 +158,26 @@ export function buildHeroLayerProps(
   themePrimary: string | null,
   imageUrl: string | null,
 ): HeroLayerProps {
-  const bgType = str(settings, 'backgroundType', 'gradient');
+  const hasImage = !!imageUrl?.trim();
+  const bgType = resolveHeroBackgroundType(settings, hasImage);
   const bgColor = str(settings, 'backgroundColor', themePrimary ?? '#4f46e5').trim() || '#4f46e5';
   const textColor = str(settings, 'textColor', '#ffffff');
-  const alignment = str(settings, 'alignment', 'center');
+  const alignment = resolveHeroContentAlign(settings);
   const imageFit = str(settings, 'imageFit', 'cover');
   const imagePosition = str(settings, 'imagePosition', 'center');
-  const overlayEnabled = bool(settings, 'overlayEnabled', true);
-  const overlayColor = str(settings, 'overlayColor', '#4f46e5');
-  const overlayOpacity = parseOverlayOpacity(settings.overlayOpacity, 30);
-  const height = str(settings, 'height', 'medium');
+  const overlayEnabled = bool(settings, 'overlayEnabled', false);
+  const overlayColor = str(settings, 'overlayColor', '#000000');
+  const overlayOpacity = parseOverlayOpacity(settings.overlayOpacity, 0);
+  const heightMode = resolveHeroHeightMode(settings);
+  const widthMode = str(settings, 'widthMode', 'full');
+  const verticalAlign = str(settings, 'contentVerticalAlign', 'center');
 
-  const useImage = bgType === 'image' && !!imageUrl;
+  const useImage = shouldRenderHeroImage(settings, imageUrl);
   const escapedUrl = imageUrl ? imageUrl.replace(/"/g, '\\"') : '';
 
   let baseStyle: Record<string, string> | undefined;
   if (!useImage) {
-    if (bgType === 'solid') {
+    if (bgType === 'color') {
       baseStyle = { backgroundColor: bgColor };
     } else {
       baseStyle = { background: `linear-gradient(135deg, ${bgColor}, #6366f1)` };
@@ -114,7 +199,9 @@ export function buildHeroLayerProps(
   const showOverlay = useImage && overlayEnabled && overlayOpacity > 0;
 
   return {
-    heightClass: heroHeightClass(height),
+    heightClass: heroHeightModeClass(heightMode),
+    widthClass: heroWidthModeClass(widthMode),
+    verticalJustifyClass: heroVerticalJustifyClass(verticalAlign),
     textColor,
     alignClass: heroAlignClass(alignment),
     baseStyle,
@@ -163,6 +250,17 @@ export function buildBannerImageLayerProps(
       ? { backgroundColor: hexToRgba(overlayColor, overlayOpacity) }
       : undefined,
   };
+}
+
+export function bannerHeightClass(heightMode: string): string {
+  switch (heightMode) {
+    case 'small':
+      return 'min-h-[160px]';
+    case 'large':
+      return 'min-h-[320px]';
+    default:
+      return 'min-h-[220px]';
+  }
 }
 
 export function objectFitClass(imageFit: string): string {

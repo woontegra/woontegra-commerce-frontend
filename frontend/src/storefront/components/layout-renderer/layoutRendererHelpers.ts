@@ -2,13 +2,21 @@ import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
 import {
   buildBannerImageLayerProps,
   buildHeroLayerProps,
+  bannerHeightClass,
+  featuredGridColumnsClass,
+  mapProductCardVariant,
   objectFitClass,
+  sectionWidthClass,
 } from '../../../utils/storefrontImageLayout';
 
 export {
   buildBannerImageLayerProps,
   buildHeroLayerProps,
+  bannerHeightClass,
+  featuredGridColumnsClass,
+  mapProductCardVariant,
   objectFitClass,
+  sectionWidthClass,
 };
 
 export const KNOWN_LAYOUT_SECTION_TYPES = new Set([

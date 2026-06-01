@@ -2,12 +2,13 @@ import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import {
   blockLabel,
   buildBannerImageLayerProps,
-  buildHeroLayerProps,
   gridColumnsClass,
   objectFitClass,
   parseTrustBadges,
 } from '../../pages/storefrontBuilderHelpers';
+import HeroBlockView from './HeroBlockView';
 import { normalizeImageUrl } from '../../utils/imageUtils';
+import type { HeroPreviewViewport } from '../../utils/heroBuilderConstants';
 
 function str(settings: Record<string, unknown>, key: string, fallback = '') {
   const v = settings[key];
@@ -55,20 +56,26 @@ function imagePreview(url: string, className: string) {
 
 interface BuilderPreviewProps {
   section: StorefrontSection | null;
+  variant?: 'compact' | 'workspace';
+  previewViewport?: HeroPreviewViewport;
 }
 
-export default function BuilderPreview({ section }: BuilderPreviewProps) {
+export default function BuilderPreview({ section, variant = 'compact', previewViewport }: BuilderPreviewProps) {
+  const isWorkspace = variant === 'workspace';
+  const emptyCls = isWorkspace
+    ? 'px-6 py-16 text-center bg-slate-50'
+    : 'rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-8 text-center';
   if (!section) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-8 text-center">
-        <p className="text-[13px] text-slate-500">Önizleme için orta listeden bir blok seçin.</p>
+      <div className={emptyCls}>
+        <p className="text-[13px] text-slate-500">Önizleme için sayfa akışından bir blok seçin.</p>
       </div>
     );
   }
 
   if (!section.enabled) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center">
+      <div className={isWorkspace ? 'px-6 py-12 text-center bg-slate-50' : 'rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center'}>
         <p className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">Pasif blok</p>
         <p className="text-[13px] text-slate-400 mt-1">{blockLabel(section.type)}</p>
       </div>
@@ -79,37 +86,27 @@ export default function BuilderPreview({ section }: BuilderPreviewProps) {
 
   switch (section.type) {
     case 'hero': {
-      const bgType = str(s, 'backgroundType', 'gradient');
-      const url = bgType === 'image' ? (imageSrc(s, 'imageUrl') || null) : null;
-      const layers = buildHeroLayerProps(s, null, url);
+      const rawUrl = imageSrc(s, 'imageUrl') || null;
       return (
-        <div
-          className={`rounded-xl overflow-hidden border border-slate-200 relative flex flex-col justify-center ${layers.heightClass}`}
-          style={{ color: layers.textColor, minHeight: '180px' }}
-        >
-          {layers.baseStyle && <div className="absolute inset-0" style={layers.baseStyle} aria-hidden />}
-          {layers.imageLayerStyle && <div className="absolute inset-0" style={layers.imageLayerStyle} aria-hidden />}
-          {layers.showOverlay && layers.overlayStyle && (
-            <div className="absolute inset-0" style={layers.overlayStyle} aria-hidden />
-          )}
-          <div className={`relative p-5 flex flex-col gap-2 ${layers.alignClass}`}>
-            <h3 className="text-lg font-semibold">{str(s, 'title', 'Başlık')}</h3>
-            <p className="text-[13px] opacity-90 max-w-sm">{str(s, 'subtitle', 'Alt başlık')}</p>
-            {str(s, 'buttonText') && (
-              <span className="inline-block mt-2 px-3 py-1.5 rounded-lg bg-white/20 text-[12px] font-medium backdrop-blur-sm">
-                {str(s, 'buttonText')}
-              </span>
-            )}
-          </div>
-        </div>
+        <HeroBlockView
+          settings={s}
+          imageUrl={rawUrl}
+          themePrimary={null}
+          preview
+          previewViewport={previewViewport}
+          className={isWorkspace ? 'w-full' : 'rounded-xl border border-slate-200'}
+        />
       );
     }
 
     case 'categoryGrid': {
       const cols = num(s, 'columns', 4);
       const count = Math.min(num(s, 'limit', 4), cols);
+      const cardCls = isWorkspace
+        ? 'rounded-xl border border-slate-200 p-6 bg-white'
+        : 'rounded-xl border border-slate-200 p-4 bg-white';
       return (
-        <div className="rounded-xl border border-slate-200 p-4 bg-white">
+        <div className={cardCls}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[13px] font-semibold text-slate-800">{str(s, 'title', 'Kategoriler')}</p>
             <span className="text-[10px] text-indigo-600">{str(s, 'viewAllLabel', 'Tüm kategorileri göster')}</span>
