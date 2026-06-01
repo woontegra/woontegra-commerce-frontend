@@ -2,18 +2,64 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStorefrontTenant } from '../hooks/useStorefrontTenant';
 import { fetchStorefrontProducts } from '../services/storefrontApi';
+import { getStorefrontHomeLayout } from '../services/storefrontHomeLayoutApi';
+import StorefrontLayoutRenderer from '../components/layout-renderer/StorefrontLayoutRenderer';
+import { activeLayoutSections } from '../components/layout-renderer/layoutRendererHelpers';
 import { ProductCard } from '../components/ProductCard';
 import { CategoryCard } from '../components/CategoryCard';
 import { getDefaultThemeSettings } from '../config/defaultThemeSettings';
+import type { StorefrontLayout } from '../../types/storefrontBuilder.types';
 import type { StorefrontProductSummary } from '../types/storefront.types';
 
+function HomePageLoading() {
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-16 flex justify-center">
+      <div className="h-10 w-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+/** Yayınlanmış builder layout varsa render eder; yoksa hardcoded fallback. */
 export default function StoreHomePage() {
+  const { tenant } = useStorefrontTenant();
+  const [layoutLoading, setLayoutLoading] = useState(true);
+  const [publishedLayout, setPublishedLayout] = useState<StorefrontLayout | null>(null);
+
+  useEffect(() => {
+    if (!tenant?.slug) return;
+    let cancelled = false;
+    (async () => {
+      setLayoutLoading(true);
+      try {
+        const { layout } = await getStorefrontHomeLayout(tenant.slug);
+        if (cancelled) return;
+        const active = layout ? activeLayoutSections(layout.sections) : [];
+        setPublishedLayout(active.length > 0 ? layout : null);
+      } catch {
+        if (!cancelled) setPublishedLayout(null);
+      } finally {
+        if (!cancelled) setLayoutLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenant?.slug]);
+
+  if (!tenant) return null;
+  if (layoutLoading) return <HomePageLoading />;
+  if (publishedLayout) return <StorefrontLayoutRenderer layout={publishedLayout} />;
+  return <StoreHomePageFallback />;
+}
+
+/** Mevcut hardcoded vitrin ana sayfası — yayın yoksa veya layout alınamazsa. */
+export function StoreHomePageFallback() {
   const { tenant, categories, storeLink } = useStorefrontTenant();
   if (!tenant) return null;
   const settings = getDefaultThemeSettings({ logoUrl: tenant.logoUrl });
   const [featured, setFeatured] = useState<StorefrontProductSummary[]>([]);
-  const [latest, setLatest]     = useState<StorefrontProductSummary[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [latest, setLatest] = useState<StorefrontProductSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,12 +82,15 @@ export default function StoreHomePage() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [tenant.slug]);
 
   const roots = categories.filter(c => c.parentId == null);
   const bannerTitle = settings.bannerTitle ?? tenant.name;
-  const bannerSub   = settings.bannerSubtitle ?? 'Güvenle alışveriş yapın — ürünler panelden anlık güncellenir.';
+  const bannerSub =
+    settings.bannerSubtitle ?? 'Güvenle alışveriş yapın — ürünler panelden anlık güncellenir.';
 
   return (
     <div>
