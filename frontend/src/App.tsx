@@ -54,6 +54,7 @@ const Checkout = lazy(() => import('./pages/Checkout'));
 const Marketing = lazy(() => import('./pages/Marketing'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const PageBuilder = lazy(() => import('./pages/PageBuilder'));
+const StorefrontBuilder = lazy(() => import('./pages/StorefrontBuilder'));
 const BlogManagement = lazy(() => import('./pages/BlogManagement'));
 const CartManagement = lazy(() => import('./pages/CartManagement'));
 const ProductVariants = lazy(() => import('./pages/ProductVariants'));
@@ -293,6 +294,7 @@ function App() {
           <Route path="checkout" element={<Checkout />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="page-builder" element={<PageBuilder />} />
+          <Route path="storefront-builder" element={<StorefrontBuilder />} />
           <Route path="blog-management" element={<BlogManagement />} />
           <Route path="cart-management" element={<CartManagement />} />
           <Route path="product-variants" element={<ProductVariants />} />
