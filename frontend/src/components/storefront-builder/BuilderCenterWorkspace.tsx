@@ -23,12 +23,15 @@ import BuilderPreview from './BuilderPreview';
 import { AnnouncementBar } from '../../storefront/components/AnnouncementBar';
 import { StorefrontHeader } from '../../storefront/components/StorefrontHeader';
 import { StorefrontFooter } from '../../storefront/components/StorefrontFooter';
+import { StorefrontThemeRoot } from '../../storefront/components/StorefrontThemeRoot';
 import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
 import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
 import type { FooterSettings } from '../../utils/footerSettingsHelpers';
 import { GLOBAL_FOOTER_SETTINGS_ID } from '../../utils/footerSettingsHelpers';
+import type { ThemeSettings } from '../../utils/themeSettingsHelpers';
+import { GLOBAL_THEME_SETTINGS_ID } from '../../utils/themeSettingsHelpers';
 import { useBranding } from '../../context/BrandingContext';
 import { displayStorefrontName } from '../../utils/displayStoreName';
 
@@ -45,6 +48,7 @@ type BuilderCenterWorkspaceProps = {
   announcementBar: AnnouncementBarSettings;
   headerSettings: HeaderSettings;
   footerSettings: FooterSettings;
+  themeSettings: ThemeSettings;
   globalSelection: string | null;
 };
 
@@ -67,6 +71,7 @@ export default function BuilderCenterWorkspace({
   announcementBar,
   headerSettings,
   footerSettings,
+  themeSettings,
   globalSelection,
 }: BuilderCenterWorkspaceProps) {
   const { branding } = useBranding();
@@ -80,7 +85,8 @@ export default function BuilderCenterWorkspace({
     selectedSection?.type === 'hero' ||
     globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ||
     globalSelection === GLOBAL_HEADER_SETTINGS_ID ||
-    globalSelection === GLOBAL_FOOTER_SETTINGS_ID;
+    globalSelection === GLOBAL_FOOTER_SETTINGS_ID ||
+    globalSelection === GLOBAL_THEME_SETTINGS_ID;
 
   const previewViewportForBar: 'desktop' | 'mobile' | undefined =
     previewViewport === 'mobile' ? 'mobile' : previewViewport ? 'desktop' : undefined;
@@ -138,15 +144,17 @@ export default function BuilderCenterWorkspace({
           <div>
             <h2 className="text-[13px] font-semibold text-slate-800">Vitrin Önizleme</h2>
             <p className="text-[11px] text-slate-500">
-              {globalSelection === GLOBAL_FOOTER_SETTINGS_ID
-                ? 'Footer'
-                : globalSelection === GLOBAL_HEADER_SETTINGS_ID
-                  ? 'Header'
-                  : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
-                    ? 'Üst Duyuru Barı'
-                    : selectedSection
-                      ? blockLabel(selectedSection.type)
-                      : 'Blok seçin'}
+              {globalSelection === GLOBAL_THEME_SETTINGS_ID
+                ? 'Tema Ayarları'
+                : globalSelection === GLOBAL_FOOTER_SETTINGS_ID
+                  ? 'Footer'
+                  : globalSelection === GLOBAL_HEADER_SETTINGS_ID
+                    ? 'Header'
+                    : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
+                      ? 'Üst Duyuru Barı'
+                      : selectedSection
+                        ? blockLabel(selectedSection.type)
+                        : 'Blok seçin'}
             </p>
           </div>
           {showViewportSwitcher && (
@@ -187,7 +195,7 @@ export default function BuilderCenterWorkspace({
                   mağaza vitrin önizleme
                 </span>
               </div>
-              <div className="bg-white min-h-[200px] flex flex-col">
+              <StorefrontThemeRoot themeSettings={themeSettings} className="min-h-[200px]">
                 {(announcementBar.enabled || globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID) && (
                   <AnnouncementBar
                     settings={announcementBar}
@@ -203,7 +211,23 @@ export default function BuilderCenterWorkspace({
                     preview
                   />
                 )}
-                {globalSelection === GLOBAL_FOOTER_SETTINGS_ID ? (
+                {globalSelection === GLOBAL_THEME_SETTINGS_ID ? (
+                  <div className="flex-1 px-4 py-10 store-container mx-auto w-full">
+                    <p className="text-sm font-semibold store-text-body mb-4">Tema önizlemesi</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="store-product-card border border-slate-200 p-4 bg-white">
+                        <p className="text-sm font-medium mb-3">Örnek kart</p>
+                        <button type="button" className="store-btn-primary px-4 py-2 text-sm font-medium">
+                          Örnek buton
+                        </button>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-4 bg-white">
+                        <p className="store-text-primary font-medium">Ana renk metni</p>
+                        <p className="text-sm mt-2 opacity-80">Container genişliği ve arka plan bu temadan gelir.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : globalSelection === GLOBAL_FOOTER_SETTINGS_ID ? (
                   <div className="flex-1 min-h-[120px] bg-slate-50/50" />
                 ) : globalSelection === GLOBAL_HEADER_SETTINGS_ID ? (
                   <div className="flex-1 px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
@@ -219,6 +243,7 @@ export default function BuilderCenterWorkspace({
                     variant="workspace"
                     previewViewport={showViewportSwitcher ? previewViewport : undefined}
                     tenantSlug={tenantSlug}
+                    themeSettings={themeSettings}
                   />
                 )}
                 {(footerSettings.enabled || globalSelection === GLOBAL_FOOTER_SETTINGS_ID) && (
@@ -229,7 +254,7 @@ export default function BuilderCenterWorkspace({
                     preview
                   />
                 )}
-              </div>
+              </StorefrontThemeRoot>
             </div>
           </div>
         </div>

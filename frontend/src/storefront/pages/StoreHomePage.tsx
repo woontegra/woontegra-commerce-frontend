@@ -26,7 +26,11 @@ export default function StoreHomePage() {
   const [publishedLayout, setPublishedLayout] = useState<StorefrontLayout | null>(null);
 
   useEffect(() => {
-    if (!tenant?.slug) return;
+    if (!tenant?.slug) {
+      setLayoutLoading(false);
+      setPublishedLayout(null);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLayoutLoading(true);
@@ -38,7 +42,7 @@ export default function StoreHomePage() {
       } catch {
         if (!cancelled) setPublishedLayout(null);
       } finally {
-        if (!cancelled) setLayoutLoading(false);
+        setLayoutLoading(false);
       }
     })();
     return () => {

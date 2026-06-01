@@ -17,6 +17,7 @@ import {
   type FeaturedProductsEmptyReason,
 } from '../../utils/featuredProductsBlockHelpers';
 import type { StorefrontProductSummary } from '../../storefront/types/storefront.types';
+import type { ThemeSettings } from '../../utils/themeSettingsHelpers';
 
 function str(settings: Record<string, unknown>, key: string, fallback = '') {
   const v = settings[key];
@@ -67,16 +68,19 @@ interface BuilderPreviewProps {
   variant?: 'compact' | 'workspace';
   previewViewport?: HeroPreviewViewport;
   tenantSlug?: string | null;
+  themeSettings?: ThemeSettings | null;
 }
 
 function FeaturedProductsPreview({
   section,
   tenantSlug,
   isWorkspace,
+  themeSettings = null,
 }: {
   section: StorefrontSection;
   tenantSlug?: string | null;
   isWorkspace: boolean;
+  themeSettings?: ThemeSettings | null;
 }) {
   const s = section.settings;
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
@@ -132,6 +136,7 @@ function FeaturedProductsPreview({
         storeLink={storeLink}
         viewAllHref={viewAllHref}
         preview
+        themeSettings={themeSettings}
       />
     </div>
   );
@@ -142,8 +147,10 @@ export default function BuilderPreview({
   variant = 'compact',
   previewViewport,
   tenantSlug = null,
+  themeSettings = null,
 }: BuilderPreviewProps) {
   const isWorkspace = variant === 'workspace';
+  const themePrimary = themeSettings?.enabled ? themeSettings.primaryColor : null;
   const emptyCls = isWorkspace
     ? 'px-6 py-16 text-center bg-slate-50'
     : 'rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-8 text-center';
@@ -175,7 +182,7 @@ export default function BuilderPreview({
           settings={s}
           imageUrl={rawUrl}
           mobileImageUrl={rawMobileUrl}
-          themePrimary={null}
+          themePrimary={themePrimary}
           preview
           previewViewport={previewViewport}
           className={isWorkspace ? 'w-full' : 'rounded-xl border border-slate-200'}
@@ -208,7 +215,14 @@ export default function BuilderPreview({
     }
 
     case 'featuredProducts':
-      return <FeaturedProductsPreview section={section} tenantSlug={tenantSlug} isWorkspace={isWorkspace} />;
+      return (
+        <FeaturedProductsPreview
+          section={section}
+          tenantSlug={tenantSlug}
+          isWorkspace={isWorkspace}
+          themeSettings={themeSettings}
+        />
+      );
 
     case 'campaignBanner': {
       const bg = str(s, 'backgroundColor', '#fffbeb');

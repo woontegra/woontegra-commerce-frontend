@@ -1,5 +1,3 @@
-import { storePublicClient } from '../../services/storePublicApi';
-import { normalizeLayout } from '../../pages/storefrontBuilderHelpers';
 import type { StorefrontLayout } from '../../types/storefrontBuilder.types';
 
 type HomeLayoutResponse = {
@@ -14,6 +12,11 @@ export type StorefrontHomeLayoutResult = {
   tenant: HomeLayoutResponse['tenant'] | null;
 };
 
+function homeLayoutApiBase(): string {
+  const raw = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  return String(raw).replace(/\/$/, '');
+}
+
 export async function getStorefrontHomeLayout(
   tenantSlug: string,
 ): Promise<StorefrontHomeLayoutResult> {
@@ -23,10 +26,16 @@ export async function getStorefrontHomeLayout(
   }
 
   try {
-    const r = await storePublicClient.get<HomeLayoutResponse>('/store/home-layout', {
-      params: { tenant: slug },
+    const url = `${homeLayoutApiBase()}/store/home-layout?tenant=${encodeURIComponent(slug)}&_=${Date.now()}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
     });
-    const body = r.data ?? {};
+    if (!res.ok) {
+      return { layout: null, tenant: null };
+    }
+    const body = (await res.json()) as HomeLayoutResponse;
     if (body.status === 'error' || body.layout == null) {
       return { layout: null, tenant: body.tenant ?? null };
     }
@@ -34,7 +43,7 @@ export async function getStorefrontHomeLayout(
     if (!layout || !Array.isArray(layout.sections)) {
       return { layout: null, tenant: body.tenant ?? null };
     }
-    return { layout: normalizeLayout(layout), tenant: body.tenant ?? null };
+    return { layout: layout as StorefrontLayout, tenant: body.tenant ?? null };
   } catch {
     return { layout: null, tenant: null };
   }

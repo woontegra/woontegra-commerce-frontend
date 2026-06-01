@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import { useStorefrontGlobalTheme } from '../../hooks/StorefrontGlobalThemeProvider';
 import { useStorefrontTenant } from '../../hooks/useStorefrontTenant';
 import { normalizeStoreImageUrl } from '../../services/storefrontApi';
 import { CategoryCard } from '../CategoryCard';
@@ -109,6 +110,7 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
 
 export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   const { tenant } = useStorefrontTenant();
+  const { themeSettings } = useStorefrontGlobalTheme();
   const s = section.settings;
   const widthMode = layoutStr(s, 'widthMode', 'container');
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
@@ -153,6 +155,7 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
         emptyReason={emptyReason}
         storeLink={storeLink}
         viewAllHref={viewAllHref}
+        themeSettings={themeSettings}
       />
     </section>
   );

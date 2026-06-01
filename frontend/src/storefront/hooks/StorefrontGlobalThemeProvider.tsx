@@ -16,12 +16,18 @@ import {
   mergeFooterSettings,
   type FooterSettings,
 } from '../../utils/footerSettingsHelpers';
+import {
+  extractThemeSettingsFromTheme,
+  mergeThemeSettings,
+  type ThemeSettings,
+} from '../../utils/themeSettingsHelpers';
 
 type StorefrontGlobalThemeContextValue = {
   loading: boolean;
   announcementBar: AnnouncementBarSettings;
   headerSettings: HeaderSettings;
   footerSettings: FooterSettings;
+  themeSettings: ThemeSettings;
 };
 
 const StorefrontGlobalThemeContext = createContext<StorefrontGlobalThemeContextValue | null>(null);
@@ -34,6 +40,7 @@ export function StorefrontGlobalThemeProvider({ children }: { children: React.Re
   );
   const [headerSettings, setHeaderSettings] = useState<HeaderSettings>(() => mergeHeaderSettings(undefined));
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(() => mergeFooterSettings(undefined));
+  const [themeSettings, setThemeSettings] = useState<ThemeSettings>(() => mergeThemeSettings(undefined));
 
   useEffect(() => {
     if (!tenant?.slug) {
@@ -49,12 +56,14 @@ export function StorefrontGlobalThemeProvider({ children }: { children: React.Re
           setAnnouncementBar(extractAnnouncementBarFromTheme(layout?.theme));
           setHeaderSettings(extractHeaderSettingsFromTheme(layout?.theme));
           setFooterSettings(extractFooterSettingsFromTheme(layout?.theme));
+          setThemeSettings(extractThemeSettingsFromTheme(layout?.theme));
         }
       } catch {
         if (!cancelled) {
           setAnnouncementBar(mergeAnnouncementBarSettings(undefined));
           setHeaderSettings(mergeHeaderSettings(undefined));
           setFooterSettings(mergeFooterSettings(undefined));
+          setThemeSettings(mergeThemeSettings(undefined));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -66,8 +75,8 @@ export function StorefrontGlobalThemeProvider({ children }: { children: React.Re
   }, [tenant?.slug]);
 
   const value = useMemo(
-    () => ({ loading, announcementBar, headerSettings, footerSettings }),
-    [loading, announcementBar, headerSettings, footerSettings],
+    () => ({ loading, announcementBar, headerSettings, footerSettings, themeSettings }),
+    [loading, announcementBar, headerSettings, footerSettings, themeSettings],
   );
 
   return (
@@ -83,6 +92,7 @@ export function useStorefrontGlobalTheme(): StorefrontGlobalThemeContextValue {
       announcementBar: mergeAnnouncementBarSettings(undefined),
       headerSettings: mergeHeaderSettings(undefined),
       footerSettings: mergeFooterSettings(undefined),
+      themeSettings: mergeThemeSettings(undefined),
     };
   }
   return ctx;

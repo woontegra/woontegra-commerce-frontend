@@ -39,6 +39,11 @@ import {
   type FooterSettings,
 } from '../utils/footerSettingsHelpers';
 import {
+  extractThemeSettingsFromTheme,
+  GLOBAL_THEME_SETTINGS_ID,
+  type ThemeSettings,
+} from '../utils/themeSettingsHelpers';
+import {
   fetchHomeDraft,
   publishHomeLayout,
   saveHomeDraft,
@@ -84,6 +89,11 @@ export default function StorefrontBuilder() {
 
   const footerSettings = useMemo(
     () => extractFooterSettingsFromTheme(layout.theme),
+    [layout.theme],
+  );
+
+  const themeSettings = useMemo(
+    () => extractThemeSettingsFromTheme(layout.theme),
     [layout.theme],
   );
 
@@ -136,7 +146,11 @@ export default function StorefrontBuilder() {
   };
 
   const handleSelectGlobal = (
-    id: typeof GLOBAL_ANNOUNCEMENT_BAR_ID | typeof GLOBAL_HEADER_SETTINGS_ID | typeof GLOBAL_FOOTER_SETTINGS_ID,
+    id:
+      | typeof GLOBAL_ANNOUNCEMENT_BAR_ID
+      | typeof GLOBAL_HEADER_SETTINGS_ID
+      | typeof GLOBAL_FOOTER_SETTINGS_ID
+      | typeof GLOBAL_THEME_SETTINGS_ID,
   ) => {
     setGlobalSelection(id);
     setSelectedId(null);
@@ -175,6 +189,19 @@ export default function StorefrontBuilder() {
         ...prev.theme,
         footerSettings: {
           ...extractFooterSettingsFromTheme(prev.theme),
+          ...patch,
+        },
+      },
+    }));
+  }, []);
+
+  const handleThemeSettingsChange = useCallback((patch: Partial<ThemeSettings>) => {
+    setLayout(prev => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        themeSettings: {
+          ...extractThemeSettingsFromTheme(prev.theme),
           ...patch,
         },
       },
@@ -412,6 +439,7 @@ export default function StorefrontBuilder() {
             announcementBar={announcementBar}
             headerSettings={headerSettings}
             footerSettings={footerSettings}
+            themeSettings={themeSettings}
             globalSelection={globalSelection}
           />
         </main>
@@ -423,10 +451,12 @@ export default function StorefrontBuilder() {
             announcementBar={announcementBar}
             headerSettings={headerSettings}
             footerSettings={footerSettings}
+            themeSettings={themeSettings}
             onChange={patch => selectedSection && handleSettingsChange(selectedSection.id, patch)}
             onAnnouncementBarChange={handleAnnouncementBarChange}
             onHeaderSettingsChange={handleHeaderSettingsChange}
             onFooterSettingsChange={handleFooterSettingsChange}
+            onThemeSettingsChange={handleThemeSettingsChange}
             onDelete={() => selectedSection && handleDelete(selectedSection.id)}
             onToggleEnabled={enabled => selectedSection && handleToggleEnabled(selectedSection.id, enabled)}
           />

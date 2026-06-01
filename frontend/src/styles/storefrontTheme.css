@@ -1,0 +1,57 @@
+.storefront-theme-root {
+  font-family: var(--store-font-family, inherit);
+  background-color: var(--store-bg, rgb(248 250 252));
+  color: var(--store-text, rgb(15 23 42));
+}
+
+.store-container {
+  max-width: min(var(--store-container-max, 72rem), 100%);
+}
+
+.store-container-narrow {
+  max-width: min(calc(var(--store-container-max, 72rem) * 0.75), 56rem, 100%);
+}
+
+.storefront-built-layout > section {
+  padding-top: calc(var(--store-section-spacing, 3rem) / 2);
+  padding-bottom: calc(var(--store-section-spacing, 3rem) / 2);
+}
+
+.store-btn-primary {
+  background-color: var(--store-primary, #4f46e5);
+  border-radius: var(--store-button-radius, 0.5rem);
+  color: #fff;
+}
+
+.store-btn-primary:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.store-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.store-product-card {
+  border-radius: var(--store-card-radius, 0.75rem);
+}
+
+.store-text-primary {
+  color: var(--store-primary, #4f46e5);
+}
+
+.store-text-body {
+  color: var(--store-text, rgb(15 23 42));
+}
+
+.store-link-primary {
+  color: var(--store-primary, #4f46e5);
+}
+
+.store-link-primary:hover {
+  filter: brightness(0.9);
+}
+
+.store-bg-secondary {
+  background-color: var(--store-secondary, #10b981);
+}

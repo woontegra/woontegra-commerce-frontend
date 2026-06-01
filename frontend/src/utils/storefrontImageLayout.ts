@@ -92,9 +92,9 @@ export function heroHeightClass(height: string): string {
 export function heroWidthModeClass(widthMode: string): string {
   switch (widthMode) {
     case 'narrow':
-      return 'max-w-4xl mx-auto w-full';
+      return 'store-container-narrow mx-auto w-full';
     case 'container':
-      return 'max-w-6xl mx-auto w-full';
+      return 'store-container mx-auto w-full';
     default:
       return 'w-full';
   }
@@ -122,9 +122,9 @@ export function sectionWidthClass(widthMode: string): string {
     case 'full':
       return 'w-full px-4';
     case 'narrow':
-      return 'max-w-4xl mx-auto w-full px-4';
+      return 'store-container-narrow mx-auto w-full px-4';
     default:
-      return 'max-w-6xl mx-auto w-full px-4';
+      return 'store-container mx-auto w-full px-4';
   }
 }
 

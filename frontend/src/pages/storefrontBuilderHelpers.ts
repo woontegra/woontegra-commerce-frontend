@@ -4,6 +4,7 @@ import { mergeFeaturedProductsSettings } from '../utils/featuredProductsBlockHel
 import { mergeAnnouncementBarSettings } from '../utils/announcementBarHelpers';
 import { mergeHeaderSettings } from '../utils/headerSettingsHelpers';
 import { mergeFooterSettings } from '../utils/footerSettingsHelpers';
+import { mergeThemeSettings } from '../utils/themeSettingsHelpers';
 import { buildHeroLayerProps } from '../utils/storefrontImageLayout';
 
 export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
@@ -262,6 +263,7 @@ export function normalizeLayout(raw: unknown): StorefrontLayout {
     announcementBar: mergeAnnouncementBarSettings(rawTheme.announcementBar),
     headerSettings: mergeHeaderSettings(rawTheme.headerSettings),
     footerSettings: mergeFooterSettings(rawTheme.footerSettings),
+    themeSettings: mergeThemeSettings(rawTheme.themeSettings),
   };
   const sections = Array.isArray(root.sections)
     ? root.sections.map((s, i) => normalizeSection(s, i))
@@ -275,6 +277,7 @@ export function layoutFingerprint(layout: StorefrontLayout): string {
     announcementBar: mergeAnnouncementBarSettings(layout.theme?.announcementBar),
     headerSettings: mergeHeaderSettings(layout.theme?.headerSettings),
     footerSettings: mergeFooterSettings(layout.theme?.footerSettings),
+    themeSettings: mergeThemeSettings(layout.theme?.themeSettings),
   });
 }
 

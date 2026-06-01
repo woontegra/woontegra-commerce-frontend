@@ -200,18 +200,13 @@ export default function FooterSettingsPanel({ settings, onChange }: FooterSettin
               )}
             </SettingCard>
             <SettingCard title="E-bülten">
-              <ToggleSwitch label="E-bülten alanı göster" checked={settings.showNewsletter} onChange={v => set('showNewsletter', v)} />
-              {settings.showNewsletter && (
-                <>
-                  <TextField label="Başlık" value={settings.newsletterTitle} onChange={v => set('newsletterTitle', v)} />
-                  <TextField
-                    label="Açıklama"
-                    value={settings.newsletterDescription}
-                    onChange={v => set('newsletterDescription', v)}
-                  />
-                  <FieldHint>Abonelik formu görsel olarak gösterilir; entegrasyon sonraki fazda eklenecek.</FieldHint>
-                </>
-              )}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="text-[13px] font-medium text-slate-500">E-bülten alanı göster</p>
+                <p className="text-[10px] text-slate-400 mt-1">Sonraki faz — abonelik API entegrasyonu henüz yok.</p>
+              </div>
+              <FieldHint>
+                E-bülten vitrinde gösterilmez; backend hazır olduğunda bu bölüm açılacak.
+              </FieldHint>
             </SettingCard>
           </>
         );

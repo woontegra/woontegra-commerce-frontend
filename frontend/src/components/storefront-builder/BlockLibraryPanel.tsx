@@ -1,4 +1,4 @@
-import { LayoutPanelTop, Megaphone, PanelBottom, Plus } from 'lucide-react';
+import { LayoutPanelTop, Megaphone, PanelBottom, Palette, Plus } from 'lucide-react';
 import {
   BLOCK_DESCRIPTIONS,
   blockLabel,
@@ -7,12 +7,14 @@ import {
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
 import { GLOBAL_FOOTER_SETTINGS_ID } from '../../utils/footerSettingsHelpers';
+import { GLOBAL_THEME_SETTINGS_ID } from '../../utils/themeSettingsHelpers';
 import { BLOCK_ICONS, BLOCK_ICON_COLORS } from './blockLibraryMeta';
 
 export type GlobalBuilderSelectionId =
   | typeof GLOBAL_ANNOUNCEMENT_BAR_ID
   | typeof GLOBAL_HEADER_SETTINGS_ID
-  | typeof GLOBAL_FOOTER_SETTINGS_ID;
+  | typeof GLOBAL_FOOTER_SETTINGS_ID
+  | typeof GLOBAL_THEME_SETTINGS_ID;
 
 type BlockLibraryPanelProps = {
   onAddBlock: (type: string) => void;
@@ -28,6 +30,7 @@ export default function BlockLibraryPanel({
   const announcementSelected = selectedGlobalId === GLOBAL_ANNOUNCEMENT_BAR_ID;
   const headerSelected = selectedGlobalId === GLOBAL_HEADER_SETTINGS_ID;
   const footerSelected = selectedGlobalId === GLOBAL_FOOTER_SETTINGS_ID;
+  const themeSelected = selectedGlobalId === GLOBAL_THEME_SETTINGS_ID;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -41,6 +44,26 @@ export default function BlockLibraryPanel({
             Global Alanlar
           </p>
           <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onSelectGlobal(GLOBAL_THEME_SETTINGS_ID)}
+              className={`w-full group flex items-start gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition-all ${
+                themeSelected
+                  ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700">
+                <Palette className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-slate-800 leading-tight">Tema Ayarları</p>
+                <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                  Renkler, font, radius, container ve ürün kartı varsayılanları.
+                </p>
+              </div>
+            </button>
+
             <button
               type="button"
               onClick={() => onSelectGlobal(GLOBAL_HEADER_SETTINGS_ID)}

@@ -1,4 +1,5 @@
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
+import { resolveThemePrimaryColor } from '../../../utils/themeSettingsHelpers';
 import {
   buildBannerImageLayerProps,
   buildHeroLayerProps,
@@ -91,6 +92,5 @@ export function gridColumnsClass(columns: number): string {
 }
 
 export function themePrimaryColor(theme: Record<string, unknown> | undefined): string | null {
-  const c = theme?.primaryColor;
-  return typeof c === 'string' && c.trim() ? c.trim() : null;
+  return resolveThemePrimaryColor(theme);
 }

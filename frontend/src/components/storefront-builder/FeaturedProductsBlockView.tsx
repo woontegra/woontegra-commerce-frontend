@@ -11,6 +11,7 @@ import {
   resolveShowViewAll,
 } from '../../utils/featuredProductsBlockHelpers';
 import type { FeaturedProductsEmptyReason } from '../../utils/featuredProductsBlockHelpers';
+import { mapThemeProductCardVariant, resolveBlockProductCardStyle, type ThemeSettings } from '../../utils/themeSettingsHelpers';
 import { effectivePrice, formatTry } from '../../storefront/utils/format';
 
 type FeaturedProductsBlockViewProps = {
@@ -21,6 +22,7 @@ type FeaturedProductsBlockViewProps = {
   storeLink: (path: string) => string;
   viewAllHref: string;
   preview?: boolean;
+  themeSettings?: ThemeSettings | null;
 };
 
 function str(settings: Record<string, unknown>, key: string, fallback = ''): string {
@@ -146,20 +148,26 @@ export default function FeaturedProductsBlockView({
   storeLink,
   viewAllHref,
   preview = false,
+  themeSettings = null,
 }: FeaturedProductsBlockViewProps) {
   const title = str(settings, 'title', 'Ürün Vitrini');
   const showTitle = bool(settings, 'showTitle', true);
   const showViewAll = resolveShowViewAll(settings);
   const viewAllLabel = str(settings, 'viewAllLabel', 'Tümünü gör');
   const displayMode = str(settings, 'displayMode', 'grid');
-  const cardStyle = str(settings, 'cardStyle', 'standard');
+  const blockCardStyle = str(settings, 'cardStyle', 'standard');
   const showPrice = bool(settings, 'showPrice', true);
   const showAddToCart = bool(settings, 'showAddToCart', true);
   const colsDesktop = num(settings, 'columnsDesktop', num(settings, 'columns', 4));
   const colsTablet = num(settings, 'columnsTablet', 2);
   const colsMobile = num(settings, 'columnsMobile', 2);
   const sourceType = resolveFeaturedSourceType(settings);
-  const cardVariant = mapProductCardVariant(cardStyle);
+  const resolvedCardStyle = themeSettings
+    ? resolveBlockProductCardStyle(settings, themeSettings)
+    : blockCardStyle;
+  const cardVariant = themeSettings
+    ? mapThemeProductCardVariant(resolvedCardStyle)
+    : mapProductCardVariant(blockCardStyle);
 
   const productUrl = (slug: string) => storeLink(`/store/urun/${encodeURIComponent(slug)}`);
 
@@ -170,9 +178,9 @@ export default function FeaturedProductsBlockView({
           {showTitle && <h2 className="text-xl font-semibold text-slate-900">{title}</h2>}
           {showViewAll && (
             preview ? (
-              <span className="text-sm font-medium text-indigo-600">{viewAllLabel}</span>
+              <span className="text-sm font-medium store-link-primary">{viewAllLabel}</span>
             ) : (
-              <Link to={viewAllHref} className="text-sm font-medium text-indigo-600 hover:underline whitespace-nowrap">
+              <Link to={viewAllHref} className="text-sm font-medium store-link-primary hover:underline whitespace-nowrap">
                 {viewAllLabel}
               </Link>
             )

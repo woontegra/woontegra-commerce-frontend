@@ -46,7 +46,7 @@ export function ProductCard({
 
   return (
     <article
-      className={`group flex flex-col rounded-xl bg-white overflow-hidden transition-shadow ${
+      className={`store-product-card group flex flex-col bg-white overflow-hidden transition-shadow ${
         variant === 'plain' ? 'border border-transparent' : 'border border-slate-200 hover:shadow-md'
       }`}
     >
@@ -78,13 +78,13 @@ export function ProductCard({
       <div className="p-3 flex flex-col flex-1 gap-2">
         <Link
           to={productUrl}
-          className="font-medium text-slate-900 text-sm line-clamp-2 hover:text-indigo-600"
+          className="font-medium store-text-body text-sm line-clamp-2 hover:opacity-80"
         >
           {product.name || 'Ürün'}
         </Link>
         {!hidePrice && (
           <div className="flex flex-wrap items-baseline gap-1.5">
-            <span className="text-indigo-600 font-semibold text-sm">{formatTry(sale)}</span>
+            <span className="store-text-primary font-semibold text-sm">{formatTry(sale)}</span>
             {hasDiscount && (
               <span className="text-slate-400 text-xs line-through">{formatTry(product.price)}</span>
             )}
@@ -95,7 +95,7 @@ export function ProductCard({
             type="button"
             disabled={!inStock}
             onClick={handleAddToCart}
-            className="mt-auto w-full py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="store-btn-primary mt-auto w-full py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {inStock ? 'Sepete ekle' : 'Stokta yok'}
           </button>

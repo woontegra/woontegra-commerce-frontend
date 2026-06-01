@@ -216,31 +216,6 @@ function ConfiguredStorefrontFooter({
                 textColor={settings.textColor}
               />
             ))}
-            {settings.showNewsletter && (
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold mb-2" style={{ color: settings.headingColor }}>
-                  {settings.newsletterTitle.trim() || 'E-bülten'}
-                </h3>
-                {settings.newsletterDescription.trim() && (
-                  <p className="text-sm opacity-80 mb-3">{settings.newsletterDescription.trim()}</p>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    readOnly={preview}
-                    placeholder="E-posta adresiniz"
-                    className="flex-1 min-w-0 px-3 py-2 text-sm rounded-lg border border-slate-200/80 bg-white/80"
-                  />
-                  <button
-                    type="button"
-                    disabled={preview}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70"
-                  >
-                    Abone ol
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

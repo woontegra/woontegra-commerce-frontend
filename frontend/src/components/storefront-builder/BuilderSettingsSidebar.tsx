@@ -7,11 +7,14 @@ import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
 import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
 import type { FooterSettings } from '../../utils/footerSettingsHelpers';
 import { GLOBAL_FOOTER_SETTINGS_ID } from '../../utils/footerSettingsHelpers';
+import type { ThemeSettings } from '../../utils/themeSettingsHelpers';
+import { GLOBAL_THEME_SETTINGS_ID } from '../../utils/themeSettingsHelpers';
 import HeroSettingsPanel from './HeroSettingsPanel';
 import SectionSettingsPanel from './SectionSettingsPanel';
 import AnnouncementBarSettingsPanel from './AnnouncementBarSettingsPanel';
 import HeaderSettingsPanel from './HeaderSettingsPanel';
 import FooterSettingsPanel from './FooterSettingsPanel';
+import ThemeSettingsPanel from './ThemeSettingsPanel';
 
 type BuilderSettingsSidebarProps = {
   section: StorefrontSection | null;
@@ -19,10 +22,12 @@ type BuilderSettingsSidebarProps = {
   announcementBar: AnnouncementBarSettings;
   headerSettings: HeaderSettings;
   footerSettings: FooterSettings;
+  themeSettings: ThemeSettings;
   onChange: (patch: Record<string, unknown>) => void;
   onAnnouncementBarChange: (patch: Partial<AnnouncementBarSettings>) => void;
   onHeaderSettingsChange: (patch: Partial<HeaderSettings>) => void;
   onFooterSettingsChange: (patch: Partial<FooterSettings>) => void;
+  onThemeSettingsChange: (patch: Partial<ThemeSettings>) => void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
 };
@@ -33,13 +38,29 @@ export default function BuilderSettingsSidebar({
   announcementBar,
   headerSettings,
   footerSettings,
+  themeSettings,
   onChange,
   onAnnouncementBarChange,
   onHeaderSettingsChange,
   onFooterSettingsChange,
+  onThemeSettingsChange,
   onDelete,
   onToggleEnabled,
 }: BuilderSettingsSidebarProps) {
+  if (globalSelection === GLOBAL_THEME_SETTINGS_ID) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-white">
+          <h2 className="text-[13px] font-semibold text-slate-800">Tema Ayarları</h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">Tüm vitrinin genel tasarım dili</p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ThemeSettingsPanel settings={themeSettings} onChange={onThemeSettingsChange} />
+        </div>
+      </div>
+    );
+  }
+
   if (globalSelection === GLOBAL_FOOTER_SETTINGS_ID) {
     return (
       <div className="flex flex-col h-full min-h-0">
