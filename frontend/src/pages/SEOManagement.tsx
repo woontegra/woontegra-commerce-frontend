@@ -560,7 +560,7 @@ export default function SEOManagement() {
                   />
                   <FieldHint>
                     Özel alan adı için{' '}
-                    <Link to="/dashboard/settings" className="text-indigo-600 hover:underline">Genel Ayarlar</Link>
+                    <Link to="/dashboard/settings" className="text-indigo-600 hover:underline">Görünüm Ayarları</Link>
                     {' '}bölümünü kullanın.
                   </FieldHint>
                 </div>

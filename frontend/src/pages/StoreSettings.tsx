@@ -117,8 +117,8 @@ const QUICK_LINKS = [
   },
   {
     to:      '/dashboard/settings',
-    title:   'Genel Ayarlar',
-    desc:    'Marka, renkler ve dil',
+    title:   'Görünüm Ayarları',
+    desc:    'Renkler, yazı tipi ve stil',
     icon:    Settings,
     enabled: true,
   },

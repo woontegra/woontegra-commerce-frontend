@@ -144,7 +144,7 @@ const NAV: NavGroup[] = [
       { label: 'Ödeme Ayarları', to: '/dashboard/settings/payments', icon: IC.billing  },
       { label: 'Kargo Ayarları', to: '/dashboard/settings/shipping', icon: IC.shipping },
       { label: 'Domain',         to: '/dashboard/domain',        icon: IC.domain        },
-      { label: 'Genel Ayarlar',  to: '/dashboard/settings',      icon: IC.settings      },
+      { label: 'Görünüm Ayarları',  to: '/dashboard/settings',      icon: IC.settings      },
     ],
   },
   {
