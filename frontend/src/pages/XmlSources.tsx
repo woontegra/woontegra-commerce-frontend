@@ -2,14 +2,17 @@
  * Kalıcı XML feed kaynakları — URL + mapping bir kez kaydedilir; senkron / cron ile güncellenir.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../services/apiClient';
 import toast from 'react-hot-toast';
 import { buildMappingWithAutoSuggest, FIXED_MAPPING_TARGETS } from '../utils/xmlMapping';
+import { Table } from '../components/ui/Table';
 
 type DuplicateMode = 'skip' | 'update' | 'error';
 type AutoSyncInterval = 'daily' | '1' | '6' | '12';
+type StatusFilter = '' | 'active' | 'inactive' | 'error';
+type SortKey = 'lastSync' | 'name' | 'error';
 
 interface XmlSourceRow {
   id: string;
@@ -29,17 +32,10 @@ interface XmlSourceRow {
   lastSyncAt?: string | null;
   lastFetchedAt?: string | null;
   lastSyncError: string | null;
+  lastImported?: number | null;
+  lastUpdated?: number | null;
   createdAt: string;
   updatedAt: string;
-}
-
-function normalizeSourceRow(raw: XmlSourceRow): XmlSourceRow {
-  const mapping = raw.mappingJson ?? raw.mapping ?? {};
-  return {
-    ...raw,
-    mapping,
-    lastSyncAt: raw.lastFetchedAt ?? raw.lastSyncAt ?? null,
-  };
 }
 
 interface PreviewPayload {
@@ -47,17 +43,152 @@ interface PreviewPayload {
   totalRows: number;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalizeSourceRow(raw: XmlSourceRow & Record<string, unknown>): XmlSourceRow {
+  const mapping = raw.mappingJson ?? raw.mapping ?? {};
+  return {
+    ...raw,
+    mapping,
+    lastSyncAt: raw.lastFetchedAt ?? raw.lastSyncAt ?? null,
+    lastImported: typeof raw.lastImported === 'number' ? raw.lastImported : null,
+    lastUpdated:  typeof raw.lastUpdated === 'number' ? raw.lastUpdated : null,
+  };
+}
+
 function unwrapList<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
-  if (raw && typeof raw === 'object' && Array.isArray((raw as any).data)) return (raw as any).data as T[];
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)) {
+    return (raw as { data: T[] }).data;
+  }
   return [];
 }
 
+function fmtDateTime(iso: string | null | undefined) {
+  if (!iso) return null;
+  return new Intl.DateTimeFormat('tr-TR', {
+    day:    '2-digit',
+    month:  'short',
+    year:   'numeric',
+    hour:   '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+function isFileLocalUrl(url: string) {
+  return url.startsWith('file-local://');
+}
+
+function displayUrl(url: string) {
+  if (isFileLocalUrl(url)) return 'Yerel XML dosyası';
+  try {
+    const u = new URL(url);
+    const path = u.pathname === '/' ? '' : u.pathname;
+    const short = `${u.hostname}${path}`;
+    return short.length > 42 ? `${short.slice(0, 40)}…` : short;
+  } catch {
+    return url.length > 42 ? `${url.slice(0, 40)}…` : url;
+  }
+}
+
+function rowStatus(row: XmlSourceRow): 'active' | 'inactive' | 'error' {
+  if (row.lastSyncError) return 'error';
+  if (!row.isActive) return 'inactive';
+  return 'active';
+}
+
+function autoSyncLabel(row: XmlSourceRow): string {
+  if (!row.autoSyncEnabled) return 'Kapalı';
+  const hrs = row.autoSyncIntervalHours;
+  if (hrs === 1) return '1 saatte bir';
+  if (hrs === 6) return '6 saatte bir';
+  if (hrs === 12) return '12 saatte bir';
+  const hh = String(row.autoSyncAtHour ?? 3).padStart(2, '0');
+  const mm = String(row.autoSyncAtMinute ?? 0).padStart(2, '0');
+  return `Günlük · ${hh}:${mm}`;
+}
+
+function syncResultLabel(row: XmlSourceRow): string {
+  if (row.lastImported != null || row.lastUpdated != null) {
+    const parts: string[] = [];
+    if (row.lastImported != null) parts.push(`${row.lastImported} eklendi`);
+    if (row.lastUpdated != null) parts.push(`${row.lastUpdated} güncellendi`);
+    return parts.join(' · ');
+  }
+  if (row.lastSyncAt) return 'Senkron tamamlandı';
+  return 'Henüz senkron yapılmadı';
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success('URL kopyalandı.');
+  } catch {
+    toast.error('Kopyalanamadı.');
+  }
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+
+const STATUS_STYLE = {
+  active:   'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100',
+  inactive: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
+  error:    'bg-red-50 text-red-800 ring-1 ring-red-100',
+} as const;
+
+const STATUS_LABELS = {
+  active:   'Aktif',
+  inactive: 'Pasif',
+  error:    'Hatalı',
+} as const;
+
+function SummaryMetric({ label, value, sub, valueClassName }: { label: string; value: string | number; sub?: string; valueClassName?: string }) {
+  return (
+    <div className="wn-card px-4 py-3 min-w-[120px] flex-1">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className={`text-lg font-semibold mt-1 tabular-nums leading-tight ${valueClassName ?? 'text-slate-900'}`}>{value}</p>
+      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function TableEmptyState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="empty-state py-14 px-6">
+      <div className="empty-state-icon">
+        <svg className="w-10 h-10 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7l8-4 8 4M4 7h16" />
+        </svg>
+      </div>
+      <p className="empty-state-title">Henüz XML kaynağı eklenmemiş.</p>
+      <p className="empty-state-desc mx-auto max-w-md">
+        Ürünlerinizi XML feed üzerinden içe aktarmak için yeni bir kaynak ekleyin veya XML dosyası yükleyin.
+      </p>
+      <div className="flex flex-wrap justify-center gap-2 mt-6">
+        <button type="button" onClick={onCreate} className="btn btn-primary text-[13px]">
+          Yeni Kaynak
+        </button>
+        <Link to="/dashboard/products/import/xml?mode=saved" className="btn btn-secondary text-[13px]">
+          XML İçe Aktar
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function XmlSources() {
-  const [list, setList]       = useState<XmlSourceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing]   = useState<XmlSourceRow | null>(null);
+  const [list, setList]             = useState<XmlSourceRow[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [syncingId, setSyncingId]   = useState<string | null>(null);
+  const [modalOpen, setModalOpen]   = useState(false);
+  const [editing, setEditing]       = useState<XmlSourceRow | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [sortKey, setSortKey]           = useState<SortKey>('lastSync');
 
   const [name, setName]                 = useState('');
   const [url, setUrl]                   = useState('');
@@ -65,7 +196,7 @@ export default function XmlSources() {
   const [skipZeroStock, setSkipZeroStock] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoSyncInterval, setAutoSyncInterval] = useState<AutoSyncInterval>('daily');
-  const [autoSyncTime, setAutoSyncTime] = useState('03:00'); // HH:mm
+  const [autoSyncTime, setAutoSyncTime] = useState('03:00');
   const [autoSyncTimezone, setAutoSyncTimezone] = useState('Europe/Istanbul');
   const [mapping, setMapping]           = useState<Record<string, string>>({});
   const [previewFields, setPreviewFields] = useState<string[]>([]);
@@ -75,8 +206,8 @@ export default function XmlSources() {
     setLoading(true);
     try {
       const r = await apiClient.get('/xml-sources');
-      const raw = (r.data as any)?.data ?? r.data;
-      setList(unwrapList<XmlSourceRow>(raw).map(normalizeSourceRow));
+      const raw = (r.data as { data?: unknown })?.data ?? r.data;
+      setList(unwrapList<XmlSourceRow>(raw).map(r => normalizeSourceRow(r as XmlSourceRow & Record<string, unknown>)));
     } catch {
       toast.error('Kaynaklar yüklenemedi.');
     } finally {
@@ -85,6 +216,53 @@ export default function XmlSources() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const stats = useMemo(() => {
+    const active = list.filter(r => r.isActive && !r.lastSyncError).length;
+    const errors = list.filter(r => Boolean(r.lastSyncError)).length;
+    const autoOn = list.filter(r => r.autoSyncEnabled).length;
+    const syncDates = list
+      .map(r => r.lastSyncAt)
+      .filter(Boolean)
+      .map(d => new Date(d!).getTime());
+    const latest = syncDates.length ? Math.max(...syncDates) : null;
+    return {
+      total:    list.length,
+      active,
+      errors,
+      autoOn,
+      latest:   latest ? (fmtDateTime(new Date(latest).toISOString()) ?? 'Henüz yok') : 'Henüz yok',
+    };
+  }, [list]);
+
+  const filteredList = useMemo(() => {
+    let rows = [...list];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(r =>
+        r.name.toLowerCase().includes(q) || r.url.toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter === 'active') {
+      rows = rows.filter(r => r.isActive && !r.lastSyncError);
+    } else if (statusFilter === 'inactive') {
+      rows = rows.filter(r => !r.isActive);
+    } else if (statusFilter === 'error') {
+      rows = rows.filter(r => Boolean(r.lastSyncError));
+    }
+    rows.sort((a, b) => {
+      if (sortKey === 'name') return a.name.localeCompare(b.name, 'tr');
+      if (sortKey === 'error') {
+        const ae = a.lastSyncError ? 1 : 0;
+        const be = b.lastSyncError ? 1 : 0;
+        if (be !== ae) return be - ae;
+      }
+      const at = a.lastSyncAt ? new Date(a.lastSyncAt).getTime() : 0;
+      const bt = b.lastSyncAt ? new Date(b.lastSyncAt).getTime() : 0;
+      return bt - at;
+    });
+    return rows;
+  }, [list, searchQuery, statusFilter, sortKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -128,8 +306,8 @@ export default function XmlSources() {
     setPreviewBusy(true);
     try {
       const r = await apiClient.post('/products/import/xml/preview-url', { url: url.trim() }, { skipErrorToast: true });
-      const raw = r.data as any;
-      const data = (raw?.data ?? raw) as PreviewPayload;
+      const raw = r.data as { data?: PreviewPayload } & PreviewPayload;
+      const data = raw?.data ?? raw;
       if (!data?.xmlFields?.length) {
         toast.error('Önizleme verisi alınamadı.');
         return;
@@ -137,8 +315,9 @@ export default function XmlSources() {
       setPreviewFields(data.xmlFields);
       setMapping(buildMappingWithAutoSuggest(data.xmlFields, mapping));
       toast.success(`${data.totalRows ?? data.xmlFields.length} ürün satırı algılandı. Eşleştirmeyi kontrol edin.`);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? e?.message ?? 'Önizleme başarısız.');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } }; message?: string };
+      toast.error(err?.response?.data?.error ?? err?.message ?? 'Önizleme başarısız.');
     } finally {
       setPreviewBusy(false);
     }
@@ -187,8 +366,9 @@ export default function XmlSources() {
       }
       setModalOpen(false);
       void load();
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? 'Kaydedilemedi.');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error ?? 'Kaydedilemedi.');
     }
   };
 
@@ -202,20 +382,25 @@ export default function XmlSources() {
   };
 
   const syncNow = async (row: XmlSourceRow) => {
+    setSyncingId(row.id);
     try {
       const r = await apiClient.post(
         `/xml-sources/${row.id}/sync`,
         {},
         { skipErrorToast: true, timeout: 120_000 },
       );
-      const s = (r.data as any)?.summary ?? r.data?.summary;
+      const s = (r.data as { summary?: { imported?: number; updated?: number; skipped?: number } })?.summary
+        ?? (r.data as { summary?: { imported?: number; updated?: number; skipped?: number } })?.summary;
       toast.success(
         `Senkron tamamlandı: ${s?.imported ?? 0} eklendi, ${s?.updated ?? 0} güncellendi, ${s?.skipped ?? 0} atlandı.`,
         { duration: 5000 },
       );
       void load();
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? 'Senkron başarısız.');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error ?? 'Senkron başarısız.');
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -230,130 +415,278 @@ export default function XmlSources() {
     }
   };
 
-  return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">XML kaynakları</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Feed URL’nizi ve eşleştirmeyi bir kez kaydedin; manuel veya otomatik senkronla ürünler güncellenir.
-            Cron varsayılan: 30 dakikada bir (
-            <code className="text-xs bg-slate-100 px-1 rounded">XML_SOURCE_CRON_SCHEDULE</code>
-            ).
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            to="/dashboard/products/import/xml?mode=saved"
-            className="px-4 py-2 text-sm font-medium text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-50"
-          >
-            XML içe aktarma
-          </Link>
+  const columns = useMemo(() => [
+    {
+      key:    'name',
+      header: 'Kaynak Adı',
+      cell:   (row: XmlSourceRow) => (
+        <span className="font-medium text-slate-900">{row.name}</span>
+      ),
+    },
+    {
+      key:    'url',
+      header: 'URL',
+      cell:   (row: XmlSourceRow) => (
+        <div className="flex items-center gap-2 min-w-[140px] max-w-[220px]">
+          <span className="text-[13px] text-slate-600 truncate" title={row.url}>
+            {displayUrl(row.url)}
+          </span>
           <button
             type="button"
-            onClick={openCreate}
-            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700"
+            onClick={e => { e.stopPropagation(); void copyText(row.url); }}
+            className="text-[11px] text-indigo-600 hover:text-indigo-800 shrink-0"
+            title="URL kopyala"
           >
-            Yeni kaynak
+            Kopyala
+          </button>
+        </div>
+      ),
+    },
+    {
+      key:    'status',
+      header: 'Durum',
+      cell:   (row: XmlSourceRow) => {
+        const st = rowStatus(row);
+        return (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); void toggleActive(row); }}
+            title={st === 'inactive' ? 'Aktifleştir' : st === 'active' ? 'Pasifleştir' : 'Durumu değiştir'}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${STATUS_STYLE[st]}`}
+          >
+            {STATUS_LABELS[st]}
+          </button>
+        );
+      },
+    },
+    {
+      key:    'lastSync',
+      header: 'Son Senkron',
+      cell:   (row: XmlSourceRow) => (
+        <span className="text-[13px] text-slate-600 whitespace-nowrap">
+          {fmtDateTime(row.lastSyncAt) ?? 'Henüz senkron yapılmadı'}
+        </span>
+      ),
+    },
+    {
+      key:    'result',
+      header: 'Sonuç / Ürün',
+      cell:   (row: XmlSourceRow) => (
+        <span className="text-[12px] text-slate-600">{syncResultLabel(row)}</span>
+      ),
+    },
+    {
+      key:    'error',
+      header: 'Hata',
+      cell:   (row: XmlSourceRow) => (
+        row.lastSyncError ? (
+          <span className="text-[12px] text-red-700 line-clamp-2" title={row.lastSyncError}>
+            {row.lastSyncError}
+          </span>
+        ) : (
+          <span className="text-[12px] text-emerald-600">Hata yok</span>
+        )
+      ),
+    },
+    {
+      key:    'autoSync',
+      header: 'Otomatik Senkron',
+      cell:   (row: XmlSourceRow) => (
+        <span className="text-[12px] text-slate-600">{autoSyncLabel(row)}</span>
+      ),
+    },
+    {
+      key:    'actions',
+      header: 'İşlemler',
+      align:  'right' as const,
+      cell:   (row: XmlSourceRow) => (
+        <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); void syncNow(row); }}
+            disabled={!row.isActive || syncingId === row.id}
+            className="text-[13px] font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {syncingId === row.id ? 'Güncelleniyor…' : 'Güncelle'}
+          </button>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); openEdit(row); }}
+            className="text-[13px] font-medium text-slate-600 hover:text-slate-900"
+          >
+            Düzenle
+          </button>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); void remove(row); }}
+            className="text-[13px] font-medium text-red-600 hover:text-red-800"
+          >
+            Sil
+          </button>
+        </div>
+      ),
+    },
+  ], [syncingId]);
+
+  const showFilteredEmpty = !loading && list.length > 0 && filteredList.length === 0;
+
+  return (
+    <div className="w-full space-y-6 pb-10 page-enter">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            XML Kaynakları
+          </h1>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-xl leading-relaxed">
+            XML feed kaynaklarınızı yönetin, ürünleri manuel veya otomatik senkronize edin.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <Link to="/dashboard/products/import/xml?mode=saved" className="btn btn-secondary">
+            XML İçe Aktar
+          </Link>
+          <button type="button" onClick={openCreate} className="btn btn-primary">
+            Yeni Kaynak
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <p className="text-slate-500">Yükleniyor…</p>
-      ) : list.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center text-slate-500">
-          Henüz kayıtlı XML yok. “Yeni kaynak” ile URL ve mapping ekleyin.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase">
-                <th className="px-4 py-3">Ad</th>
-                <th className="px-4 py-3">URL</th>
-                <th className="px-4 py-3">Aktif</th>
-                <th className="px-4 py-3">Son senkron</th>
-                <th className="px-4 py-3">Hata</th>
-                <th className="px-4 py-3 text-right">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {list.map(row => (
-                <tr key={row.id} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
-                  <td className="px-4 py-3 max-w-xs truncate text-slate-600" title={row.url}>{row.url}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => void toggleActive(row)}
-                      className={`text-xs font-semibold px-2 py-1 rounded-lg ${
-                        row.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {row.isActive ? 'Aktif' : 'Pasif'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                    {row.lastSyncAt ? new Date(row.lastSyncAt).toLocaleString('tr-TR') : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-red-600 text-xs max-w-[200px] truncate" title={row.lastSyncError ?? ''}>
-                    {row.lastSyncError ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => void syncNow(row)}
-                      disabled={!row.isActive}
-                      className="text-indigo-600 font-medium hover:underline disabled:opacity-40"
-                    >
-                      XML'i Güncelle
-                    </button>
-                    <button type="button" onClick={() => openEdit(row)} className="text-slate-600 font-medium hover:underline">
-                      Düzenle
-                    </button>
-                    <button type="button" onClick={() => void remove(row)} className="text-red-600 font-medium hover:underline">
-                      Sil
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <SummaryMetric label="Toplam XML Kaynağı" value={stats.total} />
+        <SummaryMetric label="Aktif Kaynak" value={stats.active} />
+        <SummaryMetric label="Son Senkron" value={stats.latest} />
+        <SummaryMetric label="Hatalı Kaynak" value={stats.errors} valueClassName={stats.errors > 0 ? 'text-red-700' : 'text-slate-900'} />
+        <SummaryMetric
+          label="Otomatik Senkron"
+          value={stats.autoOn}
+          sub={`${stats.autoOn} kaynak açık`}
+        />
+      </div>
 
+      {/* Cron info */}
+      <div className="wn-card px-4 py-3.5 border-indigo-100/80 bg-indigo-50/40">
+        <p className="text-[13px] text-slate-700 leading-relaxed">
+          Otomatik senkronizasyon varsayılan olarak <strong className="font-medium">30 dakikada bir</strong> çalışır.
+          Kaynak bazında özel otomatik senkron ayarlarını düzenleme ekranından yapabilirsiniz.
+        </p>
+        <details className="mt-2 text-[12px] text-slate-500">
+          <summary className="cursor-pointer hover:text-slate-700 font-medium">Teknik bilgi</summary>
+          <p className="mt-1.5 font-mono text-[11px] text-slate-500">
+            Sunucu cron zamanlaması: XML_SOURCE_CRON_SCHEDULE ortam değişkeni ile yapılandırılır.
+          </p>
+        </details>
+      </div>
+
+      {/* Table card */}
+      <div className="wn-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Kaynak adı veya URL ara…"
+                className="wn-input w-full"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+              className="wn-select sm:w-40"
+              aria-label="Durum filtresi"
+            >
+              <option value="">Tüm durumlar</option>
+              <option value="active">Aktif</option>
+              <option value="inactive">Pasif</option>
+              <option value="error">Hatalı</option>
+            </select>
+            <select
+              value={sortKey}
+              onChange={e => setSortKey(e.target.value as SortKey)}
+              className="wn-select sm:w-44"
+              aria-label="Sıralama"
+            >
+              <option value="lastSync">Son senkron</option>
+              <option value="name">Ad</option>
+              <option value="error">Hata durumu</option>
+            </select>
+          </div>
+          {(searchQuery || statusFilter) && !loading && (
+            <p className="text-[12px] text-slate-500 mt-2">
+              {filteredList.length} kaynak gösteriliyor
+            </p>
+          )}
+        </div>
+
+        <div className="px-2 sm:px-3 pb-2">
+          <Table
+            data={filteredList}
+            columns={columns}
+            keyExtractor={r => r.id}
+            loading={loading}
+            emptyState={
+              !loading && list.length === 0
+                ? <TableEmptyState onCreate={openCreate} />
+                : showFilteredEmpty
+                  ? (
+                    <div className="empty-state py-12 px-6">
+                      <p className="empty-state-title">Filtrelere uygun kaynak bulunamadı</p>
+                      <p className="empty-state-desc mx-auto">Arama veya filtre kriterlerini değiştirin.</p>
+                    </div>
+                  )
+                  : undefined
+            }
+          />
+        </div>
+      </div>
+
+      {/* Tips */}
+      <div className="wn-card px-5 py-4">
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Kullanım ipuçları</p>
+        <ul className="grid sm:grid-cols-2 gap-2 text-[13px] text-slate-600">
+          <li className="flex gap-2"><span className="text-indigo-400">•</span>XML URL herkese açık ve erişilebilir olmalıdır.</li>
+          <li className="flex gap-2"><span className="text-indigo-400">•</span>SKU veya barkod alanı benzersiz olmalıdır.</li>
+          <li className="flex gap-2"><span className="text-indigo-400">•</span>Görsel URL&apos;leri mümkünse HTTPS olmalıdır.</li>
+          <li className="flex gap-2"><span className="text-indigo-400">•</span>Büyük XML dosyalarında senkron biraz sürebilir.</li>
+        </ul>
+      </div>
+
+      {/* Modal — logic unchanged */}
       {modalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl border border-slate-200 p-6 space-y-4">
             <h2 className="text-lg font-bold text-slate-900">{editing ? 'Kaynağı düzenle' : 'Yeni XML kaynağı'}</h2>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Ad</label>
+              <label className="wn-label">Ad</label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                className="wn-input w-full"
                 placeholder="Örn. Tedarikçi A — günlük feed"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">XML URL</label>
+              <label className="wn-label">XML URL</label>
               <input
                 value={url}
                 onChange={e => setUrl(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono"
+                className="wn-input w-full font-mono text-[13px]"
                 placeholder="https://..."
               />
             </div>
 
             <div className="flex flex-wrap gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Çift kayıt</label>
+                <label className="wn-label">Çift kayıt</label>
                 <select
                   value={duplicateMode}
                   onChange={e => setDuplicateMode(e.target.value as DuplicateMode)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="wn-select"
                 >
                   <option value="update">Güncelle (önerilen)</option>
                   <option value="skip">Atla</option>
@@ -379,11 +712,11 @@ export default function XmlSources() {
               {autoSyncEnabled && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sıklık</label>
+                    <label className="wn-label">Sıklık</label>
                     <select
                       value={autoSyncInterval}
                       onChange={e => setAutoSyncInterval(e.target.value as AutoSyncInterval)}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
+                      className="wn-select w-full"
                     >
                       <option value="1">1 saatte bir</option>
                       <option value="6">6 saatte bir</option>
@@ -392,26 +725,25 @@ export default function XmlSources() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Saat</label>
+                    <label className="wn-label">Saat</label>
                     <input
                       type="time"
                       value={autoSyncTime}
                       onChange={e => setAutoSyncTime(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
+                      className="wn-input w-full"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Örn. 03:00 seçerseniz günlük 03:00’te, 6 saatte bir seçerseniz 03:00/09:00/15:00/21:00 çalışır.
+                      Günlük seçimde belirtilen saatte; aralıklı seçimde o saatten itibaren tekrarlar.
                     </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Zaman dilimi</label>
+                    <label className="wn-label">Zaman dilimi</label>
                     <input
                       value={autoSyncTimezone}
                       onChange={e => setAutoSyncTimezone(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono bg-white"
+                      className="wn-input w-full font-mono text-[13px]"
                       placeholder="Europe/Istanbul"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">IANA timezone (varsayılan: Europe/Istanbul)</p>
                   </div>
                 </div>
               )}
@@ -422,7 +754,7 @@ export default function XmlSources() {
                 type="button"
                 onClick={() => void runPreview()}
                 disabled={previewBusy}
-                className="px-4 py-2 text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50"
+                className="btn btn-secondary"
               >
                 {previewBusy ? 'Önizleniyor…' : 'XML alanlarını yükle'}
               </button>
@@ -438,7 +770,7 @@ export default function XmlSources() {
                       <select
                         value={mapping[field] === '__ignore__' ? '' : (mapping[field] ?? '')}
                         onChange={e => setMapping(m => ({ ...m, [field]: e.target.value }))}
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs min-w-[140px]"
+                        className="wn-select min-w-[140px] text-xs py-1"
                       >
                         <option value="">— Seçin —</option>
                         {FIXED_MAPPING_TARGETS.map(tf => (
@@ -453,10 +785,10 @@ export default function XmlSources() {
             )}
 
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-xl border border-slate-200">
+              <button type="button" onClick={() => setModalOpen(false)} className="btn btn-ghost">
                 İptal
               </button>
-              <button type="button" onClick={() => void save()} className="px-4 py-2 text-sm font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700">
+              <button type="button" onClick={() => void save()} className="btn btn-primary">
                 Kaydet
               </button>
             </div>
