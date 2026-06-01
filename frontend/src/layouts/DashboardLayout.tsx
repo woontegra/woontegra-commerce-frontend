@@ -141,7 +141,7 @@ const NAV: NavGroup[] = [
     id: 'settings', label: 'Ayarlar', defaultOpen: false,
     items: [
       { label: 'Faturalama',     to: '/dashboard/billing',       icon: IC.billing       },
-      { label: 'Vitrin Builder', to: '/dashboard/storefront-builder', icon: IC.storefront },
+      { label: 'Vitrin Tasarımı', to: '/dashboard/storefront-builder', icon: IC.storefront },
       { label: 'Mağaza Ayarları',to: '/dashboard/store-settings',icon: IC.storeSettings },
       { label: 'Ödeme Ayarları', to: '/dashboard/settings/payments', icon: IC.billing  },
       { label: 'Kargo Ayarları', to: '/dashboard/settings/shipping', icon: IC.shipping },

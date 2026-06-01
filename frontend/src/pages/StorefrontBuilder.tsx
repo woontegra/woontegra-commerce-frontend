@@ -255,7 +255,7 @@ export default function StorefrontBuilder() {
             <LayoutTemplate className="w-5 h-5" />
             <span className="text-[11px] font-medium uppercase tracking-wide">Ana Sayfa</span>
           </div>
-          <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">Vitrin Builder</h1>
+          <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">Vitrin Tasarım Editörü</h1>
           <p className="text-[13px] text-slate-500 mt-1 max-w-xl">
             Mağazanızın ana sayfa bloklarını sürükle-bırak yöntemiyle düzenleyin, taslak kaydedin ve yayına alın.
           </p>
