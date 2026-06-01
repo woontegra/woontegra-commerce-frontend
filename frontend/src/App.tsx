@@ -56,6 +56,7 @@ const Integrations = lazy(() => import('./pages/Integrations'));
 const PageBuilder = lazy(() => import('./pages/PageBuilder'));
 const StorefrontBuilder = lazy(() => import('./pages/StorefrontBuilder'));
 const BlogManagement = lazy(() => import('./pages/BlogManagement'));
+const MediaLibrary = lazy(() => import('./pages/MediaLibrary'));
 const CartManagement = lazy(() => import('./pages/CartManagement'));
 const ProductVariants = lazy(() => import('./pages/ProductVariants'));
 const AbandonedCarts = lazy(() => import('./pages/AbandonedCarts'));
@@ -296,6 +297,7 @@ function App() {
           <Route path="page-builder" element={<PageBuilder />} />
           <Route path="storefront-builder" element={<StorefrontBuilder />} />
           <Route path="blog-management" element={<BlogManagement />} />
+          <Route path="media" element={<MediaLibrary />} />
           <Route path="cart-management" element={<CartManagement />} />
           <Route path="product-variants" element={<ProductVariants />} />
           <Route path="abandoned-carts" element={<AbandonedCarts />} />
