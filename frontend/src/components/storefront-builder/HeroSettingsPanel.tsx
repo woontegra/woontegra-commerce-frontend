@@ -61,8 +61,15 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   const imageUrl = normalizeImageUrl(str('imageUrl')) || null;
   const mobileImageUrl = normalizeImageUrl(str('mobileImageUrl')) || null;
   const heightPreset = resolveHeightPreset(s);
-  const heightCustom = bool('heightCustomEnabled', false) || heightPreset === 'custom';
+  const heightSegmentValue: HeroHeightPreset | 'fullscreen' =
+    heightPreset === 'fullscreen'
+      ? 'fullscreen'
+      : bool('heightCustomEnabled', false) || heightPreset === 'custom'
+        ? 'custom'
+        : (heightPreset as HeroHeightPreset);
+  const heightCustom = heightSegmentValue === 'custom';
   const overlayPreset = (str('overlayPreset', 'none') || 'none') as HeroOverlayPreset;
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
 
   const setImageUrl = (url: string) => {
     if (url.trim()) {
@@ -77,7 +84,7 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   const setPrimaryText = (v: string) => patch({ primaryButtonText: v, buttonText: v });
   const setPrimaryUrl = (v: string) => patch({ primaryButtonUrl: v, buttonUrl: v });
 
-  const applyHeightPreset = (preset: HeroHeightPreset) => {
+  const applyHeightPreset = (preset: HeroHeightPreset | 'fullscreen' | 'custom') => {
     if (preset === 'custom') {
       patch({ heightPreset: 'custom', heightCustomEnabled: true });
       return;
@@ -120,18 +127,17 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
       overlayEnabled: true,
       overlayColor: opt.color,
       overlayOpacity: opt.opacity,
-      imageTone: preset === 'custom' ? 'customOverlay' : str('imageTone', 'original'),
+      imageTone: 'original',
     });
   };
 
-  const setImageTone = (tone: string) => {
-    if (tone === 'original') {
-      patch({ imageTone: tone, overlayPreset: 'none', overlayEnabled: false, overlayOpacity: 0 });
-    } else if (tone === 'dimmed') {
-      patch({ imageTone: tone, overlayPreset: 'softDark', overlayEnabled: true, overlayOpacity: 20, overlayColor: '#000000' });
-    } else {
-      patch({ imageTone: tone, overlayPreset: 'custom', overlayEnabled: true, overlayOpacity: num('overlayOpacity') || 30 });
-    }
+  const setCustomHeight = (key: 'heightDesktopPx' | 'heightTabletPx' | 'heightMobilePx', value: number) => {
+    patch({
+      [key]: value,
+      heightPreset: 'custom',
+      heightCustomEnabled: true,
+      ...(key === 'heightDesktopPx' ? { heightPx: value } : {}),
+    });
   };
 
   const layoutTab = (
@@ -140,38 +146,24 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
         title="Hero yüksekliği"
         hint="Tam genişlik hero için 1920×700 veya 1920×800 WEBP önerilir."
       >
-        <SegmentControl<HeroHeightPreset | 'fullscreen'>
-          value={
-            heightPreset === 'fullscreen'
-              ? 'fullscreen'
-              : heightCustom
-                ? 'wide'
-                : (heightPreset as HeroHeightPreset)
-          }
+        <SegmentControl<HeroHeightPreset | 'fullscreen' | 'custom'>
+          value={heightSegmentValue}
           options={[
-            ...Object.entries(HERO_HEIGHT_PRESETS).map(([id, p]) => ({ id: id as HeroHeightPreset, label: p.label })),
+            ...Object.entries(HERO_HEIGHT_PRESETS).map(([id, p]) => ({
+              id: id as HeroHeightPreset,
+              label: `${p.label} · ${p.desktop}px`,
+            })),
             { id: 'fullscreen' as const, label: 'Tam ekran' },
+            { id: 'custom' as const, label: 'Özel px' },
           ]}
-          onChange={v => {
-            if (v === 'custom') applyHeightPreset('custom');
-            else applyHeightPreset(v);
-          }}
+          onChange={v => applyHeightPreset(v)}
           columns={2}
-        />
-        <ToggleSwitch
-          label="Özel yükseklik kullan"
-          checked={heightCustom}
-          onChange={v => {
-            if (v) patch({ heightCustomEnabled: true, heightPreset: 'custom' });
-            else applyHeightPreset(heightPreset === 'custom' ? 'wide' : (heightPreset as HeroHeightPreset));
-          }}
-          hint="320–1000 px arası desktop, tablet ve mobil için ayrı değer girin."
         />
         {heightCustom && heightPreset !== 'fullscreen' && (
           <>
-            <SliderField label="Desktop" value={num('heightDesktopPx', 700)} onChange={v => patch({ heightDesktopPx: v, heightPx: v })} min={320} max={1000} step={10} />
-            <SliderField label="Tablet" value={num('heightTabletPx', 560)} onChange={v => set('heightTabletPx', v)} min={320} max={1000} step={10} />
-            <SliderField label="Mobil" value={num('heightMobilePx', 460)} onChange={v => set('heightMobilePx', v)} min={320} max={1000} step={10} />
+            <SliderField label="Desktop" value={num('heightDesktopPx', 700)} onChange={v => setCustomHeight('heightDesktopPx', v)} min={320} max={1000} step={10} />
+            <SliderField label="Tablet" value={num('heightTabletPx', 560)} onChange={v => setCustomHeight('heightTabletPx', v)} min={320} max={1000} step={10} />
+            <SliderField label="Mobil" value={num('heightMobilePx', 460)} onChange={v => setCustomHeight('heightMobilePx', v)} min={320} max={1000} step={10} />
             <FieldHint>Mobilde çok yüksek hero kullanıcıyı ürünlerden uzaklaştırabilir.</FieldHint>
           </>
         )}
@@ -260,7 +252,7 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
         <BuilderImageField
           value={str('mobileImageUrl')}
           onChange={setMobileImageUrl}
-          recommendedSize="1080×1350 px · 750×1000 px · WEBP, JPG, PNG"
+          recommendedSize="1080×1350 px · 1080×1600 px · WEBP"
           helperText="Mobilde dikey görsel kullanmanız önerilir. Mobil görsel yüklenmezse desktop görseli kullanılacaktır."
           usageHint="Dikey kompozisyon (1080×1600) mobilde en iyi sonucu verir."
           folder="banners"
@@ -284,16 +276,6 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
             { id: 'contain', label: 'Sığdır' },
           ]}
           onChange={v => set('imageFit', v)}
-        />
-        <p className="text-[11px] font-medium text-slate-600 mb-1 mt-2">Netlik / ton</p>
-        <SegmentControl
-          value={str('imageTone', 'original')}
-          options={[
-            { id: 'original', label: 'Orijinal' },
-            { id: 'dimmed', label: 'Hafif karart' },
-            { id: 'customOverlay', label: 'Özel overlay' },
-          ]}
-          onChange={setImageTone}
         />
         {!str('imageUrl') && (
           <>
@@ -456,8 +438,28 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
             { id: 'solid', label: 'Dolu' },
             { id: 'outline', label: 'Çerçeveli' },
             { id: 'minimal', label: 'Minimal' },
+            { id: 'link', label: 'Link' },
           ]}
           onChange={v => set('secondaryButtonVariant', v)}
+          columns={2}
+        />
+        <SegmentControl
+          value={str('secondaryButtonSize', 'md')}
+          options={[
+            { id: 'sm', label: 'Küçük' },
+            { id: 'md', label: 'Orta' },
+            { id: 'lg', label: 'Büyük' },
+          ]}
+          onChange={v => set('secondaryButtonSize', v)}
+        />
+        <SegmentControl
+          value={str('secondaryButtonRadius', 'soft')}
+          options={[
+            { id: 'sharp', label: 'Keskin' },
+            { id: 'soft', label: 'Yumuşak' },
+            { id: 'pill', label: 'Yuvarlak' },
+          ]}
+          onChange={v => set('secondaryButtonRadius', v)}
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Arka plan" value={str('secondaryButtonBgColor', 'transparent')} onChange={v => set('secondaryButtonBgColor', v)} />
@@ -481,12 +483,27 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
 
   const previewTab = (
     <SettingCard title="Hero önizleme" hint="Vitrin ile aynı render helper kullanılır.">
+      <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 w-fit mb-3">
+        {(['desktop', 'mobile'] as const).map(vp => (
+          <button
+            key={vp}
+            type="button"
+            onClick={() => setPreviewViewport(vp)}
+            className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+              previewViewport === vp ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {vp === 'desktop' ? 'Desktop' : 'Mobil'}
+          </button>
+        ))}
+      </div>
       <HeroBlockView
         settings={s}
         imageUrl={imageUrl}
         mobileImageUrl={mobileImageUrl}
         themePrimary={null}
         preview
+        previewViewport={previewViewport}
         className="rounded-lg overflow-hidden border border-slate-200"
       />
     </SettingCard>

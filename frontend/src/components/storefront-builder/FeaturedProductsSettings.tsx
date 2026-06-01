@@ -3,7 +3,7 @@ import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import { categoryService, type FlatCategoryNode } from '../../services/category.service';
 import { inputCls } from './builderSettingsUi';
 import { FieldHint, SegmentControl, SettingCard, TextField, ToggleSwitch } from './heroBuilderControls';
-import { resolveFeaturedSourceType } from '../../utils/featuredProductsBlockHelpers';
+import { resolveFeaturedSourceType, type FeaturedSourceType } from '../../utils/featuredProductsBlockHelpers';
 
 function CheckboxField({
   label,
@@ -24,6 +24,53 @@ function CheckboxField({
       />
       {label}
     </label>
+  );
+}
+
+const NEXT_PHASE_SOURCES: FeaturedSourceType[] = ['featured', 'latest', 'discounted'];
+
+const SOURCE_LABELS: Record<FeaturedSourceType, string> = {
+  category: 'Kategori',
+  featured: 'Öne çıkan',
+  latest: 'Yeni gelenler',
+  discounted: 'İndirimli',
+};
+
+function SourceTypePicker({
+  value,
+  onChange,
+}: {
+  value: FeaturedSourceType;
+  onChange: (v: FeaturedSourceType) => void;
+}) {
+  const options: FeaturedSourceType[] = ['category', 'featured', 'latest', 'discounted'];
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {options.map(id => {
+        const disabled = NEXT_PHASE_SOURCES.includes(id);
+        const active = value === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && onChange(id)}
+            className={`relative px-2 py-2 rounded-lg text-[10px] font-medium border text-left transition-all ${
+              disabled
+                ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                : active
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            {SOURCE_LABELS[id]}
+            {disabled && (
+              <span className="block text-[9px] font-normal mt-0.5 opacity-80">Sonraki faz</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -51,6 +98,7 @@ export default function FeaturedProductsSettings({ section, onChange }: Featured
   const [catSearch, setCatSearch] = useState('');
 
   const sourceType = resolveFeaturedSourceType(s);
+  const showViewAll = bool('showViewAllLink', bool('showViewAll', true));
 
   useEffect(() => {
     let cancelled = false;
@@ -86,27 +134,29 @@ export default function FeaturedProductsSettings({ section, onChange }: Featured
     });
   };
 
+  const setShowViewAll = (v: boolean) => patch({ showViewAllLink: v, showViewAll: v });
+
   return (
     <div className="space-y-3">
       <SettingCard title="Bölüm başlığı">
-        <TextField label="Başlık" value={str('title', 'Öne Çıkan Ürünler')} onChange={v => set('title', v)} />
+        <TextField label="Başlık" value={str('title', 'Ürün Vitrini')} onChange={v => set('title', v)} />
         <ToggleSwitch label="Başlığı göster" checked={bool('showTitle', true)} onChange={v => set('showTitle', v)} />
-        <ToggleSwitch label="Tümünü Gör linki" checked={bool('showViewAll', true)} onChange={v => set('showViewAll', v)} />
-        {bool('showViewAll', true) && (
+        <ToggleSwitch label="Tümünü Gör linki" checked={showViewAll} onChange={setShowViewAll} />
+        {showViewAll && (
           <TextField label="Link metni" value={str('viewAllLabel', 'Tümünü gör')} onChange={v => set('viewAllLabel', v)} />
         )}
       </SettingCard>
 
-      <SettingCard title="Ürün kaynağı" hint="Kategori seçerek vitrinde o kategorinin ürünlerini gösterin.">
-        <SegmentControl
-          value={sourceType === 'category' ? 'category' : 'featured'}
-          options={[
-            { id: 'featured', label: 'Genel vitrin' },
-            { id: 'category', label: 'Kategori' },
-          ]}
+      <SettingCard title="Ürün kaynağı" hint="Ana sayfada gösterilecek ürünlerin kaynağını seçin.">
+        <SourceTypePicker
+          value={sourceType}
           onChange={v => patch({ sourceType: v, source: v })}
         />
-        <FieldHint>Yeni gelenler, öne çıkanlar ve indirimli filtreler sonraki fazda eklenecek.</FieldHint>
+        {NEXT_PHASE_SOURCES.includes(sourceType) && (
+          <FieldHint>
+            Bu layout eski genel vitrin kaynağını kullanıyor. Kategori vitrini için &quot;Kategori&quot; seçin.
+          </FieldHint>
+        )}
 
         {sourceType === 'category' && (
           <div className="space-y-2">

@@ -8,6 +8,7 @@ import {
   mapProductCardVariant,
   productGridResponsiveClass,
   resolveFeaturedSourceType,
+  resolveShowViewAll,
 } from '../../utils/featuredProductsBlockHelpers';
 import type { FeaturedProductsEmptyReason } from '../../utils/featuredProductsBlockHelpers';
 import { effectivePrice, formatTry } from '../../storefront/utils/format';
@@ -103,14 +104,14 @@ function ProductCarousel({
       <button
         type="button"
         onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         aria-label="Önceki"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
       <div
         ref={ref}
-        className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1"
+        className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1 touch-pan-x"
       >
         {products.map(p => (
           <div key={p.id} className="snap-start flex-shrink-0 w-[220px] sm:w-[240px]">
@@ -127,7 +128,7 @@ function ProductCarousel({
       <button
         type="button"
         onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         aria-label="Sonraki"
       >
         <ChevronRight className="w-4 h-4" />
@@ -145,9 +146,9 @@ export default function FeaturedProductsBlockView({
   viewAllHref,
   preview = false,
 }: FeaturedProductsBlockViewProps) {
-  const title = str(settings, 'title', 'Öne Çıkan Ürünler');
+  const title = str(settings, 'title', 'Ürün Vitrini');
   const showTitle = bool(settings, 'showTitle', true);
-  const showViewAll = bool(settings, 'showViewAll', true);
+  const showViewAll = resolveShowViewAll(settings);
   const viewAllLabel = str(settings, 'viewAllLabel', 'Tümünü gör');
   const displayMode = str(settings, 'displayMode', 'grid');
   const cardStyle = str(settings, 'cardStyle', 'standard');

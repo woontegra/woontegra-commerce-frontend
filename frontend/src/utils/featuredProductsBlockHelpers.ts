@@ -47,9 +47,21 @@ export function mergeFeaturedProductsSettings(
     merged.columnsMobile = 2;
   }
   if (raw.showTitle === undefined) merged.showTitle = true;
-  if (raw.showViewAll === undefined) merged.showViewAll = true;
+  if (raw.showViewAllLink === undefined && merged.showViewAll !== undefined) {
+    merged.showViewAllLink = merged.showViewAll;
+  }
+  if (raw.showViewAll === undefined && merged.showViewAllLink !== undefined) {
+    merged.showViewAll = merged.showViewAllLink;
+  }
+  if (raw.showViewAllLink === undefined) merged.showViewAllLink = true;
   if (raw.viewAllLabel === undefined) merged.viewAllLabel = 'Tümünü gör';
   return merged;
+}
+
+export function resolveShowViewAll(settings: Record<string, unknown>): boolean {
+  if (settings.showViewAllLink !== undefined) return Boolean(settings.showViewAllLink);
+  if (settings.showViewAll !== undefined) return Boolean(settings.showViewAll);
+  return true;
 }
 
 export function featuredViewAllHref(

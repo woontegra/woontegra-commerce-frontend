@@ -16,7 +16,7 @@ export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
 export const BLOCK_LABELS: Record<string, string> = {
   hero: 'Hero Banner',
   categoryGrid: 'Kategori Vitrini',
-  featuredProducts: 'Öne Çıkan Ürünler',
+  featuredProducts: 'Ürün Vitrini',
   campaignBanner: 'Kampanya Banner',
   trustBadges: 'Güven Rozetleri',
   textImage: 'Görsel + Metin',
@@ -25,7 +25,7 @@ export const BLOCK_LABELS: Record<string, string> = {
 export const BLOCK_DESCRIPTIONS: Record<string, string> = {
   hero: 'Ana sayfanın üst vitrin alanı — markanızı ve çağrıyı öne çıkarır.',
   categoryGrid: 'Kategori kartlarıyla keşfi hızlandırın.',
-  featuredProducts: 'Seçili ürünleri vitrinde listeleyin.',
+  featuredProducts: 'Kategori veya genel kaynaktan ürünleri grid, liste veya carousel ile gösterin.',
   campaignBanner: 'Kampanya ve duyurular için dikkat çekici bant.',
   trustBadges: 'Güven, hizmet ve teslimat vaatlerinizi gösterin.',
   textImage: 'Marka hikâyesi veya bilgi metni + görsel.',
@@ -122,14 +122,14 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
       };
     case 'featuredProducts':
       return {
-        title: 'Öne Çıkan Ürünler',
+        title: 'Ürün Vitrini',
         limit: 8,
         columns: 4,
         columnsDesktop: 4,
         columnsTablet: 2,
         columnsMobile: 2,
-        source: 'featured',
-        sourceType: 'featured',
+        source: 'category',
+        sourceType: 'category',
         categoryId: '',
         categorySlug: '',
         categoryName: '',
@@ -140,6 +140,7 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         showAddToCart: true,
         showTitle: true,
         showViewAll: true,
+        showViewAllLink: true,
         viewAllLabel: 'Tümünü gör',
       };
     case 'campaignBanner':
