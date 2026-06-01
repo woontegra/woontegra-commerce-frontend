@@ -5,6 +5,19 @@ import api from '../services/api';
 type ReportType = 'sales' | 'products' | 'customers';
 type DateRange = '7days' | '30days' | '90days' | 'custom';
 
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function formatMoney(value: unknown, prefix = '$'): string {
+  return `${prefix}${toNumber(value).toFixed(2)}`;
+}
+
 export default function Reports() {
   const [activeReport, setActiveReport] = useState<ReportType>('sales');
   const [dateRange, setDateRange] = useState<DateRange>('30days');
@@ -230,19 +243,19 @@ export default function Reports() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Toplam Gelir</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    ${salesData.summary.totalRevenue.toFixed(2)}
+                    {formatMoney(salesData.summary?.totalRevenue)}
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Toplam Sipariş</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    {salesData.summary.totalOrders}
+                    {toNumber(salesData.summary?.totalOrders)}
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Ortalama Sipariş Değeri</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    ${salesData.summary.averageOrderValue.toFixed(2)}
+                    {formatMoney(salesData.summary?.averageOrderValue)}
                   </p>
                 </div>
               </div>
@@ -251,7 +264,7 @@ export default function Reports() {
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Satış Trendi</h2>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={salesData.salesByDate}>
+                  <LineChart data={salesData.salesByDate ?? []}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
                     <XAxis dataKey="date" stroke="#9ca3af" style={{ fontSize: '12px' }} />
                     <YAxis stroke="#9ca3af" style={{ fontSize: '12px' }} />
@@ -276,7 +289,7 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
-                      data={Object.entries(salesData.statusBreakdown).map(([name, value]) => ({ name, value }))}
+                      data={Object.entries(salesData.statusBreakdown ?? {}).map(([name, value]) => ({ name, value }))}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -285,7 +298,7 @@ export default function Reports() {
                       fill="#8884d8"
                       dataKey="value"
                     >
-                      {Object.entries(salesData.statusBreakdown).map((_entry, index) => (
+                      {Object.entries(salesData.statusBreakdown ?? {}).map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -303,7 +316,7 @@ export default function Reports() {
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">En Çok Satan Ürünler</h2>
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={productsData.topProducts}>
+                  <BarChart data={productsData.topProducts ?? []}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
                     <XAxis dataKey="productName" stroke="#9ca3af" style={{ fontSize: '12px' }} angle={-45} textAnchor="end" height={100} />
                     <YAxis stroke="#9ca3af" style={{ fontSize: '12px' }} />
@@ -336,12 +349,12 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {productsData.categoryBreakdown.map((cat: any, index: number) => (
+                      {(productsData.categoryBreakdown ?? []).map((cat: any, index: number) => (
                         <tr key={index} className="border-b dark:border-gray-700">
                           <td className="py-3 px-4 text-gray-900 dark:text-white">{cat.category}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">${cat.totalRevenue.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{cat.totalSold}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{cat.productCount}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{formatMoney(cat.totalRevenue)}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{toNumber(cat.totalSold)}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{toNumber(cat.productCount)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -359,19 +372,19 @@ export default function Reports() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Toplam Müşteri</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    {customersData.summary.totalCustomers}
+                    {toNumber(customersData.summary?.totalCustomers)}
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Aktif Müşteri</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    {customersData.summary.activeCustomers}
+                    {toNumber(customersData.summary?.activeCustomers)}
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Ortalama Müşteri Değeri</p>
                   <p className="text-3xl font-semibold text-gray-900 dark:text-white mt-2">
-                    ${customersData.summary.averageCustomerValue.toFixed(2)}
+                    {formatMoney(customersData.summary?.averageCustomerValue)}
                   </p>
                 </div>
               </div>
@@ -391,13 +404,13 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {customersData.topCustomers.map((customer: any, index: number) => (
+                      {(customersData.topCustomers ?? []).map((customer: any, index: number) => (
                         <tr key={index} className="border-b dark:border-gray-700">
                           <td className="py-3 px-4 text-gray-900 dark:text-white">{customer.customerName}</td>
                           <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{customer.email}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">${customer.totalSpent.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{customer.orderCount}</td>
-                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">${customer.averageOrderValue.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{formatMoney(customer.totalSpent)}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{toNumber(customer.orderCount)}</td>
+                          <td className="py-3 px-4 text-right text-gray-900 dark:text-white">{formatMoney(customer.averageOrderValue)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -411,17 +424,17 @@ export default function Reports() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <p className="text-sm text-purple-600 dark:text-purple-400 mb-1">VIP</p>
-                    <p className="text-2xl font-semibold text-purple-900 dark:text-purple-300">{customersData.segments.vip}</p>
+                    <p className="text-2xl font-semibold text-purple-900 dark:text-purple-300">{toNumber(customersData.segments?.vip)}</p>
                     <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">&gt;$1000</p>
                   </div>
                   <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                     <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Düzenli</p>
-                    <p className="text-2xl font-semibold text-blue-900 dark:text-blue-300">{customersData.segments.regular}</p>
+                    <p className="text-2xl font-semibold text-blue-900 dark:text-blue-300">{toNumber(customersData.segments?.regular)}</p>
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">$100-$1000</p>
                   </div>
                   <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                     <p className="text-sm text-green-600 dark:text-green-400 mb-1">Yeni</p>
-                    <p className="text-2xl font-semibold text-green-900 dark:text-green-300">{customersData.segments.new}</p>
+                    <p className="text-2xl font-semibold text-green-900 dark:text-green-300">{toNumber(customersData.segments?.new)}</p>
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1">&lt;$100</p>
                   </div>
                 </div>
