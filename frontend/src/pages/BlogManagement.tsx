@@ -1,260 +1,113 @@
-import { useState, useEffect } from 'react';
-import { Card, Button, Input, Badge } from '../components/ui';
-import { generateSlug } from '../utils/seo';
-import api from '../services/api';
-import type { Post } from '../types';
+import { Table } from '../components/ui/Table';
+
+/**
+ * Blog admin — backend CRUD routes not deployed yet.
+ * Flip to true when GET/POST/PUT/DELETE /api/blog are live on the server.
+ */
+const BLOG_ADMIN_API_READY = false;
 
 export default function BlogManagement() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingPost, setEditingPost] = useState<Post | null>(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    content: '',
-    excerpt: '',
-    coverImage: '',
-    isPublished: false,
-  });
+  if (!BLOG_ADMIN_API_READY) {
+    return <BlogManagementPlaceholder />;
+  }
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
+  // Future: restore API-backed admin when backend blog module ships.
+  return <BlogManagementPlaceholder />;
+}
 
-  const fetchPosts = async () => {
-    try {
-      const response = await api.get('/blog');
-      setPosts(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const title = e.target.value;
-    setFormData({
-      ...formData,
-      title,
-      slug: generateSlug(title),
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      if (editingPost) {
-        await api.put(`/blog/${editingPost.id}`, formData);
-      } else {
-        await api.post('/blog', formData);
-      }
-
-      setShowForm(false);
-      setEditingPost(null);
-      setFormData({
-        title: '',
-        slug: '',
-        content: '',
-        excerpt: '',
-        coverImage: '',
-        isPublished: false,
-      });
-      fetchPosts();
-    } catch (error) {
-      console.error('Failed to save post:', error);
-      alert('Yazı kaydedilemedi');
-    }
-  };
-
-  const handleEdit = (post: Post) => {
-    setEditingPost(post);
-    setFormData({
-      title: post.title,
-      slug: post.slug,
-      content: post.content,
-      excerpt: post.excerpt || '',
-      coverImage: post.coverImage || '',
-      isPublished: post.isPublished,
-    });
-    setShowForm(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Bu yazıyı silmek istediğinizden emin misiniz?')) return;
-
-    try {
-      await api.delete(`/blog/${id}`);
-      fetchPosts();
-    } catch (error) {
-      console.error('Failed to delete post:', error);
-      alert('Yazı silinemedi');
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR');
-  };
+function BlogManagementPlaceholder() {
+  const columns = [
+    {
+      key:    'title',
+      header: 'Başlık',
+      cell:   () => null,
+    },
+    {
+      key:    'status',
+      header: 'Durum',
+      cell:   () => null,
+    },
+    {
+      key:    'author',
+      header: 'Yazar',
+      cell:   () => null,
+    },
+    {
+      key:    'publishedAt',
+      header: 'Yayın Tarihi',
+      cell:   () => null,
+    },
+    {
+      key:    'seo',
+      header: 'SEO',
+      cell:   () => null,
+    },
+    {
+      key:    'actions',
+      header: 'İşlem',
+      align:  'right' as const,
+      cell:   () => null,
+    },
+  ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Blog Yönetimi</h1>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'İptal' : 'Yeni Yazı'}
-        </Button>
+    <div className="w-full space-y-6 pb-10 page-enter">
+
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            Blog Yönetimi
+          </h1>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-xl leading-relaxed">
+            Blog yazılarınızı ve içeriklerinizi yöneteceğiniz alan.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Blog yönetimi sonraki fazda aktif olacak."
+          className="btn btn-primary text-[13px] opacity-50 cursor-not-allowed shrink-0"
+        >
+          Yeni Blog Yazısı
+        </button>
       </div>
 
-      {showForm && (
-        <Card>
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            {editingPost ? 'Yazıyı Düzenle' : 'Yeni Yazı Ekle'}
-          </h2>
+      <div className="wn-card px-4 py-3.5 border-indigo-100/80 bg-indigo-50/40">
+        <p className="text-[13px] font-medium text-slate-800">
+          Blog yönetimi sonraki fazda aktif olacak.
+        </p>
+        <p className="text-[13px] text-slate-600 mt-1.5 leading-relaxed">
+          Bu modül aktif edildiğinde blog yazısı oluşturma, SEO başlığı, açıklama, kategori,
+          etiket ve yayın durumu yönetimi yapılabilecek.
+        </p>
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Başlık *"
-              value={formData.title}
-              onChange={handleTitleChange}
-              required
-              placeholder="Yazı başlığı"
-            />
-
-            <Input
-              label="Slug *"
-              value={formData.slug}
-              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-              required
-              placeholder="yazi-slug"
-              helperText="URL'de görünecek kısım"
-            />
-
-            <Input
-              label="Kapak Görseli URL"
-              value={formData.coverImage}
-              onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
-              placeholder="https://example.com/image.jpg"
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Özet
-              </label>
-              <textarea
-                value={formData.excerpt}
-                onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Kısa açıklama (opsiyonel)"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                İçerik *
-              </label>
-              <textarea
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={10}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                placeholder="HTML içerik..."
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isPublished"
-                checked={formData.isPublished}
-                onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <label htmlFor="isPublished" className="text-sm font-medium text-gray-700">
-                Yayınla
-              </label>
-            </div>
-
-            <div className="flex gap-3">
-              <Button type="submit" fullWidth>
-                {editingPost ? 'Güncelle' : 'Kaydet'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingPost(null);
-                }}
-              >
-                İptal
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-4">Başlık</th>
-                <th className="text-left py-3 px-4">Durum</th>
-                <th className="text-left py-3 px-4">Yazar</th>
-                <th className="text-left py-3 px-4">Tarih</th>
-                <th className="text-right py-3 px-4">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {posts.map((post) => (
-                <tr key={post.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-900">{post.title}</div>
-                    <div className="text-sm text-gray-500">/blog/{post.slug}</div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge variant={post.isPublished ? 'success' : 'gray'}>
-                      {post.isPublished ? 'Yayında' : 'Taslak'}
-                    </Badge>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">
-                    {post.author.firstName} {post.author.lastName}
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">
-                    {formatDate(post.createdAt)}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(post)}
-                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                      >
-                        Düzenle
-                      </button>
-                      <button
-                        onClick={() => handleDelete(post.id)}
-                        className="text-red-600 hover:text-red-700 font-medium text-sm"
-                      >
-                        Sil
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {posts.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-500">
-              Henüz blog yazısı yok
-            </div>
-          )}
+      <div className="wn-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="text-[13px] font-semibold text-slate-800">Blog yazıları</h2>
+          <p className="text-[12px] text-slate-500 mt-0.5">0 kayıt</p>
         </div>
-      </Card>
+        <Table
+          data={[]}
+          columns={columns}
+          keyExtractor={() => 'empty'}
+          stickyHeader
+          emptyState={
+            <div className="empty-state py-14 px-6">
+              <div className="empty-state-icon">
+                <svg className="w-10 h-10 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+              </div>
+              <p className="empty-state-title">Henüz blog yazısı yok.</p>
+              <p className="empty-state-desc mx-auto max-w-md">
+                Blog yönetimi aktif edildiğinde yazılarınız burada listelenecektir.
+              </p>
+            </div>
+          }
+        />
+      </div>
     </div>
   );
 }
