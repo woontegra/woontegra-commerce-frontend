@@ -3,6 +3,7 @@ import { mergeHeroSettings } from '../utils/heroBlockHelpers';
 import { mergeFeaturedProductsSettings } from '../utils/featuredProductsBlockHelpers';
 import { mergeAnnouncementBarSettings } from '../utils/announcementBarHelpers';
 import { mergeHeaderSettings } from '../utils/headerSettingsHelpers';
+import { mergeFooterSettings } from '../utils/footerSettingsHelpers';
 import { buildHeroLayerProps } from '../utils/storefrontImageLayout';
 
 export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
@@ -260,6 +261,7 @@ export function normalizeLayout(raw: unknown): StorefrontLayout {
     ...rawTheme,
     announcementBar: mergeAnnouncementBarSettings(rawTheme.announcementBar),
     headerSettings: mergeHeaderSettings(rawTheme.headerSettings),
+    footerSettings: mergeFooterSettings(rawTheme.footerSettings),
   };
   const sections = Array.isArray(root.sections)
     ? root.sections.map((s, i) => normalizeSection(s, i))
@@ -272,6 +274,7 @@ export function layoutFingerprint(layout: StorefrontLayout): string {
     sections: layout.sections,
     announcementBar: mergeAnnouncementBarSettings(layout.theme?.announcementBar),
     headerSettings: mergeHeaderSettings(layout.theme?.headerSettings),
+    footerSettings: mergeFooterSettings(layout.theme?.footerSettings),
   });
 }
 

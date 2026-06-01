@@ -22,10 +22,13 @@ import SortableSectionRow from './SortableSectionRow';
 import BuilderPreview from './BuilderPreview';
 import { AnnouncementBar } from '../../storefront/components/AnnouncementBar';
 import { StorefrontHeader } from '../../storefront/components/StorefrontHeader';
+import { StorefrontFooter } from '../../storefront/components/StorefrontFooter';
 import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
 import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
+import type { FooterSettings } from '../../utils/footerSettingsHelpers';
+import { GLOBAL_FOOTER_SETTINGS_ID } from '../../utils/footerSettingsHelpers';
 import { useBranding } from '../../context/BrandingContext';
 import { displayStorefrontName } from '../../utils/displayStoreName';
 
@@ -41,6 +44,7 @@ type BuilderCenterWorkspaceProps = {
   tenantSlug?: string | null;
   announcementBar: AnnouncementBarSettings;
   headerSettings: HeaderSettings;
+  footerSettings: FooterSettings;
   globalSelection: string | null;
 };
 
@@ -62,6 +66,7 @@ export default function BuilderCenterWorkspace({
   tenantSlug = null,
   announcementBar,
   headerSettings,
+  footerSettings,
   globalSelection,
 }: BuilderCenterWorkspaceProps) {
   const { branding } = useBranding();
@@ -74,7 +79,8 @@ export default function BuilderCenterWorkspace({
   const showViewportSwitcher =
     selectedSection?.type === 'hero' ||
     globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ||
-    globalSelection === GLOBAL_HEADER_SETTINGS_ID;
+    globalSelection === GLOBAL_HEADER_SETTINGS_ID ||
+    globalSelection === GLOBAL_FOOTER_SETTINGS_ID;
 
   const previewViewportForBar: 'desktop' | 'mobile' | undefined =
     previewViewport === 'mobile' ? 'mobile' : previewViewport ? 'desktop' : undefined;
@@ -132,13 +138,15 @@ export default function BuilderCenterWorkspace({
           <div>
             <h2 className="text-[13px] font-semibold text-slate-800">Vitrin Önizleme</h2>
             <p className="text-[11px] text-slate-500">
-              {globalSelection === GLOBAL_HEADER_SETTINGS_ID
-                ? 'Header'
-                : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
-                  ? 'Üst Duyuru Barı'
-                  : selectedSection
-                    ? blockLabel(selectedSection.type)
-                    : 'Blok seçin'}
+              {globalSelection === GLOBAL_FOOTER_SETTINGS_ID
+                ? 'Footer'
+                : globalSelection === GLOBAL_HEADER_SETTINGS_ID
+                  ? 'Header'
+                  : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
+                    ? 'Üst Duyuru Barı'
+                    : selectedSection
+                      ? blockLabel(selectedSection.type)
+                      : 'Blok seçin'}
             </p>
           </div>
           {showViewportSwitcher && (
@@ -179,7 +187,7 @@ export default function BuilderCenterWorkspace({
                   mağaza vitrin önizleme
                 </span>
               </div>
-              <div className="bg-white min-h-[200px]">
+              <div className="bg-white min-h-[200px] flex flex-col">
                 {(announcementBar.enabled || globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID) && (
                   <AnnouncementBar
                     settings={announcementBar}
@@ -195,12 +203,14 @@ export default function BuilderCenterWorkspace({
                     preview
                   />
                 )}
-                {globalSelection === GLOBAL_HEADER_SETTINGS_ID ? (
-                  <div className="px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
+                {globalSelection === GLOBAL_FOOTER_SETTINGS_ID ? (
+                  <div className="flex-1 min-h-[120px] bg-slate-50/50" />
+                ) : globalSelection === GLOBAL_HEADER_SETTINGS_ID ? (
+                  <div className="flex-1 px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
                     Header tüm vitrin sayfalarında gezinme alanı olarak görünür.
                   </div>
                 ) : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ? (
-                  <div className="px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
+                  <div className="flex-1 px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
                     Duyuru barı tüm vitrin sayfalarında header üstünde görünür.
                   </div>
                 ) : (
@@ -209,6 +219,14 @@ export default function BuilderCenterWorkspace({
                     variant="workspace"
                     previewViewport={showViewportSwitcher ? previewViewport : undefined}
                     tenantSlug={tenantSlug}
+                  />
+                )}
+                {(footerSettings.enabled || globalSelection === GLOBAL_FOOTER_SETTINGS_ID) && (
+                  <StorefrontFooter
+                    tenant={previewTenant}
+                    footerSettings={footerSettings}
+                    storeLink={(path: string) => path}
+                    preview
                   />
                 )}
               </div>

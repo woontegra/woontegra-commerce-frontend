@@ -11,7 +11,7 @@ import { useStorefrontGlobalTheme } from '../hooks/StorefrontGlobalThemeProvider
  * İleride tenant.themeSettings JSON ile beslenecek.
  */
 export default function StorefrontLayout({ children, tenant, storeLink }: ThemeLayoutProps) {
-  const { announcementBar, headerSettings } = useStorefrontGlobalTheme();
+  const { announcementBar, headerSettings, footerSettings } = useStorefrontGlobalTheme();
   const settings = useMemo(
     () => getDefaultThemeSettings({ logoUrl: tenant.logoUrl }),
     [tenant.logoUrl],
@@ -22,7 +22,12 @@ export default function StorefrontLayout({ children, tenant, storeLink }: ThemeL
       <AnnouncementBar settings={announcementBar} resolveHref={storeLink} />
       <StorefrontHeader tenant={tenant} storeLink={storeLink} settings={headerSettings} />
       <main className="flex-1">{children}</main>
-      <StorefrontFooter tenant={tenant} settings={settings} />
+      <StorefrontFooter
+        tenant={tenant}
+        settings={settings}
+        footerSettings={footerSettings}
+        storeLink={storeLink}
+      />
     </div>
   );
 }

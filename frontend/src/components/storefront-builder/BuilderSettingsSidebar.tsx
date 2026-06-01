@@ -5,19 +5,24 @@ import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
 import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
+import type { FooterSettings } from '../../utils/footerSettingsHelpers';
+import { GLOBAL_FOOTER_SETTINGS_ID } from '../../utils/footerSettingsHelpers';
 import HeroSettingsPanel from './HeroSettingsPanel';
 import SectionSettingsPanel from './SectionSettingsPanel';
 import AnnouncementBarSettingsPanel from './AnnouncementBarSettingsPanel';
 import HeaderSettingsPanel from './HeaderSettingsPanel';
+import FooterSettingsPanel from './FooterSettingsPanel';
 
 type BuilderSettingsSidebarProps = {
   section: StorefrontSection | null;
   globalSelection: string | null;
   announcementBar: AnnouncementBarSettings;
   headerSettings: HeaderSettings;
+  footerSettings: FooterSettings;
   onChange: (patch: Record<string, unknown>) => void;
   onAnnouncementBarChange: (patch: Partial<AnnouncementBarSettings>) => void;
   onHeaderSettingsChange: (patch: Partial<HeaderSettings>) => void;
+  onFooterSettingsChange: (patch: Partial<FooterSettings>) => void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
 };
@@ -27,12 +32,28 @@ export default function BuilderSettingsSidebar({
   globalSelection,
   announcementBar,
   headerSettings,
+  footerSettings,
   onChange,
   onAnnouncementBarChange,
   onHeaderSettingsChange,
+  onFooterSettingsChange,
   onDelete,
   onToggleEnabled,
 }: BuilderSettingsSidebarProps) {
+  if (globalSelection === GLOBAL_FOOTER_SETTINGS_ID) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-white">
+          <h2 className="text-[13px] font-semibold text-slate-800">Footer</h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">Tüm vitrin sayfalarında alt alan</p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <FooterSettingsPanel settings={footerSettings} onChange={onFooterSettingsChange} />
+        </div>
+      </div>
+    );
+  }
+
   if (globalSelection === GLOBAL_HEADER_SETTINGS_ID) {
     return (
       <div className="flex flex-col h-full min-h-0">
