@@ -7,21 +7,37 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import toast from 'react-hot-toast';
 import type { StorefrontCartLine } from '../types/storefront.types';
 import { useStorefrontTenant } from './useStorefrontTenant';
+import { AddToCartFeedbackModal } from '../components/AddToCartFeedbackModal';
 
 function cartStorageKey(tenantId: string) {
   return `woontegra_cart_${tenantId}`;
 }
 
+export type AddToCartFeedback = {
+  productId: string;
+  name: string;
+  imageUrl: string | null;
+  unitPrice: number;
+  listPrice?: number;
+  quantity: number;
+};
+
+type AddLineInput = Omit<StorefrontCartLine, 'quantity'> & { quantity?: number };
+type AddLineOptions = { showFeedback?: boolean };
+
 type Ctx = {
   lines: StorefrontCartLine[];
-  addLine: (line: Omit<StorefrontCartLine, 'quantity'> & { quantity?: number }) => void;
+  addLine: (line: AddLineInput, options?: AddLineOptions) => boolean;
   removeLine: (productId: string, variantId?: string) => void;
   setQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clearCart: () => void;
   subtotal: number;
   itemCount: number;
+  cartFeedback: AddToCartFeedback | null;
+  dismissCartFeedback: () => void;
 };
 
 const StorefrontCartContext = createContext<Ctx | null>(null);
@@ -32,9 +48,10 @@ function lineKey(productId: string, variantId?: string) {
 
 export function StorefrontCartProvider({ children }: { children: ReactNode }) {
   const { tenant } = useStorefrontTenant();
-  const tenantId   = tenant?.id ?? '';
+  const tenantId = tenant?.id ?? '';
 
   const [lines, setLines] = useState<StorefrontCartLine[]>([]);
+  const [cartFeedback, setCartFeedback] = useState<AddToCartFeedback | null>(null);
 
   useEffect(() => {
     if (!tenantId) {
@@ -54,25 +71,48 @@ export function StorefrontCartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(cartStorageKey(tenantId), JSON.stringify(lines));
   }, [lines, tenantId]);
 
-  const addLine = useCallback(
-    (input: Omit<StorefrontCartLine, 'quantity'> & { quantity?: number }) => {
-      const qty = Math.max(1, input.quantity ?? 1);
-      const key = lineKey(input.productId, input.variantId);
-      setLines(prev => {
-        const idx = prev.findIndex(l => lineKey(l.productId, l.variantId) === key);
-        if (idx >= 0) {
-          const next = [...prev];
-          const max = next[idx].maxStock;
-          const newQty = max != null ? Math.min(max, next[idx].quantity + qty) : next[idx].quantity + qty;
-          next[idx] = { ...next[idx], quantity: newQty };
-          return next;
-        }
-        const capped = input.maxStock != null ? Math.min(input.maxStock, qty) : qty;
-        return [...prev, { ...input, quantity: capped }];
-      });
-    },
-    [],
-  );
+  const dismissCartFeedback = useCallback(() => setCartFeedback(null), []);
+
+  const addLine = useCallback((input: AddLineInput, options?: AddLineOptions) => {
+    const qty = Math.max(1, input.quantity ?? 1);
+    const key = lineKey(input.productId, input.variantId);
+    let addedQty = 0;
+
+    setLines(prev => {
+      const idx = prev.findIndex(l => lineKey(l.productId, l.variantId) === key);
+      if (idx >= 0) {
+        const next = [...prev];
+        const max = next[idx].maxStock;
+        const oldQty = next[idx].quantity;
+        const newQty = max != null ? Math.min(max, oldQty + qty) : oldQty + qty;
+        addedQty = newQty - oldQty;
+        if (addedQty <= 0) return prev;
+        next[idx] = { ...next[idx], quantity: newQty };
+        return next;
+      }
+      const capped = input.maxStock != null ? Math.min(input.maxStock, qty) : qty;
+      if (capped <= 0) return prev;
+      addedQty = capped;
+      return [...prev, { ...input, quantity: capped }];
+    });
+
+    if (addedQty > 0) {
+      if (options?.showFeedback !== false) {
+        setCartFeedback({
+          productId: input.productId,
+          name: input.name,
+          imageUrl: input.imageUrl,
+          unitPrice: input.unitPrice,
+          listPrice: input.listPrice,
+          quantity: addedQty,
+        });
+      }
+      return true;
+    }
+
+    toast.error('Ürün sepete eklenemedi.');
+    return false;
+  }, []);
 
   const removeLine = useCallback((productId: string, variantId?: string) => {
     const key = lineKey(productId, variantId);
@@ -114,12 +154,34 @@ export function StorefrontCartProvider({ children }: { children: ReactNode }) {
       clearCart,
       subtotal,
       itemCount,
+      cartFeedback,
+      dismissCartFeedback,
     }),
-    [lines, addLine, removeLine, setQuantity, clearCart, subtotal, itemCount],
+    [
+      lines,
+      addLine,
+      removeLine,
+      setQuantity,
+      clearCart,
+      subtotal,
+      itemCount,
+      cartFeedback,
+      dismissCartFeedback,
+    ],
   );
 
   return (
-    <StorefrontCartContext.Provider value={value}>{children}</StorefrontCartContext.Provider>
+    <StorefrontCartContext.Provider value={value}>
+      {children}
+      {cartFeedback && (
+        <AddToCartFeedbackModal
+          feedback={cartFeedback}
+          itemCount={itemCount}
+          subtotal={subtotal}
+          onDismiss={dismissCartFeedback}
+        />
+      )}
+    </StorefrontCartContext.Provider>
   );
 }
 

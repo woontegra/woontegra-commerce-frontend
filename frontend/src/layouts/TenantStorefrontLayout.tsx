@@ -3,6 +3,8 @@ import { StorefrontTenantProvider, useStorefrontTenant } from '../contexts/Store
 import { StorefrontCartProvider } from '../storefront/hooks/StorefrontCartProvider';
 import { StorefrontAuthProvider } from '../storefront/hooks/StorefrontAuthProvider';
 import { StorefrontFavoritesProvider } from '../storefront/hooks/StorefrontFavoritesProvider';
+import { StorefrontCompareProvider } from '../storefront/hooks/StorefrontCompareProvider';
+import { StorefrontQuickViewProvider } from '../storefront/hooks/StorefrontQuickViewProvider';
 import { resolveTheme } from '../themes/registry';
 import { StorefrontGlobalThemeProvider } from '../storefront/hooks/StorefrontGlobalThemeProvider';
 import { useStorefrontDocumentBranding } from '../storefront/hooks/useStorefrontDocumentBranding';
@@ -61,9 +63,13 @@ export default function TenantStorefrontLayout() {
     <StorefrontTenantProvider>
       <StorefrontAuthProvider>
         <StorefrontFavoritesProvider>
-          <StorefrontCartProvider>
-            <Shell />
-          </StorefrontCartProvider>
+          <StorefrontCompareProvider>
+            <StorefrontCartProvider>
+              <StorefrontQuickViewProvider>
+                <Shell />
+              </StorefrontQuickViewProvider>
+            </StorefrontCartProvider>
+          </StorefrontCompareProvider>
         </StorefrontFavoritesProvider>
       </StorefrontAuthProvider>
     </StorefrontTenantProvider>

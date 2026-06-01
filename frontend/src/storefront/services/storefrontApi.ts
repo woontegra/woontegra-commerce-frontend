@@ -2,6 +2,7 @@ import { storePublicClient } from '../../services/storePublicApi';
 import type {
   StorefrontProductDetail,
   StorefrontProductSummary,
+  StorefrontProductVariant,
 } from '../types/storefront.types';
 import type { StorefrontCategory } from '../../contexts/StorefrontTenantContext';
 import type { StorefrontTenantInfo } from '../../contexts/StorefrontTenantContext';
@@ -50,6 +51,27 @@ export function mapStoreProductSummary(raw: unknown): StorefrontProductSummary {
   };
 }
 
+function mapStoreProductVariants(raw: unknown): StorefrontProductVariant[] {
+  if (!Array.isArray(raw)) return [];
+  const variants: StorefrontProductVariant[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const v = item as Record<string, unknown>;
+    const id = String(v.id ?? '').trim();
+    const name = String(v.name ?? v.title ?? '').trim();
+    if (!id || !name) continue;
+    variants.push({
+      id,
+      name,
+      price: v.price != null ? toNumber(v.price) : undefined,
+      discountPrice: v.discountPrice != null ? toNumber(v.discountPrice, NaN) || null : null,
+      stock: v.stock != null ? toNumber(v.stock) : undefined,
+      image: normalizeStoreImageUrl(typeof v.image === 'string' ? v.image : null),
+    });
+  }
+  return variants;
+}
+
 function mapStoreProductDetail(raw: unknown): StorefrontProductDetail {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const images = Array.isArray(o.images)
@@ -80,6 +102,7 @@ function mapStoreProductDetail(raw: unknown): StorefrontProductDetail {
     images:        allImages,
     stock:         o.stock != null ? toNumber(o.stock) : undefined,
     category,
+    variants:      mapStoreProductVariants(o.variants),
   };
 }
 

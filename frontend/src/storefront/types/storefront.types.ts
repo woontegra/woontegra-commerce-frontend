@@ -20,6 +20,15 @@ export type StorefrontProductSummary = {
   category?: { id: string; name: string; slug: string } | null;
 };
 
+export type StorefrontProductVariant = {
+  id: string;
+  name: string;
+  price?: number;
+  discountPrice?: number | null;
+  stock?: number;
+  image?: string | null;
+};
+
 export type StorefrontProductDetail = {
   id: string;
   name: string;
@@ -30,6 +39,7 @@ export type StorefrontProductDetail = {
   images: string[];
   stock?: number;
   category: { id: string; name: string; slug: string } | null;
+  variants?: StorefrontProductVariant[];
 };
 
 export type StorefrontCartLine = {

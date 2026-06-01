@@ -19,13 +19,18 @@ export function ProductFavoriteButton({ productId, className = '', size = 'sm' }
     await toggleFavorite(productId);
   };
 
+  const actionClass =
+    size === 'sm'
+      ? `store-product-card-action-btn ${className}`.trim()
+      : `${pad} rounded-full bg-white/90 shadow border border-slate-200 hover:bg-white transition-colors ${className}`.trim();
+
   return (
     <button
       type="button"
       onClick={handleClick}
       aria-label={active ? 'Favorilerden kaldır' : 'Favorilere ekle'}
       title={active ? 'Favorilerden kaldır' : 'Favorilere ekle'}
-      className={`${pad} rounded-full bg-white/90 shadow border border-slate-200 hover:bg-white transition-colors ${className}`}
+      className={actionClass}
     >
       <Heart
         className={`${iconSize} ${active ? 'fill-red-500 text-red-500' : 'text-slate-500'}`}

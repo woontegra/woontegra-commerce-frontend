@@ -16,7 +16,6 @@ export default function StoreProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState<string | null>(null);
   const [qty, setQty]         = useState(1);
-  const [added, setAdded]     = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -83,8 +82,6 @@ export default function StoreProductDetailPage() {
       maxStock: product.stock,
       quantity: qty,
     });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
   };
 
   return (
@@ -158,7 +155,7 @@ export default function StoreProductDetailPage() {
             disabled={!inStock}
             className="mt-6 w-full sm:w-auto px-8 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
           >
-            {added ? 'Sepete eklendi ✓' : 'Sepete ekle'}
+            Sepete ekle
           </button>
           <Link
             to={storeLink('/store/sepet')}
