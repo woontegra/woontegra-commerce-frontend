@@ -10,11 +10,12 @@ import { useSearchParams } from 'react-router-dom';
 import { storePublicClient } from '../services/storePublicApi';
 
 export type StorefrontTenantInfo = {
-  id:      string;
-  name:    string;
-  slug:    string;
-  theme:   string;
-  logoUrl: string | null;
+  id:         string;
+  name:       string;
+  slug:       string;
+  theme:      string;
+  logoUrl:    string | null;
+  faviconUrl: string | null;
 };
 
 export type StorefrontCategory = {

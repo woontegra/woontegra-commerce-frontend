@@ -6,6 +6,8 @@ import type { ReactNode } from 'react';
 import { api } from '../services/apiClient';
 import { AUTH_LOGIN_EVENT, AUTH_LOGOUT_EVENT } from '../services/authEvents';
 import { resolveStoreNameFromSettings } from '../utils/displayStoreName';
+import { injectDocumentFavicon } from '../utils/brandingHead';
+import { normalizeImageUrl } from '../utils/imageUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,15 +111,7 @@ function injectCssVars(b: Branding) {
   root.style.setProperty('--accent-h-s-l',    hexToHsl(b.accentColor));
 
   // Favicon
-  if (b.faviconUrl) {
-    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
-    link.href = b.faviconUrl;
-  }
+  injectDocumentFavicon(b.faviconUrl);
 
   // Page title
   if (b.siteName) document.title = b.siteName;
@@ -151,7 +145,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   const applyBranding = useCallback((b: Partial<Branding>) => {
     setBranding(prev => {
-      const next = { ...prev, ...b };
+      const patch = { ...b };
+      if ('logoUrl' in patch) patch.logoUrl = normalizeImageUrl(patch.logoUrl ?? null);
+      if ('faviconUrl' in patch) patch.faviconUrl = normalizeImageUrl(patch.faviconUrl ?? null);
+      const next = { ...prev, ...patch };
       injectCssVars(next);
       return next;
     });
@@ -174,9 +171,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
       const next: Branding = {
         siteName:       resolvedName || DEFAULTS.siteName,
-        logoUrl:        data.tenantLogoUrl ?? data.logoUrl ?? data.logo ?? null,
-        logo:           data.logo           ?? null,
-        faviconUrl:     data.faviconUrl     ?? null,
+        logoUrl:        normalizeImageUrl(data.tenantLogoUrl ?? data.logoUrl ?? data.logo ?? null),
+        logo:           normalizeImageUrl(data.logo ?? null),
+        faviconUrl:     normalizeImageUrl(data.faviconUrl ?? null),
         primaryColor:   data.primaryColor   ?? DEFAULTS.primaryColor,
         secondaryColor: data.secondaryColor ?? DEFAULTS.secondaryColor,
         accentColor:    data.accentColor    ?? DEFAULTS.accentColor,

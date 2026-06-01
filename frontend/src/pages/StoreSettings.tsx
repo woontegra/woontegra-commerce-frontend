@@ -15,6 +15,7 @@ import {
 import { api, extractErrorMessage } from '../services/apiClient';
 import { uploadStoreFavicon, uploadStoreLogo } from '../services/storeMediaUpload.service';
 import { useBranding } from '../context/BrandingContext';
+import { normalizeImageUrl } from '../utils/imageUtils';
 import { resolveStoreNameFromSettings } from '../utils/displayStoreName';
 import { buildStorefrontListUrl } from '../utils/storefrontUrl';
 import {
@@ -253,8 +254,16 @@ const StoreSettings: React.FC = () => {
   const checklist = useMemo(() => buildChecklist(form, faviconUrl), [form, faviconUrl]);
   const storefrontHref = resolveStorefrontHref(brandingMeta);
   const storefrontLabel = resolveStorefrontDisplay(brandingMeta);
-  const showLogo = form.logoUrl.trim() && !logoError;
-  const showFavicon = faviconUrl.trim() && !faviconError;
+  const logoPreviewSrc = useMemo(
+    () => normalizeImageUrl(form.logoUrl.trim()) ?? '',
+    [form.logoUrl],
+  );
+  const faviconPreviewSrc = useMemo(
+    () => normalizeImageUrl(faviconUrl.trim()) ?? '',
+    [faviconUrl],
+  );
+  const showLogo = Boolean(logoPreviewSrc) && !logoError;
+  const showFavicon = Boolean(faviconPreviewSrc) && !faviconError;
 
   return (
     <div className="w-full space-y-6 pb-10 page-enter">
@@ -442,7 +451,7 @@ const StoreSettings: React.FC = () => {
                   <div className="w-16 h-16 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
                     {showLogo ? (
                       <img
-                        src={form.logoUrl.trim()}
+                        src={logoPreviewSrc}
                         alt=""
                         className="w-full h-full object-contain p-1"
                         onError={() => setLogoError(true)}
@@ -520,7 +529,7 @@ const StoreSettings: React.FC = () => {
                   <div className="w-12 h-12 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
                     {showFavicon ? (
                       <img
-                        src={faviconUrl.trim()}
+                        src={faviconPreviewSrc}
                         alt=""
                         className="w-8 h-8 object-contain"
                         onError={() => setFaviconError(true)}
@@ -585,7 +594,7 @@ const StoreSettings: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0 flex items-center gap-1.5 bg-white rounded-md px-2 py-1 border border-slate-200">
                   {showFavicon ? (
-                    <img src={faviconUrl.trim()} alt="" className="w-3.5 h-3.5 object-contain shrink-0" onError={() => setFaviconError(true)} />
+                    <img src={faviconPreviewSrc} alt="" className="w-3.5 h-3.5 object-contain shrink-0" onError={() => setFaviconError(true)} />
                   ) : (
                     <span className="w-3.5 h-3.5 rounded bg-indigo-100 text-[8px] font-bold text-indigo-600 flex items-center justify-center shrink-0">
                       {storeInitial(form.storeName).charAt(0)}
@@ -600,7 +609,7 @@ const StoreSettings: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold overflow-hidden">
                     {showLogo ? (
-                      <img src={form.logoUrl.trim()} alt="" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
+                      <img src={logoPreviewSrc} alt="" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
                     ) : (
                       storeInitial(form.storeName)
                     )}

@@ -5,9 +5,11 @@ import { StorefrontAuthProvider } from '../storefront/hooks/StorefrontAuthProvid
 import { StorefrontFavoritesProvider } from '../storefront/hooks/StorefrontFavoritesProvider';
 import { resolveTheme } from '../themes/registry';
 import { StorefrontGlobalThemeProvider } from '../storefront/hooks/StorefrontGlobalThemeProvider';
+import { useStorefrontDocumentBranding } from '../storefront/hooks/useStorefrontDocumentBranding';
 
 function Shell() {
   const { loading, error, tenant, storeLink } = useStorefrontTenant();
+  useStorefrontDocumentBranding(tenant);
 
   if (loading) {
     return (

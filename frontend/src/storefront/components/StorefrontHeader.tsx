@@ -9,6 +9,7 @@ import {
   mergeHeaderSettings,
   type HeaderSettings,
 } from '../../utils/headerSettingsHelpers';
+import { normalizeStoreImageUrl } from '../services/storefrontApi';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -42,13 +43,15 @@ function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 
 
   const displayName = displayStorefrontName(tenant.name);
 
+  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4">
         <div className="h-16 flex items-center justify-between gap-4">
           <Link to={home} className="flex items-center gap-2 font-semibold text-lg truncate shrink-0">
-            {tenant.logoUrl ? (
-              <img src={tenant.logoUrl} alt={displayName} className="h-9 w-9 rounded-lg object-cover" />
+            {logoSrc ? (
+              <img src={logoSrc} alt={displayName} className="h-9 w-9 rounded-lg object-cover" />
             ) : (
               <span className="h-9 w-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm">
                 {displayName.slice(0, 1).toUpperCase()}
@@ -140,11 +143,12 @@ function LogoBlock({
 }) {
   const displayName = displayStorefrontName(tenant.name);
   const logoStyle = { height: logoMaxHeightPx, width: logoMaxHeightPx };
+  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
 
   const inner = (
     <>
-      {tenant.logoUrl ? (
-        <img src={tenant.logoUrl} alt={displayName} className="rounded-lg object-cover shrink-0" style={logoStyle} />
+      {logoSrc ? (
+        <img src={logoSrc} alt={displayName} className="rounded-lg object-cover shrink-0" style={logoStyle} />
       ) : (
         <span
           className="rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm shrink-0"

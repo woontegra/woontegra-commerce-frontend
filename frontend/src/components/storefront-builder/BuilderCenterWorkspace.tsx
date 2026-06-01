@@ -96,6 +96,7 @@ export default function BuilderCenterWorkspace({
     slug: tenantSlug || branding.storefrontSlug || 'preview',
     name: displayStorefrontName(branding.siteName),
     logoUrl: branding.logoUrl,
+    faviconUrl: branding.faviconUrl ?? null,
     theme: 'default',
   };
 

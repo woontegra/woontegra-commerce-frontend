@@ -13,6 +13,7 @@ import {
   type FooterLink,
   type FooterSettings,
 } from '../../utils/footerSettingsHelpers';
+import { normalizeStoreImageUrl } from '../services/storefrontApi';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -132,7 +133,7 @@ function ConfiguredStorefrontFooter({
 }) {
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
-  const logoUrl = resolveFooterLogoUrl(settings, tenant.logoUrl);
+  const logoUrl = normalizeStoreImageUrl(resolveFooterLogoUrl(settings, tenant.logoUrl));
   const waHref = whatsappHref(settings.whatsappNumber);
   const legalLinks = settings.legalLinksEnabled ? DEFAULT_LEGAL_LINKS : [];
   const visibleColumns = settings.columns.filter(

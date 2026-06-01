@@ -6,24 +6,10 @@ import type {
 import type { StorefrontCategory } from '../../contexts/StorefrontTenantContext';
 import type { StorefrontTenantInfo } from '../../contexts/StorefrontTenantContext';
 
-const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(
-  /\/api\/?$/,
-  '',
-);
+import { normalizeImageUrl } from '../../utils/imageUtils';
 
 export function normalizeStoreImageUrl(url: string | null | undefined): string | null {
-  if (!url || typeof url !== 'string') return null;
-  const trimmed = url.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (trimmed.startsWith('//')) {
-    if (typeof window !== 'undefined') {
-      return `${window.location.protocol}${trimmed}`;
-    }
-    return `https:${trimmed}`;
-  }
-  const base = API_ORIGIN.replace(/\/$/, '');
-  return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`;
+  return normalizeImageUrl(url);
 }
 
 function toNumber(v: unknown, fallback = 0): number {
