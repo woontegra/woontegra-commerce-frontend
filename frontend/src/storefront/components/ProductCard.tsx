@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { StorefrontProductSummary } from '../types/storefront.types';
-import { useStorefrontCart } from '../hooks/StorefrontCartProvider';
+import { useStorefrontCartOptional } from '../hooks/StorefrontCartProvider';
 import { effectivePrice, formatTry } from '../utils/format';
 import { ProductFavoriteButton } from './ProductFavoriteButton';
 
@@ -10,10 +10,19 @@ type Props = {
   hideAddToCart?: boolean;
   hidePrice?: boolean;
   variant?: 'card' | 'plain';
+  /** Builder önizlemesi — sepet/favori provider gerektirmez */
+  preview?: boolean;
 };
 
-export function ProductCard({ product, productUrl, hideAddToCart, hidePrice, variant = 'card' }: Props) {
-  const { addLine } = useStorefrontCart();
+export function ProductCard({
+  product,
+  productUrl,
+  hideAddToCart,
+  hidePrice,
+  variant = 'card',
+  preview = false,
+}: Props) {
+  const cart = useStorefrontCartOptional();
   const sale = effectivePrice(product.price, product.discountPrice);
   const hasDiscount =
     product.discountPrice != null && product.discountPrice > 0 && product.discountPrice < product.price;
@@ -22,8 +31,8 @@ export function ProductCard({ product, productUrl, hideAddToCart, hidePrice, var
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!inStock || !product.id) return;
-    addLine({
+    if (!inStock || !product.id || !cart) return;
+    cart.addLine({
       productId: product.id,
       unitPrice: sale,
       listPrice: hasDiscount ? product.price : undefined,
@@ -43,7 +52,7 @@ export function ProductCard({ product, productUrl, hideAddToCart, hidePrice, var
     >
       <Link to={productUrl} className="block">
         <div className="aspect-square bg-slate-100 relative">
-          {product.id && (
+          {product.id && !preview && (
             <div className="absolute top-2 right-2 z-10">
               <ProductFavoriteButton productId={product.id} />
             </div>

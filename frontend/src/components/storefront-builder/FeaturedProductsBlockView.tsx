@@ -121,6 +121,7 @@ function ProductCarousel({
               variant={cardVariant}
               hidePrice={!showPrice}
               hideAddToCart={!showAddToCart || preview}
+              preview={preview}
             />
           </div>
         ))}
@@ -221,6 +222,7 @@ export default function FeaturedProductsBlockView({
               variant={cardVariant}
               hidePrice={!showPrice}
               hideAddToCart={!showAddToCart || preview}
+              preview={preview}
             />
           ))}
         </div>

@@ -123,8 +123,12 @@ export function StorefrontCartProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export function useStorefrontCartOptional(): Ctx | null {
+  return useContext(StorefrontCartContext);
+}
+
 export function useStorefrontCart(): Ctx {
-  const c = useContext(StorefrontCartContext);
+  const c = useStorefrontCartOptional();
   if (!c) throw new Error('useStorefrontCart: StorefrontCartProvider eksik');
   return c;
 }
