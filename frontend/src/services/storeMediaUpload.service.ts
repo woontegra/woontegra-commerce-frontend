@@ -1,7 +1,9 @@
 import { api, extractErrorMessage } from './apiClient';
+import { productService } from './product.service';
 
 const LOGO_MAX_BYTES    = 2 * 1024 * 1024;
 const FAVICON_MAX_BYTES = 1024 * 1024;
+export const BUILDER_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const LOGO_MIME = new Set([
   'image/png',
@@ -17,9 +19,44 @@ const FAVICON_MIME = new Set([
   'image/vnd.microsoft.icon',
 ]);
 
+const BUILDER_IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'svg']);
+const BUILDER_IMAGE_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/svg+xml',
+]);
+
 function extOf(name: string): string {
   const i = name.lastIndexOf('.');
   return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+}
+
+export function isBuilderImageUploadAvailable(): boolean {
+  return typeof productService.uploadImage === 'function';
+}
+
+export function validateBuilderImageFile(file: File, maxSizeMb = 5): string | null {
+  const ext = extOf(file.name);
+  const okExt = BUILDER_IMAGE_EXT.has(ext);
+  const okMime = BUILDER_IMAGE_MIME.has(file.type) || (file.type === '' && okExt);
+  if (!okMime) return 'Bu görsel formatı desteklenmiyor.';
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  if (file.size > maxBytes) return 'Görsel dosyası en fazla 5 MB olabilir.';
+  return null;
+}
+
+export async function uploadBuilderImage(file: File): Promise<string> {
+  const err = validateBuilderImageFile(file);
+  if (err) throw new Error(err);
+  if (!isBuilderImageUploadAvailable()) {
+    throw new Error('Bilgisayardan yükleme için medya altyapısı gerekli.');
+  }
+  try {
+    return await productService.uploadImage(file);
+  } catch (e: unknown) {
+    throw new Error(extractErrorMessage(e, 'Görsel yüklenemedi.'));
+  }
 }
 
 export function validateLogoFile(file: File): string | null {

@@ -41,11 +41,61 @@ export function resolveStorePath(path: string, storeLink: (p: string) => string)
   return storeLink(`/store/${trimmed.replace(/^\//, '')}`);
 }
 
+export type LayoutTrustBadge = { title: string; description: string };
+
 export function parseBadgeLines(raw: string): string[] {
+  return parseTrustBadges(raw).map(b => (b.description ? `${b.title} — ${b.description}` : b.title));
+}
+
+export function parseTrustBadges(raw: string): LayoutTrustBadge[] {
+  if (!raw.trim()) return [];
   return raw
     .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean);
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const pipe = line.indexOf('|');
+      if (pipe >= 0) {
+        return {
+          title: line.slice(0, pipe).trim(),
+          description: line.slice(pipe + 1).trim(),
+        };
+      }
+      return { title: line, description: '' };
+    });
+}
+
+export function gridColumnsClass(columns: number): string {
+  if (columns === 2) return 'grid-cols-2';
+  if (columns === 3) return 'grid-cols-2 sm:grid-cols-3';
+  return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
+}
+
+export function heroBackgroundStyle(
+  settings: Record<string, unknown>,
+  themePrimary: string | null,
+): { style: Record<string, string>; hasImageOverlay: boolean } {
+  const bgType = String(settings.backgroundType ?? 'gradient');
+  const bgColor = String(settings.backgroundColor ?? themePrimary ?? '#4f46e5').trim() || '#4f46e5';
+  const imageUrl = String(settings.imageUrl ?? '').trim();
+
+  if (bgType === 'image' && imageUrl) {
+    return {
+      style: {
+        backgroundImage: `linear-gradient(rgba(15,23,42,0.45), rgba(15,23,42,0.45)), url("${imageUrl.replace(/"/g, '\\"')}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      },
+      hasImageOverlay: true,
+    };
+  }
+  if (bgType === 'solid') {
+    return { style: { backgroundColor: bgColor }, hasImageOverlay: false };
+  }
+  return {
+    style: { background: `linear-gradient(135deg, ${bgColor}, #6366f1)` },
+    hasImageOverlay: false,
+  };
 }
 
 export function themePrimaryColor(theme: Record<string, unknown> | undefined): string | null {

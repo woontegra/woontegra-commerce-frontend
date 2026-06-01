@@ -1,17 +1,16 @@
+import { Plus, Trash2 } from 'lucide-react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
-
-const inputCls =
-  'w-full bg-white border border-slate-200 text-slate-900 text-[13px] px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-300';
+import {
+  parseTrustBadges,
+  serializeTrustBadges,
+  type TrustBadgeItem,
+} from '../../pages/storefrontBuilderHelpers';
+import { ColorField, inputCls } from './builderSettingsUi';
+import BuilderImageField from './BuilderImageField';
 
 const labelCls = 'block text-[12px] font-medium text-slate-600 mb-1';
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <label className={labelCls}>{label}</label>
@@ -67,36 +66,119 @@ function TextArea({
   value,
   onChange,
   rows = 4,
-  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   rows?: number;
-  placeholder?: string;
 }) {
   return (
     <textarea
       className={`${inputCls} resize-y min-h-[80px]`}
       rows={rows}
       value={value}
-      placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
     />
   );
 }
 
+function CheckboxField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-[13px] text-slate-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+      />
+      {label}
+    </label>
+  );
+}
+
+function TrustBadgesEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const items = parseTrustBadges(value);
+
+  const updateItems = (next: TrustBadgeItem[]) => {
+    onChange(serializeTrustBadges(next));
+  };
+
+  const updateItem = (index: number, patch: Partial<TrustBadgeItem>) => {
+    const next = items.map((item, i) => (i === index ? { ...item, ...patch } : item));
+    updateItems(next);
+  };
+
+  const addItem = () => {
+    updateItems([...items, { title: 'Yeni rozet', description: '' }]);
+  };
+
+  const removeItem = (index: number) => {
+    updateItems(items.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && (
+        <p className="text-[12px] text-slate-500">Henüz rozet eklenmedi.</p>
+      )}
+      {items.map((item, index) => (
+        <div key={index} className="rounded-xl border border-slate-200 p-3 space-y-2 bg-slate-50/50">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium text-slate-500">Rozet {index + 1}</span>
+            <button
+              type="button"
+              onClick={() => removeItem(index)}
+              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+              aria-label="Rozeti sil"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <TextInput
+            value={item.title}
+            onChange={v => updateItem(index, { title: v })}
+            placeholder="Başlık"
+          />
+          <TextInput
+            value={item.description}
+            onChange={v => updateItem(index, { description: v })}
+            placeholder="Kısa açıklama (isteğe bağlı)"
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addItem}
+        className="inline-flex items-center gap-1.5 text-[12px] font-medium text-indigo-600 hover:text-indigo-700"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Rozet ekle
+      </button>
+    </div>
+  );
+}
+
 interface SectionSettingsPanelProps {
   section: StorefrontSection;
-  onChange: (settings: Record<string, unknown>) => void;
+  onChange: (patch: Record<string, unknown>) => void;
 }
 
 export default function SectionSettingsPanel({ section, onChange }: SectionSettingsPanelProps) {
   const s = section.settings;
-
-  const set = (key: string, value: unknown) => {
-    onChange({ ...s, [key]: value });
-  };
-
+  const set = (key: string, value: unknown) => onChange({ [key]: value });
   const str = (key: string, fallback = '') => String(s[key] ?? fallback);
   const num = (key: string, fallback = 8) => {
     const v = s[key];
@@ -111,27 +193,27 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'hero':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Alt başlık"><TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} /></Field>
+          <Field label="Buton metni"><TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} /></Field>
+          <Field label="Buton URL"><TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} /></Field>
+          <Field label="Arka plan tipi">
+            <select className={inputCls} value={str('backgroundType', 'gradient')} onChange={e => set('backgroundType', e.target.value)}>
+              <option value="gradient">Gradient</option>
+              <option value="solid">Düz renk</option>
+              <option value="image">Görsel</option>
+            </select>
           </Field>
-          <Field label="Alt başlık">
-            <TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} />
-          </Field>
-          <Field label="Buton metni">
-            <TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} />
-          </Field>
-          <Field label="Buton URL">
-            <TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} />
-          </Field>
-          <Field label="Görsel URL">
-            <TextInput value={str('imageUrl')} onChange={v => set('imageUrl', v)} placeholder="https://..." />
-          </Field>
+          <ColorField label="Arka plan rengi" value={str('backgroundColor', '#4f46e5')} onChange={v => set('backgroundColor', v)} />
+          <ColorField label="Metin rengi" value={str('textColor', '#ffffff')} onChange={v => set('textColor', v)} />
+          <BuilderImageField
+            value={str('imageUrl')}
+            onChange={v => set('imageUrl', v)}
+            recommendedSize="1920×700"
+            helperText="Arka plan tipi “Görsel” seçiliyken kullanılır."
+          />
           <Field label="Hizalama">
-            <select
-              className={inputCls}
-              value={str('alignment', 'center')}
-              onChange={e => set('alignment', e.target.value)}
-            >
+            <select className={inputCls} value={str('alignment', 'center')} onChange={e => set('alignment', e.target.value)}>
               <option value="left">Sol</option>
               <option value="center">Orta</option>
               <option value="right">Sağ</option>
@@ -143,22 +225,18 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'categoryGrid':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Limit"><NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} /></Field>
+          <CheckboxField label="Kategori görsellerini göster" checked={bool('showImages', true)} onChange={v => set('showImages', v)} />
+          <Field label="Kolon sayısı">
+            <select className={inputCls} value={String(num('columns', 4))} onChange={e => set('columns', Number(e.target.value))}>
+              <option value="2">2 kolon</option>
+              <option value="3">3 kolon</option>
+              <option value="4">4 kolon</option>
+            </select>
           </Field>
-          <Field label="Limit">
-            <NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} />
-          </Field>
-          <Field label="Görselleri göster">
-            <label className="flex items-center gap-2 text-[13px] text-slate-700">
-              <input
-                type="checkbox"
-                checked={bool('showImages', true)}
-                onChange={e => set('showImages', e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Kategori görselleri
-            </label>
+          <Field label="Tüm kategoriler buton metni">
+            <TextInput value={str('viewAllLabel', 'Tüm kategorileri göster')} onChange={v => set('viewAllLabel', v)} />
           </Field>
         </div>
       );
@@ -166,59 +244,47 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'featuredProducts':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
-          </Field>
-          <Field label="Limit">
-            <NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} />
-          </Field>
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Limit"><NumberInput value={num('limit', 8)} onChange={v => set('limit', v)} min={1} max={24} /></Field>
           <Field label="Kaynak">
-            <select
-              className={inputCls}
-              value={str('source', 'featured')}
-              onChange={e => set('source', e.target.value)}
-            >
-              <option value="featured">Öne çıkan</option>
-              <option value="latest">En yeni</option>
+            <select className={inputCls} value={str('source', 'featured')} onChange={e => set('source', e.target.value)}>
+              <option value="featured">Öne çıkan ürünler</option>
+              <option value="latest">Yeni ürünler</option>
             </select>
           </Field>
+          <Field label="Ürün kartı tipi">
+            <select className={inputCls} value={str('cardStyle', 'card')} onChange={e => set('cardStyle', e.target.value)}>
+              <option value="card">Kartlı</option>
+              <option value="plain">Sade</option>
+            </select>
+          </Field>
+          <CheckboxField label="Fiyat göster" checked={bool('showPrice', true)} onChange={v => set('showPrice', v)} />
+          <CheckboxField label="Sepete ekle butonu göster" checked={bool('showAddToCart', true)} onChange={v => set('showAddToCart', v)} />
         </div>
       );
 
     case 'campaignBanner':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
-          </Field>
-          <Field label="Alt başlık">
-            <TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} />
-          </Field>
-          <Field label="Buton metni">
-            <TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} />
-          </Field>
-          <Field label="Buton URL">
-            <TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} />
-          </Field>
-          <Field label="Görsel URL">
-            <TextInput value={str('imageUrl')} onChange={v => set('imageUrl', v)} placeholder="https://..." />
-          </Field>
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Alt başlık"><TextInput value={str('subtitle')} onChange={v => set('subtitle', v)} /></Field>
+          <Field label="Buton metni"><TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} /></Field>
+          <Field label="Buton URL"><TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} /></Field>
+          <BuilderImageField
+            value={str('imageUrl')}
+            onChange={v => set('imageUrl', v)}
+            recommendedSize="1600×500"
+          />
+          <ColorField label="Metin rengi" value={str('textColor', '#78350f')} onChange={v => set('textColor', v)} />
         </div>
       );
 
     case 'trustBadges':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
-          </Field>
-          <Field label="Rozetler (her satır bir rozet)">
-            <TextArea
-              value={str('badges')}
-              onChange={v => set('badges', v)}
-              rows={5}
-              placeholder={'Ücretsiz kargo\nGüvenli ödeme\nHızlı teslimat'}
-            />
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Rozetler">
+            <TrustBadgesEditor value={str('badges')} onChange={v => set('badges', v)} />
           </Field>
         </div>
       );
@@ -226,25 +292,21 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
     case 'textImage':
       return (
         <div className="space-y-3">
-          <Field label="Başlık">
-            <TextInput value={str('title')} onChange={v => set('title', v)} />
-          </Field>
-          <Field label="Metin">
-            <TextArea value={str('text')} onChange={v => set('text', v)} rows={4} />
-          </Field>
-          <Field label="Görsel URL">
-            <TextInput value={str('imageUrl')} onChange={v => set('imageUrl', v)} placeholder="https://..." />
-          </Field>
+          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
+          <Field label="Metin"><TextArea value={str('text')} onChange={v => set('text', v)} rows={4} /></Field>
+          <BuilderImageField
+            value={str('imageUrl')}
+            onChange={v => set('imageUrl', v)}
+            recommendedSize="900×700"
+          />
           <Field label="Görsel konumu">
-            <select
-              className={inputCls}
-              value={str('imagePosition', 'left')}
-              onChange={e => set('imagePosition', e.target.value)}
-            >
+            <select className={inputCls} value={str('imagePosition', 'left')} onChange={e => set('imagePosition', e.target.value)}>
               <option value="left">Sol</option>
               <option value="right">Sağ</option>
             </select>
           </Field>
+          <Field label="Buton metni"><TextInput value={str('buttonText')} onChange={v => set('buttonText', v)} placeholder="İsteğe bağlı" /></Field>
+          <Field label="Buton URL"><TextInput value={str('buttonUrl')} onChange={v => set('buttonUrl', v)} placeholder="/store/urunler" /></Field>
         </div>
       );
 

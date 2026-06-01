@@ -7,10 +7,12 @@ import { CategoryCard } from '../CategoryCard';
 import type { StorefrontProductSummary } from '../../types/storefront.types';
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
 import {
+  gridColumnsClass,
+  heroBackgroundStyle,
   layoutBool,
   layoutNum,
   layoutStr,
-  parseBadgeLines,
+  parseTrustBadges,
   resolveStorePath,
 } from './layoutRendererHelpers';
 
@@ -28,6 +30,7 @@ export function HeroSection({ section, primaryColor, storeLink }: SectionProps) 
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const alignment = layoutStr(s, 'alignment', 'center');
+  const textColor = layoutStr(s, 'textColor', '#ffffff');
   const alignCls =
     alignment === 'left'
       ? 'text-left items-start'
@@ -35,19 +38,11 @@ export function HeroSection({ section, primaryColor, storeLink }: SectionProps) 
         ? 'text-right items-end'
         : 'text-center items-center';
 
-  const gradientStyle = primaryColor
-    ? { background: `linear-gradient(135deg, ${primaryColor}, #4f46e5)` }
-    : undefined;
+  const { style: bgStyle, hasImageOverlay } = heroBackgroundStyle(s, primaryColor);
 
   return (
-    <section
-      className="text-white relative overflow-hidden"
-      style={gradientStyle}
-    >
-      {!gradientStyle && (
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-violet-700" aria-hidden />
-      )}
-      {imageUrl && (
+    <section className="relative overflow-hidden" style={{ ...bgStyle, color: textColor }}>
+      {!hasImageOverlay && imageUrl && (
         <img
           src={imageUrl}
           alt=""
@@ -57,7 +52,7 @@ export function HeroSection({ section, primaryColor, storeLink }: SectionProps) 
       <div className={`relative max-w-6xl mx-auto px-4 py-16 sm:py-20 flex flex-col ${alignCls}`}>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{title}</h1>
         {subtitle && (
-          <p className="mt-3 text-indigo-100 max-w-xl text-sm sm:text-base">{subtitle}</p>
+          <p className="mt-3 max-w-xl text-sm sm:text-base opacity-90">{subtitle}</p>
         )}
         {buttonText && (
           <Link
@@ -78,6 +73,8 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
   const title = layoutStr(s, 'title', 'Kategoriler');
   const limit = layoutNum(s, 'limit', 6);
   const showImages = layoutBool(s, 'showImages', true);
+  const columns = layoutNum(s, 'columns', 4);
+  const viewAllLabel = layoutStr(s, 'viewAllLabel', 'Tüm kategorileri göster');
 
   const items = useMemo(
     () => categories.filter(c => c.parentId == null).slice(0, limit),
@@ -86,11 +83,18 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-12">
-      <h2 className="text-xl font-semibold text-slate-900 mb-4">{title}</h2>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        {viewAllLabel && (
+          <Link to={storeLink('/store/urunler')} className="text-sm font-medium text-indigo-600 hover:underline whitespace-nowrap">
+            {viewAllLabel}
+          </Link>
+        )}
+      </div>
       {items.length === 0 ? (
         <p className="text-slate-500 text-sm">Henüz kategori yok.</p>
       ) : (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <ul className={`grid ${gridColumnsClass(columns)} gap-3`}>
           {items.map(c => (
             <li key={c.id}>
               <CategoryCard
@@ -111,6 +115,9 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   const title = layoutStr(s, 'title', 'Öne Çıkan Ürünler');
   const limit = layoutNum(s, 'limit', 8);
   const source = layoutStr(s, 'source', 'featured');
+  const cardStyle = layoutStr(s, 'cardStyle', 'card');
+  const showPrice = layoutBool(s, 'showPrice', true);
+  const showAddToCart = layoutBool(s, 'showAddToCart', true);
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -159,6 +166,9 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
               key={p.id}
               product={p}
               productUrl={storeLink(`/store/urun/${encodeURIComponent(p.slug)}`)}
+              variant={cardStyle === 'plain' ? 'plain' : 'card'}
+              hidePrice={!showPrice}
+              hideAddToCart={!showAddToCart}
             />
           ))}
         </div>
@@ -174,20 +184,26 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
+  const backgroundColor = layoutStr(s, 'backgroundColor', '#fffbeb');
+  const textColor = layoutStr(s, 'textColor', '#78350f');
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-10">
       <div
-        className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-8 sm:px-10 sm:py-10"
-        style={primaryColor ? { borderColor: `${primaryColor}33` } : undefined}
+        className="relative overflow-hidden rounded-2xl border px-6 py-8 sm:px-10 sm:py-10"
+        style={{
+          backgroundColor,
+          color: textColor,
+          borderColor: primaryColor ? `${primaryColor}33` : undefined,
+        }}
       >
         {imageUrl && (
           <img src={imageUrl} alt="" className="absolute right-0 top-0 h-full w-1/3 object-cover opacity-20 hidden sm:block" />
         )}
         <div className="relative max-w-lg">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Kampanya</p>
-          <h2 className="mt-1 text-2xl font-bold text-amber-950">{title}</h2>
-          {subtitle && <p className="mt-2 text-sm text-amber-900/80">{subtitle}</p>}
+          <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Kampanya</p>
+          <h2 className="mt-1 text-2xl font-bold">{title}</h2>
+          {subtitle && <p className="mt-2 text-sm opacity-80">{subtitle}</p>}
           {buttonText && (
             <Link
               to={buttonUrl}
@@ -206,31 +222,36 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
 export function TrustBadgesSection({ section }: SectionProps) {
   const s = section.settings;
   const title = layoutStr(s, 'title', 'Neden bizi tercih etmelisiniz?');
-  const badges = parseBadgeLines(layoutStr(s, 'badges'));
+  const badges = parseTrustBadges(layoutStr(s, 'badges'));
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-12">
       <h2 className="text-xl font-semibold text-slate-900 mb-4 text-center">{title}</h2>
-      <div className="flex flex-wrap justify-center gap-3">
-        {(badges.length ? badges : ['Güvenli alışveriş']).map(b => (
-          <span
-            key={b}
-            className="inline-flex items-center px-4 py-2 rounded-full bg-emerald-50 text-emerald-800 text-sm font-medium border border-emerald-100"
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {(badges.length ? badges : [{ title: 'Güvenli alışveriş', description: '' }]).map((b, i) => (
+          <div
+            key={`${b.title}-${i}`}
+            className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center"
           >
-            {b}
-          </span>
+            <p className="text-sm font-semibold text-emerald-900">{b.title}</p>
+            {b.description && (
+              <p className="text-xs text-emerald-800/80 mt-1">{b.description}</p>
+            )}
+          </div>
         ))}
       </div>
     </section>
   );
 }
 
-export function TextImageSection({ section }: SectionProps) {
+export function TextImageSection({ section, storeLink }: SectionProps) {
   const s = section.settings;
   const title = layoutStr(s, 'title');
   const text = layoutStr(s, 'text');
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const imageRight = layoutStr(s, 'imagePosition', 'left') === 'right';
+  const buttonText = layoutStr(s, 'buttonText');
+  const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-12">
@@ -245,6 +266,14 @@ export function TextImageSection({ section }: SectionProps) {
         <div className="flex-1 min-w-0">
           {title && <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>}
           {text && <p className="mt-3 text-slate-600 text-sm sm:text-base whitespace-pre-wrap">{text}</p>}
+          {buttonText && (
+            <Link
+              to={buttonUrl}
+              className="inline-flex mt-5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
+            >
+              {buttonText}
+            </Link>
+          )}
         </div>
       </div>
     </section>

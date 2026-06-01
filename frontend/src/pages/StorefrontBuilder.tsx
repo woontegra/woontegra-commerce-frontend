@@ -47,7 +47,6 @@ import {
 import type {
   StorefrontDraftMeta,
   StorefrontLayout,
-  StorefrontSection,
 } from '../types/storefrontBuilder.types';
 
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
@@ -114,7 +113,10 @@ export default function StorefrontBuilder() {
     [layout.sections, selectedId],
   );
 
-  const dirty = layoutFingerprint(layout) !== savedFingerprint.current;
+  const dirty = useMemo(
+    () => layoutFingerprint(layout) !== savedFingerprint.current,
+    [layout],
+  );
   const activeCount = layout.sections.filter(s => s.enabled).length;
   const unknownTypes = layout.sections.filter(s => !isKnownBlockType(s.type));
 
@@ -143,38 +145,54 @@ export default function StorefrontBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateSections = (sections: StorefrontSection[]) => {
-    setLayout(prev => ({ ...prev, sections }));
-  };
-
   const handleAddBlock = (type: string) => {
     const section = createSection(type);
-    updateSections([...layout.sections, section]);
+    setLayout(prev => ({ ...prev, sections: [...prev.sections, section] }));
     setSelectedId(section.id);
   };
 
   const handleDelete = (id: string) => {
-    updateSections(layout.sections.filter(s => s.id !== id));
-    if (selectedId === id) {
-      setSelectedId(layout.sections.find(s => s.id !== id)?.id ?? null);
-    }
+    const section = layout.sections.find(s => s.id === id);
+    const label = section ? blockLabel(section.type) : 'blok';
+    if (!window.confirm(`Bu bloğu silmek istediğinize emin misiniz? (${label})`)) return;
+    setLayout(prev => ({
+      ...prev,
+      sections: prev.sections.filter(s => s.id !== id),
+    }));
+    setSelectedId(cur => {
+      if (cur !== id) return cur;
+      const remaining = layout.sections.filter(s => s.id !== id);
+      return remaining[0]?.id ?? null;
+    });
   };
 
   const handleToggleEnabled = (id: string, enabled: boolean) => {
-    updateSections(layout.sections.map(s => (s.id === id ? { ...s, enabled } : s)));
+    setLayout(prev => ({
+      ...prev,
+      sections: prev.sections.map(s => (s.id === id ? { ...s, enabled } : s)),
+    }));
   };
 
-  const handleSettingsChange = (id: string, settings: Record<string, unknown>) => {
-    updateSections(layout.sections.map(s => (s.id === id ? { ...s, settings } : s)));
-  };
+  const handleSettingsChange = useCallback((sectionId: string, patch: Record<string, unknown>) => {
+    setLayout(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? { ...section, settings: { ...section.settings, ...patch } }
+          : section,
+      ),
+    }));
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = layout.sections.findIndex(s => s.id === active.id);
-    const newIndex = layout.sections.findIndex(s => s.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    updateSections(arrayMove(layout.sections, oldIndex, newIndex));
+    setLayout(prev => {
+      const oldIndex = prev.sections.findIndex(s => s.id === active.id);
+      const newIndex = prev.sections.findIndex(s => s.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      return { ...prev, sections: arrayMove(prev.sections, oldIndex, newIndex) };
+    });
   };
 
   const handleSave = async () => {
@@ -223,7 +241,7 @@ export default function StorefrontBuilder() {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-slate-500">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-3" />
-        <p className="text-[14px]">Vitrin builder yükleniyor…</p>
+        <p className="text-[14px]">Vitrin tasarım editörü yükleniyor…</p>
       </div>
     );
   }
@@ -257,15 +275,12 @@ export default function StorefrontBuilder() {
           </div>
           <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">Vitrin Tasarım Editörü</h1>
           <p className="text-[13px] text-slate-500 mt-1 max-w-xl">
-            Mağazanızın ana sayfa bloklarını sürükle-bırak yöntemiyle düzenleyin, taslak kaydedin ve yayına alın.
+            Ana sayfa bloklarını sürükleyerek sıralayın, içeriklerini özelleştirin ve vitrininize tek tıkla yayınlayın.
           </p>
-          {dirty && (
-            <p className="text-[12px] text-amber-600 font-medium mt-2">Kaydedilmemiş değişiklikler var</p>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {storefrontUrl && (
+          {storefrontUrl ? (
             <a
               href={storefrontUrl}
               target="_blank"
@@ -275,6 +290,16 @@ export default function StorefrontBuilder() {
               <ExternalLink className="w-4 h-4" />
               Vitrini Görüntüle
             </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="Vitrin slug tanımlı değil"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[13px] font-medium text-slate-400 cursor-not-allowed"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Vitrini Görüntüle
+            </button>
           )}
           <button
             type="button"
@@ -296,6 +321,13 @@ export default function StorefrontBuilder() {
           </button>
         </div>
       </div>
+
+      {dirty && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" aria-hidden />
+          Kaydedilmemiş değişiklikler var.
+        </div>
+      )}
 
       {actionError && (
         <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
@@ -325,7 +357,7 @@ export default function StorefrontBuilder() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
         {/* Block library */}
         <div className="xl:col-span-3">
-          <Panel title="Blok Kütüphanesi" desc="Ana sayfaya eklemek istediğiniz blokları seçin.">
+          <Panel title="Blok Kütüphanesi" desc="Ana sayfaya eklemek istediğiniz bölümleri seçin.">
             <div className="space-y-2">
               {SUPPORTED_BLOCK_TYPES.map(type => (
                 <div
@@ -352,10 +384,11 @@ export default function StorefrontBuilder() {
 
         {/* Page flow */}
         <div className="xl:col-span-5">
-          <Panel title="Sayfa Akışı" desc="Blokları sürükleyerek sıralayın.">
+          <Panel title="Sayfa Akışı" desc="Blokları sürükleyerek sıralayın; seçerek ayarlarını düzenleyin.">
             {layout.sections.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-                <p className="text-[13px] text-slate-500">Henüz blok yok. Sol panelden ekleyin.</p>
+              <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center px-4">
+                <p className="text-[14px] font-medium text-slate-600">Henüz blok eklenmedi.</p>
+                <p className="text-[13px] text-slate-500 mt-1.5">Sol taraftan bir blok ekleyerek başlayın.</p>
               </div>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -392,8 +425,9 @@ export default function StorefrontBuilder() {
                   <span className="text-slate-400">({selectedSection.id})</span>
                 </p>
                 <SectionSettingsPanel
+                  key={selectedSection.id}
                   section={selectedSection}
-                  onChange={settings => handleSettingsChange(selectedSection.id, settings)}
+                  onChange={patch => handleSettingsChange(selectedSection.id, patch)}
                 />
               </>
             ) : (
@@ -401,7 +435,7 @@ export default function StorefrontBuilder() {
             )}
           </Panel>
 
-          <Panel title="Canlı Önizleme" desc="Builder içi görsel destek — vitrin render motoru değil.">
+          <Panel title="Canlı Önizleme" desc="Seçili bloğun vitrindeki görünümüne yakın bir önizleme.">
             <BuilderPreview section={selectedSection} />
           </Panel>
         </div>

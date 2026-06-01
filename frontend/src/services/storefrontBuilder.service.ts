@@ -42,7 +42,7 @@ export async function fetchHomeDraft(): Promise<StorefrontDraftLoadResult> {
       meta: normalizeMeta(data),
     };
   } catch (err: unknown) {
-    return { ok: false, message: extractErrorMessage(err, 'Vitrin builder verileri yüklenemedi.') };
+    return { ok: false, message: extractErrorMessage(err, 'Tasarım verileri yüklenemedi.') };
   }
 }
 

@@ -8,9 +8,11 @@ type Props = {
   product: StorefrontProductSummary;
   productUrl: string;
   hideAddToCart?: boolean;
+  hidePrice?: boolean;
+  variant?: 'card' | 'plain';
 };
 
-export function ProductCard({ product, productUrl, hideAddToCart }: Props) {
+export function ProductCard({ product, productUrl, hideAddToCart, hidePrice, variant = 'card' }: Props) {
   const { addLine } = useStorefrontCart();
   const sale = effectivePrice(product.price, product.discountPrice);
   const hasDiscount =
@@ -34,7 +36,11 @@ export function ProductCard({ product, productUrl, hideAddToCart }: Props) {
   };
 
   return (
-    <article className="group flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow">
+    <article
+      className={`group flex flex-col rounded-xl bg-white overflow-hidden transition-shadow ${
+        variant === 'plain' ? 'border border-transparent' : 'border border-slate-200 hover:shadow-md'
+      }`}
+    >
       <Link to={productUrl} className="block">
         <div className="aspect-square bg-slate-100 relative">
           {product.id && (
@@ -67,12 +73,14 @@ export function ProductCard({ product, productUrl, hideAddToCart }: Props) {
         >
           {product.name || 'Ürün'}
         </Link>
-        <div className="flex flex-wrap items-baseline gap-1.5">
-          <span className="text-indigo-600 font-semibold text-sm">{formatTry(sale)}</span>
-          {hasDiscount && (
-            <span className="text-slate-400 text-xs line-through">{formatTry(product.price)}</span>
-          )}
-        </div>
+        {!hidePrice && (
+          <div className="flex flex-wrap items-baseline gap-1.5">
+            <span className="text-indigo-600 font-semibold text-sm">{formatTry(sale)}</span>
+            {hasDiscount && (
+              <span className="text-slate-400 text-xs line-through">{formatTry(product.price)}</span>
+            )}
+          </div>
+        )}
         {!hideAddToCart && (
           <button
             type="button"
