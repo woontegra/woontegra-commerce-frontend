@@ -23,13 +23,18 @@ import {
   countPendingSetup,
   countTestModeProviders,
   findSetting,
+  getSupportedProviders,
+  iyzicoCardBadge,
+  iyzicoSummaryLabel,
   isMaskedIban,
+  IYZICO_PRODUCTION_URL,
+  IYZICO_SANDBOX_URL,
   providerDisplayStatus,
   resolveDefaultPaymentLabel,
   statusBadgeClass,
   str,
-  SUPPORTED_PROVIDERS,
   validateTurkishIban,
+  type SupportedProviderSupport,
 } from './paymentSettingsPageHelpers';
 
 function secretForSave(value: string, hasCredentials: boolean): string | undefined {
@@ -277,6 +282,134 @@ function PaytrCard({
         <input type="password" className={inputCls} value={form.merchantSalt}
           onChange={e => setForm(f => ({ ...f, merchantSalt: e.target.value }))} autoComplete="new-password" />
       </Field>
+    </ProviderCardShell>
+  );
+}
+
+// ─── iyzico (admin ayarları — vitrin kapalı) ─────────────────────────────────
+
+type IyzicoForm = {
+  isActive: boolean;
+  isTestMode: boolean;
+  apiKey: string;
+  secretKey: string;
+};
+
+function IyzicoCard({
+  setting,
+  onSaved,
+}: {
+  setting: AdminPaymentSetting | undefined;
+  onSaved: (s: AdminPaymentSetting) => void;
+}) {
+  const [form, setForm] = useState<IyzicoForm>({
+    isActive: false, isTestMode: true, apiKey: '', secretKey: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const hasCredentials = setting?.hasCredentials ?? false;
+
+  useEffect(() => {
+    const c = setting?.credentials ?? {};
+    setForm({
+      isActive:   setting?.isActive ?? false,
+      isTestMode: setting?.isTestMode ?? true,
+      apiKey:     str(c.apiKey) || (setting?.hasCredentials ? PAYMENT_SECRET_PLACEHOLDER : ''),
+      secretKey:  str(c.secretKey) || (setting?.hasCredentials ? PAYMENT_SECRET_PLACEHOLDER : ''),
+    });
+  }, [setting]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        isActive:   form.isActive,
+        isTestMode: form.isTestMode,
+        baseUrl:    form.isTestMode ? IYZICO_SANDBOX_URL : IYZICO_PRODUCTION_URL,
+      };
+      const apiKey = secretForSave(form.apiKey, hasCredentials);
+      const secretKey = secretForSave(form.secretKey, hasCredentials);
+      if (apiKey !== undefined) body.apiKey = apiKey;
+      if (secretKey !== undefined) body.secretKey = secretKey;
+
+      const updated = await upsertPaymentSetting('IYZICO', body);
+      onSaved(updated);
+      toast.success('iyzico ayarları kaydedildi.');
+      const c = updated.credentials;
+      setForm(prev => ({
+        ...prev,
+        isActive:   updated.isActive,
+        isTestMode: updated.isTestMode,
+        apiKey:     str(c.apiKey) || PAYMENT_SECRET_PLACEHOLDER,
+        secretKey:  str(c.secretKey) || PAYMENT_SECRET_PLACEHOLDER,
+      }));
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const badge = iyzicoCardBadge(hasCredentials);
+
+  return (
+    <ProviderCardShell
+      title={PROVIDER_LABELS.IYZICO}
+      subtitle="iyzico sanal POS — API bilgileri admin panelde saklanır"
+      status={badge}
+      icon={CreditCard}
+      footer={<SaveButton saving={saving} onClick={save} />}
+    >
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 flex gap-2">
+        <AlertTriangle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-indigo-900 leading-relaxed">
+          Bu bilgiler kaydedilse bile iyzico şu an vitrinde ödeme yöntemi olarak gösterilmez.
+          Checkout entegrasyonu sonraki fazda yapılacaktır.
+        </p>
+      </div>
+      <p className="text-[12px] text-slate-600 leading-relaxed">
+        iyzico API bilgilerinizi bu alanda saklayabilirsiniz. Vitrin ödeme entegrasyonu sonraki fazda aktif edilecektir.
+      </p>
+      <Toggle
+        checked={form.isActive}
+        onChange={v => setForm(f => ({ ...f, isActive: v }))}
+        label="Aktif (admin kaydı)"
+        description="Vitrin checkout'ta henüz listelenmez; yalnızca ayar kaydı içindir."
+      />
+      <Toggle
+        checked={form.isTestMode}
+        onChange={v => setForm(f => ({ ...f, isTestMode: v }))}
+        label="Test modu"
+        description={
+          form.isTestMode
+            ? `Sandbox ortamı kullanılacak (${IYZICO_SANDBOX_URL}).`
+            : `Canlı ortam kullanılacak (${IYZICO_PRODUCTION_URL}).`
+        }
+      />
+      <Field label="API Key" hint="Değiştirmek istemiyorsanız *** bırakın. Boş göndermeyin; mevcut anahtar korunur.">
+        <input
+          type="password"
+          className={inputCls}
+          value={form.apiKey}
+          onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
+          autoComplete="new-password"
+        />
+      </Field>
+      <Field label="Secret Key" hint="Değiştirmek istemiyorsanız *** bırakın.">
+        <input
+          type="password"
+          className={inputCls}
+          value={form.secretKey}
+          onChange={e => setForm(f => ({ ...f, secretKey: e.target.value }))}
+          autoComplete="new-password"
+        />
+      </Field>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
+        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">API ortamı</p>
+        <p className="text-[12px] text-slate-700 mt-1 font-mono break-all">
+          {form.isTestMode ? IYZICO_SANDBOX_URL : IYZICO_PRODUCTION_URL}
+        </p>
+        <p className="text-[11px] text-slate-500 mt-1">Test modu anahtarı ile otomatik seçilir; manuel Base URL gerekmez.</p>
+      </div>
     </ProviderCardShell>
   );
 }
@@ -531,12 +664,12 @@ function CashOnDeliveryCard({
 // ─── Right column ────────────────────────────────────────────────────────────
 
 function PaymentStatusSummary({ settings }: { settings: AdminPaymentSetting[] }) {
+  const iyzicoSetting = findSetting(settings, 'IYZICO');
   const rows = [
-    { label: PROVIDER_LABELS.PAYTR,            setting: findSetting(settings, 'PAYTR'),            planned: false },
-    { label: PROVIDER_LABELS.BANK_TRANSFER,    setting: findSetting(settings, 'BANK_TRANSFER'), planned: false },
-    { label: PROVIDER_LABELS.CASH_ON_DELIVERY, setting: findSetting(settings, 'CASH_ON_DELIVERY'), planned: false },
-    { label: PROVIDER_LABELS.IYZICO,           setting: undefined, planned: true },
-    { label: PROVIDER_LABELS.BANK_POS,         setting: undefined, planned: true },
+    { label: PROVIDER_LABELS.PAYTR,            setting: findSetting(settings, 'PAYTR'),            planned: false, iyzico: false },
+    { label: PROVIDER_LABELS.BANK_TRANSFER,    setting: findSetting(settings, 'BANK_TRANSFER'), planned: false, iyzico: false },
+    { label: PROVIDER_LABELS.CASH_ON_DELIVERY, setting: findSetting(settings, 'CASH_ON_DELIVERY'), planned: false, iyzico: false },
+    { label: PROVIDER_LABELS.BANK_POS,         setting: undefined, planned: true, iyzico: false },
   ];
 
   return (
@@ -551,6 +684,12 @@ function PaymentStatusSummary({ settings }: { settings: AdminPaymentSetting[] })
             </li>
           );
         })}
+        <li className="flex items-start justify-between gap-2 text-[13px] pt-1 border-t border-slate-100">
+          <span className="text-slate-700">{PROVIDER_LABELS.IYZICO}</span>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-right max-w-[160px] leading-snug">
+            {iyzicoSummaryLabel(iyzicoSetting)}
+          </span>
+        </li>
       </ul>
       {findSetting(settings, 'BANK_TRANSFER')?.isActive && (
         <p className="mt-4 text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -592,20 +731,25 @@ function SecurityInfoPanel() {
   );
 }
 
-function SupportedProvidersPanel() {
+function supportedProviderBadgeClass(support: SupportedProviderSupport): string {
+  switch (support) {
+    case 'Aktif destek':                  return 'bg-emerald-100 text-emerald-700';
+    case 'Admin hazır, vitrin bekliyor':  return 'bg-indigo-100 text-indigo-700';
+    case 'Kurulum hazırlığı':             return 'bg-violet-100 text-violet-700';
+    case 'Planlandı':                     return 'bg-slate-200 text-slate-600';
+    default:                              return 'bg-slate-100 text-slate-500';
+  }
+}
+
+function SupportedProvidersPanel({ settings }: { settings: AdminPaymentSetting[] }) {
+  const providers = getSupportedProviders(settings);
   return (
     <Panel title="Desteklenen sağlayıcılar">
       <ul className="space-y-2">
-        {SUPPORTED_PROVIDERS.map(p => (
+        {providers.map(p => (
           <li key={p.name} className="flex items-center justify-between gap-2 text-[12px]">
             <span className="text-slate-700">{p.name}</span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-              p.support === 'Aktif destek'
-                ? 'bg-emerald-100 text-emerald-700'
-                : p.support === 'Planlandı'
-                  ? 'bg-slate-200 text-slate-600'
-                  : 'bg-slate-100 text-slate-500'
-            }`}>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full text-right max-w-[140px] leading-snug ${supportedProviderBadgeClass(p.support)}`}>
               {p.support}
             </span>
           </li>
@@ -639,9 +783,10 @@ export default function PaymentSettingsPage() {
   useEffect(() => { load(); }, [load]);
 
   const byProvider = useMemo(() => ({
-    paytr: findSetting(settings, 'PAYTR'),
-    bank:  findSetting(settings, 'BANK_TRANSFER'),
-    cod:   findSetting(settings, 'CASH_ON_DELIVERY'),
+    paytr:  findSetting(settings, 'PAYTR'),
+    iyzico: findSetting(settings, 'IYZICO'),
+    bank:   findSetting(settings, 'BANK_TRANSFER'),
+    cod:    findSetting(settings, 'CASH_ON_DELIVERY'),
   }), [settings]);
 
   const mergeSetting = (updated: AdminPaymentSetting) => {
@@ -712,10 +857,7 @@ export default function PaymentSettingsPage() {
             <Panel title="Online ödeme sağlayıcıları" desc="Kredi kartı ve sanal POS entegrasyonları">
               <div className="space-y-4">
                 <PaytrCard setting={byProvider.paytr} onSaved={mergeSetting} />
-                <PlannedProviderCard
-                  title={PROVIDER_LABELS.IYZICO}
-                  subtitle="iyzico sanal POS entegrasyonu"
-                />
+                <IyzicoCard setting={byProvider.iyzico} onSaved={mergeSetting} />
                 <PlannedProviderCard
                   title={PROVIDER_LABELS.BANK_POS}
                   subtitle="Banka sanal POS doğrudan entegrasyonu"
@@ -736,7 +878,7 @@ export default function PaymentSettingsPage() {
             <PaymentStatusSummary settings={settings} />
             <SetupChecklistPanel settings={settings} />
             <SecurityInfoPanel />
-            <SupportedProvidersPanel />
+            <SupportedProvidersPanel settings={settings} />
           </div>
         </div>
       )}
