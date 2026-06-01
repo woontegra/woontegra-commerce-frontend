@@ -12,10 +12,17 @@ export type FooterColumn = {
   links: FooterLink[];
 };
 
+export const FOOTER_LOGO_WIDTH_MIN = 80;
+export const FOOTER_LOGO_WIDTH_MAX = 240;
+export const FOOTER_LOGO_MAX_HEIGHT_MIN = 24;
+export const FOOTER_LOGO_MAX_HEIGHT_MAX = 96;
+
 export type FooterSettings = {
   enabled: boolean;
   layout: FooterLayout;
   logoUrl: string;
+  logoWidthPx: number;
+  logoMaxHeightPx: number;
   description: string;
   backgroundColor: string;
   textColor: string;
@@ -56,6 +63,8 @@ export function defaultFooterSettings(): FooterSettings {
     enabled: false,
     layout: 'columns',
     logoUrl: '',
+    logoWidthPx: 155,
+    logoMaxHeightPx: 56,
     description: '',
     backgroundColor: '#ffffff',
     textColor: '#64748b',
@@ -81,6 +90,13 @@ function str(raw: Record<string, unknown>, key: keyof FooterSettings, fallback: 
 function bool(raw: Record<string, unknown>, key: keyof FooterSettings, fallback: boolean): boolean {
   const v = raw[key];
   return v === undefined ? fallback : Boolean(v);
+}
+
+function num(raw: Record<string, unknown>, key: keyof FooterSettings, fallback: number): number {
+  const v = raw[key];
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function parseLink(raw: unknown, index: number): FooterLink | null {
@@ -124,6 +140,14 @@ export function mergeFooterSettings(raw: unknown): FooterSettings {
     enabled: bool(o, 'enabled', d.enabled),
     layout,
     logoUrl: str(o, 'logoUrl', d.logoUrl),
+    logoWidthPx: Math.min(
+      FOOTER_LOGO_WIDTH_MAX,
+      Math.max(FOOTER_LOGO_WIDTH_MIN, num(o, 'logoWidthPx', d.logoWidthPx)),
+    ),
+    logoMaxHeightPx: Math.min(
+      FOOTER_LOGO_MAX_HEIGHT_MAX,
+      Math.max(FOOTER_LOGO_MAX_HEIGHT_MIN, num(o, 'logoMaxHeightPx', d.logoMaxHeightPx)),
+    ),
     description: str(o, 'description', d.description),
     backgroundColor: str(o, 'backgroundColor', d.backgroundColor),
     textColor: str(o, 'textColor', d.textColor),
@@ -143,6 +167,28 @@ export function mergeFooterSettings(raw: unknown): FooterSettings {
 export function extractFooterSettingsFromTheme(theme: Record<string, unknown> | undefined): FooterSettings {
   if (!theme) return defaultFooterSettings();
   return mergeFooterSettings(theme.footerSettings);
+}
+
+export function footerLogoImageStyle(
+  settings: Pick<FooterSettings, 'logoWidthPx' | 'logoMaxHeightPx'>,
+): {
+  width: string;
+  maxWidth: string;
+  height: string;
+  maxHeight: string;
+  objectFit: 'contain';
+  objectPosition: string;
+} {
+  const logoWidthPx = settings.logoWidthPx || 155;
+  const logoMaxHeightPx = settings.logoMaxHeightPx || 56;
+  return {
+    width: `${logoWidthPx}px`,
+    maxWidth: '100%',
+    height: 'auto',
+    maxHeight: `${logoMaxHeightPx}px`,
+    objectFit: 'contain',
+    objectPosition: 'left center',
+  };
 }
 
 export function resolveFooterLogoUrl(settings: FooterSettings, tenantLogoUrl: string | null): string | null {

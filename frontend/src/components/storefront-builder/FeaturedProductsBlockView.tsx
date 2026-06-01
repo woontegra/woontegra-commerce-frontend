@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProductCard } from '../../storefront/components/ProductCard';
@@ -8,11 +8,11 @@ import {
   mapProductCardVariant,
   productGridResponsiveClass,
   resolveFeaturedSourceType,
-  resolveShowViewAll,
 } from '../../utils/featuredProductsBlockHelpers';
 import type { FeaturedProductsEmptyReason } from '../../utils/featuredProductsBlockHelpers';
 import { mapThemeProductCardVariant, resolveBlockProductCardStyle, type ThemeSettings } from '../../utils/themeSettingsHelpers';
 import { effectivePrice, formatTry } from '../../storefront/utils/format';
+import FeaturedProductsSectionHeader from './FeaturedProductsSectionHeader';
 
 type FeaturedProductsBlockViewProps = {
   settings: Record<string, unknown>;
@@ -23,8 +23,6 @@ type FeaturedProductsBlockViewProps = {
   viewAllHref: string;
   preview?: boolean;
   themeSettings?: ThemeSettings | null;
-  /** LayoutSections kendi başlığını render ediyorsa true */
-  hideSectionHeader?: boolean;
 };
 
 function str(settings: Record<string, unknown>, key: string, fallback = ''): string {
@@ -99,26 +97,55 @@ function ProductCarousel({
   preview?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [activePage, setActivePage] = useState(0);
+
+  const updateActivePage = useCallback(() => {
+    const el = ref.current;
+    if (!el || products.length === 0) return;
+    const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
+    if (!first) return;
+    const itemWidth = first.offsetWidth + 16;
+    if (itemWidth <= 0) return;
+    const page = Math.round(el.scrollLeft / itemWidth);
+    setActivePage(Math.min(Math.max(0, page), products.length - 1));
+  }, [products.length]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateActivePage, { passive: true });
+    return () => el.removeEventListener('scroll', updateActivePage);
+  }, [updateActivePage]);
+
   const scroll = (dir: number) => {
-    ref.current?.scrollBy({ left: dir * 280, behavior: 'smooth' });
+    const el = ref.current;
+    if (!el) return;
+    const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
+    const step = first ? first.offsetWidth + 16 : 280;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  const scrollToIndex = (index: number) => {
+    const el = ref.current;
+    if (!el) return;
+    const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
+    const step = first ? first.offsetWidth + 16 : 280;
+    el.scrollTo({ left: index * step, behavior: 'smooth' });
   };
 
   return (
-    <div className="relative group">
+    <div className="store-product-carousel">
       <button
         type="button"
         onClick={() => scroll(-1)}
-        className="store-carousel-btn absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-        aria-label="Önceki"
+        className="store-carousel-btn store-product-carousel-nav store-product-carousel-nav--prev flex items-center justify-center"
+        aria-label="Önceki ürünler"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
-      <div
-        ref={ref}
-        className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1 touch-pan-x"
-      >
+      <div ref={ref} className="store-product-carousel-track">
         {products.map(p => (
-          <div key={p.id} className="snap-start flex-shrink-0 w-[240px] sm:w-[260px]">
+          <div key={p.id} className="store-product-carousel-item">
             <ProductCard
               product={p}
               productUrl={preview ? '#' : productUrl(p.slug)}
@@ -133,11 +160,26 @@ function ProductCarousel({
       <button
         type="button"
         onClick={() => scroll(1)}
-        className="store-carousel-btn absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-        aria-label="Sonraki"
+        className="store-carousel-btn store-product-carousel-nav store-product-carousel-nav--next flex items-center justify-center"
+        aria-label="Sonraki ürünler"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
+      {products.length > 1 && (
+        <div className="store-product-carousel-dots" role="tablist" aria-label="Ürün sayfaları">
+          {products.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={i === activePage}
+              aria-label={`Ürün ${i + 1}`}
+              className={`store-product-carousel-dot${i === activePage ? ' is-active' : ''}`}
+              onClick={() => scrollToIndex(i)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -151,12 +193,7 @@ export default function FeaturedProductsBlockView({
   viewAllHref,
   preview = false,
   themeSettings = null,
-  hideSectionHeader = false,
 }: FeaturedProductsBlockViewProps) {
-  const title = str(settings, 'title', 'Ürün Vitrini');
-  const showTitle = bool(settings, 'showTitle', true);
-  const showViewAll = resolveShowViewAll(settings);
-  const viewAllLabel = str(settings, 'viewAllLabel', 'Tümünü gör');
   const displayMode = str(settings, 'displayMode', 'grid');
   const blockCardStyle = str(settings, 'cardStyle', 'standard');
   const showPrice = bool(settings, 'showPrice', true);
@@ -176,27 +213,10 @@ export default function FeaturedProductsBlockView({
 
   return (
     <>
-      {!hideSectionHeader && (showTitle || showViewAll) && (
-        <div className="store-section-header flex items-end justify-between gap-3">
-          {showTitle && (
-            <div>
-              <p className="store-section-eyebrow">Seçkin parçalar</p>
-              <h2 className="store-section-heading">{title}</h2>
-            </div>
-          )}
-          {showViewAll &&
-            (preview ? (
-              <span className="store-section-link">{viewAllLabel} →</span>
-            ) : (
-              <Link to={viewAllHref} className="store-section-link whitespace-nowrap">
-                {viewAllLabel} →
-              </Link>
-            ))}
-        </div>
-      )}
+      <FeaturedProductsSectionHeader settings={settings} viewAllHref={viewAllHref} preview={preview} />
 
       {loading ? (
-        <div className={`${productGridResponsiveClass(colsMobile, colsTablet, colsDesktop)}`}>
+        <div className={`${productGridResponsiveClass(colsMobile, colsTablet, colsDesktop)} store-products-grid`}>
           {Array.from({ length: Math.min(colsDesktop, 4) }).map((_, i) => (
             <div key={i} className="store-skeleton-card h-52 sm:h-56 animate-pulse" />
           ))}
@@ -228,7 +248,7 @@ export default function FeaturedProductsBlockView({
           preview={preview}
         />
       ) : (
-        <div className={productGridResponsiveClass(colsMobile, colsTablet, colsDesktop)}>
+        <div className={`${productGridResponsiveClass(colsMobile, colsTablet, colsDesktop)} store-products-grid`}>
           {products.map(p => (
             <ProductCard
               key={p.id}

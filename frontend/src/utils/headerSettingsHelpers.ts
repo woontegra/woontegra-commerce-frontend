@@ -3,6 +3,11 @@ export type HeaderLogoPosition = 'left' | 'center';
 export type HeaderMenuPosition = 'left' | 'center' | 'right';
 export type HeaderMobileLayout = 'stacked' | 'compact' | 'minimal';
 
+export const HEADER_LOGO_WIDTH_MIN = 80;
+export const HEADER_LOGO_WIDTH_MAX = 240;
+export const HEADER_LOGO_MAX_HEIGHT_MIN = 24;
+export const HEADER_LOGO_MAX_HEIGHT_MAX = 96;
+
 export type HeaderSettings = {
   enabled: boolean;
   layout: HeaderLayout;
@@ -19,8 +24,18 @@ export type HeaderSettings = {
   activeColor: string;
   borderEnabled: boolean;
   menuFontSizePx: number;
+  logoWidthPx: number;
   logoMaxHeightPx: number;
   mobileLayout: HeaderMobileLayout;
+};
+
+export type HeaderLogoImageStyle = {
+  width: string;
+  maxWidth: string;
+  height: string;
+  maxHeight: string;
+  objectFit: 'contain';
+  objectPosition: string;
 };
 
 export const GLOBAL_HEADER_SETTINGS_ID = '__headerSettings__';
@@ -42,8 +57,24 @@ export function defaultHeaderSettings(): HeaderSettings {
     activeColor: '#4f46e5',
     borderEnabled: true,
     menuFontSizePx: 14,
-    logoMaxHeightPx: 36,
+    logoWidthPx: 150,
+    logoMaxHeightPx: 48,
     mobileLayout: 'stacked',
+  };
+}
+
+export function headerLogoImageStyle(
+  settings: Pick<HeaderSettings, 'logoWidthPx' | 'logoMaxHeightPx'>,
+): HeaderLogoImageStyle {
+  const logoWidthPx = settings.logoWidthPx || 150;
+  const logoMaxHeightPx = settings.logoMaxHeightPx || 48;
+  return {
+    width: `${logoWidthPx}px`,
+    maxWidth: '100%',
+    height: 'auto',
+    maxHeight: `${logoMaxHeightPx}px`,
+    objectFit: 'contain',
+    objectPosition: 'left center',
   };
 }
 
@@ -105,7 +136,14 @@ export function mergeHeaderSettings(raw: unknown): HeaderSettings {
     activeColor: str(o, 'activeColor', d.activeColor),
     borderEnabled: bool(o, 'borderEnabled', d.borderEnabled),
     menuFontSizePx: Math.min(20, Math.max(11, num(o, 'menuFontSizePx', d.menuFontSizePx))),
-    logoMaxHeightPx: Math.min(72, Math.max(24, num(o, 'logoMaxHeightPx', d.logoMaxHeightPx))),
+    logoWidthPx: Math.min(
+      HEADER_LOGO_WIDTH_MAX,
+      Math.max(HEADER_LOGO_WIDTH_MIN, num(o, 'logoWidthPx', d.logoWidthPx)),
+    ),
+    logoMaxHeightPx: Math.min(
+      HEADER_LOGO_MAX_HEIGHT_MAX,
+      Math.max(HEADER_LOGO_MAX_HEIGHT_MIN, num(o, 'logoMaxHeightPx', d.logoMaxHeightPx)),
+    ),
     mobileLayout: parseMobileLayout(str(o, 'mobileLayout', d.mobileLayout), d.mobileLayout),
   };
 }

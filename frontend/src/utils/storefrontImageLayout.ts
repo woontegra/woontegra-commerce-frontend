@@ -120,11 +120,23 @@ export function heroAlignClass(alignment: string): string {
 export function sectionWidthClass(widthMode: string): string {
   switch (widthMode) {
     case 'full':
-      return 'w-full px-4';
+      return 'w-full px-4 sm:px-6';
     case 'narrow':
-      return 'store-container-narrow mx-auto w-full px-4';
+      return 'store-container-narrow mx-auto w-full px-4 sm:px-6';
     default:
-      return 'store-container mx-auto w-full px-4';
+      return 'store-container mx-auto w-full px-4 sm:px-6';
+  }
+}
+
+/** Ürün vitrinleri — builder widthMode ile aynı container/full davranışı */
+export function productsSectionWidthClass(widthMode: string): string {
+  switch (widthMode) {
+    case 'full':
+      return 'w-full px-4 sm:px-6 lg:px-8';
+    case 'narrow':
+      return 'store-container-narrow mx-auto w-full px-4 sm:px-6';
+    default:
+      return 'store-container mx-auto w-full px-4 sm:px-6';
   }
 }
 
@@ -155,16 +167,32 @@ export type HeroLayerProps = {
 
 const LEGACY_INDIGO_DEFAULTS = new Set(['#4f46e5', '#6366f1', '#4338ca', '#5b21b6']);
 
-const PREMIUM_HERO_GRADIENT =
-  'linear-gradient(145deg, #141312 0%, #1c1917 38%, #292524 72%, #44403c 100%)';
+const DEFAULT_DARK_HERO_COLORS = new Set([
+  ...LEGACY_INDIGO_DEFAULTS,
+  '#1c1917',
+  '#292524',
+  '#44403c',
+  '#141312',
+]);
 
-function isLegacyIndigoDefault(color: string): boolean {
-  return LEGACY_INDIGO_DEFAULTS.has(color.trim().toLowerCase());
+const PREMIUM_HERO_GRADIENT_SOFT =
+  'linear-gradient(165deg, #fffcf9 0%, #f9f6f1 32%, #f3ede4 65%, #ebe4d9 100%)';
+
+function isDefaultDarkHeroColor(color: string): boolean {
+  return DEFAULT_DARK_HERO_COLORS.has(color.trim().toLowerCase());
 }
 
 function premiumHeroGradientFrom(color: string): string {
-  if (isLegacyIndigoDefault(color)) return PREMIUM_HERO_GRADIENT;
-  return `linear-gradient(145deg, ${color}, #292524)`;
+  if (isDefaultDarkHeroColor(color)) return PREMIUM_HERO_GRADIENT_SOFT;
+  return `linear-gradient(145deg, ${color}, #ebe4d9)`;
+}
+
+export function shouldUseLightHeroFallback(settings: Record<string, unknown>, imageUrl: string | null): boolean {
+  const hasImage = !!imageUrl?.trim();
+  if (hasImage) return false;
+  const bgColor = str(settings, 'backgroundColor', '#1c1917').trim() || '#1c1917';
+  const bgType = resolveHeroBackgroundType(settings, false);
+  return bgType !== 'color' || isDefaultDarkHeroColor(bgColor);
 }
 
 export function buildHeroLayerProps(
@@ -174,7 +202,7 @@ export function buildHeroLayerProps(
 ): HeroLayerProps {
   const hasImage = !!imageUrl?.trim();
   const bgType = resolveHeroBackgroundType(settings, hasImage);
-  const fallbackBg = themePrimary && !isLegacyIndigoDefault(themePrimary) ? themePrimary : '#1c1917';
+  const fallbackBg = themePrimary && !isDefaultDarkHeroColor(themePrimary) ? themePrimary : '#1c1917';
   const bgColor = str(settings, 'backgroundColor', fallbackBg).trim() || fallbackBg;
   const textColor = str(settings, 'textColor', '#ffffff');
   const alignment = resolveHeroContentAlign(settings);
@@ -192,16 +220,16 @@ export function buildHeroLayerProps(
 
   let baseStyle: Record<string, string> | undefined;
   if (!useImage) {
-    if (bgType === 'color') {
-      baseStyle = isLegacyIndigoDefault(bgColor)
-        ? { background: PREMIUM_HERO_GRADIENT }
-        : { backgroundColor: bgColor };
+    if (shouldUseLightHeroFallback(settings, imageUrl)) {
+      baseStyle = undefined;
+    } else if (bgType === 'color') {
+      baseStyle = { backgroundColor: bgColor };
     } else {
       baseStyle = { background: premiumHeroGradientFrom(bgColor) };
     }
   } else if (imageFit === 'contain') {
-    baseStyle = isLegacyIndigoDefault(bgColor)
-      ? { background: PREMIUM_HERO_GRADIENT }
+    baseStyle = isDefaultDarkHeroColor(bgColor)
+      ? undefined
       : { backgroundColor: bgColor };
   }
 

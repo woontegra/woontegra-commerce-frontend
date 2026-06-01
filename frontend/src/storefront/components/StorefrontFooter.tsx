@@ -5,6 +5,7 @@ import type { StorefrontThemeSettings } from '../types/storefront.types';
 import { displayStorefrontName } from '../../utils/displayStoreName';
 import {
   DEFAULT_LEGAL_LINKS,
+  footerLogoImageStyle,
   mergeFooterSettings,
   resolveFooterHref,
   resolveFooterLogoUrl,
@@ -49,30 +50,42 @@ function LegacyStorefrontFooter({
 
   return (
     <footer className="store-footer mt-auto">
-      <div className="store-container mx-auto w-full px-4 py-14 sm:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link to={home} className="inline-flex items-center gap-3 mb-4">
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt={displayName}
-                  className="h-11 w-11 rounded-full object-cover ring-1 ring-stone-200/80"
-                />
-              ) : (
-                <span className="h-11 w-11 rounded-full bg-stone-900 text-white flex items-center justify-center text-sm font-medium">
+      <div className="store-container-wide store-footer-main">
+        <div className="store-footer-newsletter">
+          <div>
+            <p className="store-section-eyebrow mb-1">Bülten</p>
+            <p className="store-footer-brand text-base">Yeni koleksiyonlardan haberdar olun</p>
+            <p className="store-footer-muted text-sm mt-1">Kampanya ve özel fırsatlar e-posta ile.</p>
+          </div>
+          <span className="store-btn-primary inline-flex px-6 py-2.5 text-sm shrink-0 cursor-default opacity-90">
+            Yakında
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
+          <div className="lg:col-span-4 store-footer-brand-block">
+            {logoSrc ? (
+              <Link to={home} className="inline-flex max-w-full shrink-0">
+                <img src={logoSrc} alt={displayName} className="store-footer-logo-img" />
+              </Link>
+            ) : (
+              <div className="store-footer-brand-row">
+                <span className="store-header-logo-fallback">
                   {displayName.slice(0, 1).toUpperCase()}
                 </span>
-              )}
-              <span className="store-footer-brand">{displayName}</span>
-            </Link>
-            <p className="store-footer-muted text-sm leading-relaxed max-w-xs">
+                <div>
+                  <p className="store-footer-brand">{displayName}</p>
+                  <p className="store-section-eyebrow mt-1 mb-0">Premium e-ticaret</p>
+                </div>
+              </div>
+            )}
+            <p className="store-footer-muted text-sm leading-relaxed max-w-md">
               {settings.footerText ??
-                'Özenle seçilmiş ürünler, güvenli alışveriş ve hızlı teslimat ile kapınıza.'}
+                'Özenle seçilmiş ürünler, güvenli alışveriş ve hızlı teslimat. Butik deneyimi, modern e-ticaret altyapısı.'}
             </p>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <h3 className="store-footer-col-title">Mağaza</h3>
             <ul className="space-y-2.5">
               {quickLinks.map(link => (
@@ -85,26 +98,31 @@ function LegacyStorefrontFooter({
             </ul>
           </div>
 
-          <div>
+          <div className="lg:col-span-3">
             <h3 className="store-footer-col-title">Yardım</h3>
             <ul className="space-y-2.5">
               <li><span className="store-footer-link">Sık sorulan sorular</span></li>
               <li><span className="store-footer-link">Kargo & teslimat</span></li>
-              <li><span className="store-footer-link">İade politikası</span></li>
+              <li><span className="store-footer-link">İade & değişim</span></li>
+              <li><span className="store-footer-link">Gizlilik politikası</span></li>
             </ul>
           </div>
 
-          <div>
+          <div className="lg:col-span-3">
             <h3 className="store-footer-col-title">İletişim</h3>
             <ul className="space-y-2.5 store-footer-muted text-sm">
-              <li>Hafta içi 09:00 – 18:00</li>
-              <li>destek@{tenant.slug || 'magaza'}.com</li>
+              <li>Pazartesi – Cuma, 09:00 – 18:00</li>
+              <li>
+                <a href={`mailto:destek@${tenant.slug || 'magaza'}.com`} className="store-footer-link">
+                  destek@{tenant.slug || 'magaza'}.com
+                </a>
+              </li>
             </ul>
             {settings.socialLinks.length > 0 && (
-              <ul className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
+              <ul className="flex flex-wrap gap-2 mt-5">
                 {settings.socialLinks.map(s => (
                   <li key={s.url}>
-                    <a href={s.url} target="_blank" rel="noreferrer" className="store-section-link text-xs">
+                    <a href={s.url} target="_blank" rel="noreferrer" className="store-footer-social-link">
                       {s.label}
                     </a>
                   </li>
@@ -115,8 +133,8 @@ function LegacyStorefrontFooter({
         </div>
 
         <div className="store-footer-bottom">
-          <p>© {year} {displayName}. Tüm hakları saklıdır.</p>
-          <p className="opacity-70">Woontegra e-ticaret altyapısı</p>
+          <p>© {year} {displayName}</p>
+          <p>Güvenli alışveriş · Woontegra altyapısı</p>
         </div>
       </div>
     </footer>
@@ -207,6 +225,7 @@ function ConfiguredStorefrontFooter({
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
   const logoUrl = normalizeStoreImageUrl(resolveFooterLogoUrl(settings, tenant.logoUrl));
+  const logoStyle = footerLogoImageStyle(settings);
   const waHref = whatsappHref(settings.whatsappNumber);
   const legalLinks = settings.legalLinksEnabled ? DEFAULT_LEGAL_LINKS : [];
   const visibleColumns = settings.columns.filter(
@@ -226,16 +245,31 @@ function ConfiguredStorefrontFooter({
     <div className={`min-w-0 ${settings.layout === 'centered' ? 'text-center mx-auto max-w-lg' : ''}`}>
       {logoUrl ? (
         preview ? (
-          <img src={logoUrl} alt={displayName} className="h-10 w-auto object-contain mb-3" />
+          <img
+            src={logoUrl}
+            alt={displayName}
+            className="store-footer-logo-img--configured mb-3"
+            style={logoStyle}
+          />
         ) : (
-          <Link to={storeLink ? storeLink('/store') : '/store'}>
-            <img src={logoUrl} alt={displayName} className="h-10 w-auto object-contain mb-3" />
+          <Link to={storeLink ? storeLink('/store') : '/store'} className="inline-flex max-w-full">
+            <img
+              src={logoUrl}
+              alt={displayName}
+              className="store-footer-logo-img--configured mb-3"
+              style={logoStyle}
+            />
           </Link>
         )
       ) : (
-        <p className="text-base font-semibold mb-2" style={{ color: settings.headingColor }}>
-          {displayName}
-        </p>
+        <>
+          <span className="store-header-logo-fallback mb-3">
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
+          <p className="text-base font-semibold mb-2" style={{ color: settings.headingColor }}>
+            {displayName}
+          </p>
+        </>
       )}
       {settings.description.trim() && (
         <p className="text-sm leading-relaxed opacity-90 max-w-md">{settings.description.trim()}</p>

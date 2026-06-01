@@ -8,6 +8,7 @@ import {
   mapProductCardVariant,
   objectFitClass,
   sectionWidthClass,
+  productsSectionWidthClass,
 } from '../../../utils/storefrontImageLayout';
 
 export {
@@ -18,6 +19,7 @@ export {
   mapProductCardVariant,
   objectFitClass,
   sectionWidthClass,
+  productsSectionWidthClass,
 };
 
 export const KNOWN_LAYOUT_SECTION_TYPES = new Set([

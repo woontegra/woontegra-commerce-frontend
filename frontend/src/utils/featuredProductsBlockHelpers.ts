@@ -3,6 +3,20 @@ import type { StorefrontProductSummary } from '../storefront/types/storefront.ty
 
 export type FeaturedSourceType = 'featured' | 'category' | 'latest' | 'discounted';
 
+export type FeaturedHeaderAlign = 'left' | 'center' | 'right';
+
+export type ResolvedFeaturedHeader = {
+  eyebrowText: string;
+  title: string;
+  description: string;
+  headerAlign: FeaturedHeaderAlign;
+  showEyebrow: boolean;
+  showDescription: boolean;
+  showTitle: boolean;
+  showViewAll: boolean;
+  viewAllLabel: string;
+};
+
 export type FeaturedProductsEmptyReason =
   | 'none'
   | 'no_category'
@@ -30,6 +44,41 @@ export function resolveFeaturedSourceType(settings: Record<string, unknown>): Fe
   return 'featured';
 }
 
+function bool(settings: Record<string, unknown>, key: string, fallback: boolean): boolean {
+  const v = settings[key];
+  return v === undefined ? fallback : Boolean(v);
+}
+
+function parseHeaderAlign(raw: string): FeaturedHeaderAlign {
+  if (raw === 'center' || raw === 'right') return raw;
+  return 'left';
+}
+
+export function resolveFeaturedHeaderSettings(settings: Record<string, unknown>): ResolvedFeaturedHeader {
+  return {
+    eyebrowText: str(settings, 'eyebrowText', 'Seçkin Parçalar'),
+    title: str(settings, 'title', 'Öne Çıkan Ürünler'),
+    description: str(settings, 'description', 'En çok tercih edilen ürünlerimiz'),
+    headerAlign: parseHeaderAlign(str(settings, 'headerAlign', 'left')),
+    showEyebrow: bool(settings, 'showEyebrow', true),
+    showDescription: bool(settings, 'showDescription', true),
+    showTitle: bool(settings, 'showTitle', true),
+    showViewAll: resolveShowViewAll(settings),
+    viewAllLabel: str(settings, 'viewAllLabel', 'Tümünü gör'),
+  };
+}
+
+export function featuredHeaderTextAlignClass(align: FeaturedHeaderAlign): string {
+  switch (align) {
+    case 'center':
+      return 'text-center items-center';
+    case 'right':
+      return 'text-right items-end';
+    default:
+      return 'text-left items-start';
+  }
+}
+
 export function mergeFeaturedProductsSettings(
   raw: Record<string, unknown>,
   merged: Record<string, unknown>,
@@ -55,6 +104,11 @@ export function mergeFeaturedProductsSettings(
   }
   if (raw.showViewAllLink === undefined) merged.showViewAllLink = true;
   if (raw.viewAllLabel === undefined) merged.viewAllLabel = 'Tümünü gör';
+  if (raw.eyebrowText === undefined) merged.eyebrowText = 'Seçkin Parçalar';
+  if (raw.description === undefined) merged.description = 'En çok tercih edilen ürünlerimiz';
+  if (raw.headerAlign === undefined) merged.headerAlign = 'left';
+  if (raw.showEyebrow === undefined) merged.showEyebrow = true;
+  if (raw.showDescription === undefined) merged.showDescription = true;
   return merged;
 }
 
@@ -92,7 +146,7 @@ export function productGridResponsiveClass(
         : colsDesktop === 3
           ? 'lg:grid-cols-3'
           : 'lg:grid-cols-2';
-  return `grid ${mobile} ${tablet} ${desktop} gap-4`;
+  return `grid ${mobile} ${tablet} ${desktop} gap-3 sm:gap-4 lg:gap-5`;
 }
 
 export async function loadFeaturedBlockProducts(

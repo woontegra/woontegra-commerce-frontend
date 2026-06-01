@@ -139,8 +139,42 @@ export default function FeaturedProductsSettings({ section, onChange }: Featured
   return (
     <div className="space-y-3">
       <SettingCard title="Bölüm başlığı">
-        <TextField label="Başlık" value={str('title', 'Ürün Vitrini')} onChange={v => set('title', v)} />
+        <TextField
+          label="Üst küçük etiket"
+          value={str('eyebrowText', 'Seçkin Parçalar')}
+          onChange={v => set('eyebrowText', v)}
+        />
+        <TextField
+          label="Başlık"
+          value={str('title', 'Öne Çıkan Ürünler')}
+          onChange={v => set('title', v)}
+        />
+        <TextField
+          label="Açıklama"
+          value={str('description', 'En çok tercih edilen ürünlerimiz')}
+          onChange={v => set('description', v)}
+        />
+        <ToggleSwitch
+          label="Üst etiketi göster"
+          checked={bool('showEyebrow', true)}
+          onChange={v => set('showEyebrow', v)}
+        />
         <ToggleSwitch label="Başlığı göster" checked={bool('showTitle', true)} onChange={v => set('showTitle', v)} />
+        <ToggleSwitch
+          label="Açıklamayı göster"
+          checked={bool('showDescription', true)}
+          onChange={v => set('showDescription', v)}
+        />
+        <p className="text-[11px] font-medium text-slate-600 mb-1 mt-2">Başlık hizası</p>
+        <SegmentControl
+          value={str('headerAlign', 'left')}
+          options={[
+            { id: 'left', label: 'Sol' },
+            { id: 'center', label: 'Orta' },
+            { id: 'right', label: 'Sağ' },
+          ]}
+          onChange={v => set('headerAlign', v)}
+        />
         <ToggleSwitch label="Tümünü Gör linki" checked={showViewAll} onChange={setShowViewAll} />
         {showViewAll && (
           <TextField label="Link metni" value={str('viewAllLabel', 'Tümünü gör')} onChange={v => set('viewAllLabel', v)} />

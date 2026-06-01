@@ -3,6 +3,10 @@ import { ColorField } from './builderSettingsUi';
 import { FieldHint, SegmentControl, SettingCard, SliderField, ToggleSwitch } from './heroBuilderControls';
 import {
   HEADER_LAYOUT_LABELS,
+  HEADER_LOGO_MAX_HEIGHT_MAX,
+  HEADER_LOGO_MAX_HEIGHT_MIN,
+  HEADER_LOGO_WIDTH_MAX,
+  HEADER_LOGO_WIDTH_MIN,
   layoutPresetPatch,
   type HeaderLayout,
   type HeaderMobileLayout,
@@ -70,6 +74,12 @@ export default function HeaderSettingsPanel({ settings, onChange }: HeaderSettin
       case 'logo':
         return (
           <SettingCard title="Logo">
+            {!settings.enabled && (
+              <FieldHint>
+                Logo boyutu canlı vitrinde varsayılan header’da da uygulanır. Renk, yerleşim ve menü için Genel
+                sekmesinden header özelleştirmesini etkinleştirin.
+              </FieldHint>
+            )}
             <p className="text-[11px] font-medium text-slate-600 mb-1">Logo konumu</p>
             <SegmentControl
               value={settings.logoPosition}
@@ -80,15 +90,26 @@ export default function HeaderSettingsPanel({ settings, onChange }: HeaderSettin
               onChange={v => set('logoPosition', v as HeaderSettings['logoPosition'])}
             />
             <SliderField
+              label="Logo genişliği"
+              value={settings.logoWidthPx}
+              onChange={v => set('logoWidthPx', v)}
+              min={HEADER_LOGO_WIDTH_MIN}
+              max={HEADER_LOGO_WIDTH_MAX}
+              step={5}
+              unit="px"
+            />
+            <SliderField
               label="Logo max yükseklik"
               value={settings.logoMaxHeightPx}
               onChange={v => set('logoMaxHeightPx', v)}
-              min={24}
-              max={72}
+              min={HEADER_LOGO_MAX_HEIGHT_MIN}
+              max={HEADER_LOGO_MAX_HEIGHT_MAX}
               step={2}
               unit="px"
             />
-            <FieldHint>Logo mağaza ayarlarından gelir; burada yalnızca konum ve boyut ayarlanır.</FieldHint>
+            <FieldHint>
+              Logo mağaza ayarlarından gelir; oran korunur (object-fit: contain). Kare kutuya zorlanmaz.
+            </FieldHint>
           </SettingCard>
         );
 

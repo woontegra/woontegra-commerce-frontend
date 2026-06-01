@@ -6,6 +6,7 @@ import { displayStorefrontName } from '../../utils/displayStoreName';
 import { useStorefrontCartOptional } from '../hooks/StorefrontCartProvider';
 import { useStorefrontAuthOptional } from '../hooks/StorefrontAuthProvider';
 import {
+  headerLogoImageStyle,
   mergeHeaderSettings,
   type HeaderSettings,
 } from '../../utils/headerSettingsHelpers';
@@ -18,7 +19,11 @@ type Props = {
   preview?: boolean;
 };
 
-function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 'preview'>) {
+function LegacyStorefrontHeader({
+  tenant,
+  storeLink,
+  logoSettings,
+}: Omit<Props, 'settings' | 'preview'> & { logoSettings: HeaderSettings }) {
   const cart = useStorefrontCartOptional();
   const auth = useStorefrontAuthOptional();
   const navigate = useNavigate();
@@ -42,95 +47,85 @@ function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 
   };
 
   const displayName = displayStorefrontName(tenant.name);
-
   const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const logoStyle = headerLogoImageStyle(logoSettings);
 
   return (
     <header className="store-header sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="h-16 sm:h-[4.25rem] flex items-center justify-between gap-3 sm:gap-4">
-          <Link to={home} className="flex items-center gap-2.5 font-semibold text-base sm:text-lg truncate shrink-0 store-text-body">
+      <div className="store-header-inner">
+        <div className="store-header-row">
+          <Link
+            to={home}
+            className="store-header-logo store-header-logo--sized"
+            style={logoSrc ? { maxWidth: logoStyle.width } : undefined}
+          >
             {logoSrc ? (
-              <img src={logoSrc} alt={displayName} className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-1 ring-stone-200/80" />
+              <img
+                src={logoSrc}
+                alt={displayName}
+                className="store-header-logo-img store-header-logo-img--configured"
+                style={logoStyle}
+              />
             ) : (
-              <span className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-stone-900 text-white flex items-center justify-center text-sm font-medium">
-                {displayName.slice(0, 1).toUpperCase()}
-              </span>
+              <>
+                <span className="store-header-logo-fallback">
+                  {displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="store-header-brand-name">{displayName}</span>
+              </>
             )}
-            <span className="truncate max-w-[8rem] sm:max-w-none tracking-tight">{displayName}</span>
           </Link>
 
-          <form onSubmit={onSearch} className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="store-header-search relative w-full flex items-center">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
-              <input
-                type="search"
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                placeholder="Ürün ara…"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-transparent focus:outline-none"
-              />
-            </div>
-          </form>
-
-          <nav className="flex items-center gap-1 sm:gap-2 text-sm font-medium shrink-0">
+          <nav className="store-header-nav hidden xl:flex items-center">
             <NavLink
               to={home}
-              className={({ isActive }) =>
-                `hidden sm:inline px-2.5 py-1.5 store-header-nav-link ${isActive ? 'active font-medium' : ''}`
-              }
+              className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
               end
             >
               Ana sayfa
             </NavLink>
             <NavLink
               to={products}
-              className={({ isActive }) =>
-                `hidden sm:inline px-2.5 py-1.5 store-header-nav-link ${isActive ? 'active font-medium' : ''}`
-              }
+              className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
             >
               Ürünler
             </NavLink>
+          </nav>
+
+          <form onSubmit={onSearch} className="store-header-search-col hidden md:block min-w-0">
+            <div className="store-header-search relative w-full flex items-center">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+              <input
+                type="search"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Ürün, kategori veya marka ara…"
+                className="w-full pl-11 pr-4 py-2.5 text-sm bg-transparent focus:outline-none"
+              />
+            </div>
+          </form>
+
+          <div className="store-header-actions">
             {!authLoading && isAuthenticated ? (
-              <>
-                <Link to={account} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
-                  Hesabım
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => auth?.logout()}
-                  className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link"
-                >
-                  Çıkış
-                </button>
-              </>
+              <Link to={account} className="store-header-icon-btn" aria-label="Hesabım">
+                <User className="w-4 h-4" />
+              </Link>
             ) : (
-              <>
-                <Link to={account} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
-                  Hesabım
-                </Link>
-                <Link to={login} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
-                  Giriş
-                </Link>
-              </>
+              <Link to={login} className="store-header-icon-btn" aria-label="Giriş">
+                <User className="w-4 h-4" />
+              </Link>
             )}
-            <Link
-              to={cartUrl}
-              className="store-header-icon-btn relative inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-            >
+            <Link to={cartUrl} className="store-header-icon-btn store-header-icon-btn--cart" aria-label="Sepet">
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Sepet</span>
-              {itemCount > 0 && (
-                <span className="store-header-cart-badge absolute -top-1 -right-1 min-w-[1.15rem] h-[1.15rem] px-0.5 rounded-full text-white text-[10px] flex items-center justify-center">
-                  {itemCount}
-                </span>
-              )}
+              {itemCount > 0 && <span className="store-header-cart-badge">{itemCount}</span>}
             </Link>
-          </nav>
+          </div>
         </div>
+
         <form onSubmit={onSearch} className="md:hidden pb-3">
           <div className="store-header-search flex items-center">
-            <Search className="ml-3.5 h-4 w-4 text-stone-400 shrink-0" />
+            <Search className="ml-4 h-4 w-4 text-stone-400 shrink-0 pointer-events-none" />
             <input
               type="search"
               value={q}
@@ -148,44 +143,50 @@ function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 
 function LogoBlock({
   tenant,
   home,
+  logoWidthPx,
   logoMaxHeightPx,
   preview,
 }: {
   tenant: StorefrontTenantInfo;
   home: string;
+  logoWidthPx: number;
   logoMaxHeightPx: number;
   preview?: boolean;
 }) {
   const displayName = displayStorefrontName(tenant.name);
-  const logoStyle = { height: logoMaxHeightPx, width: logoMaxHeightPx };
+  const logoStyle = headerLogoImageStyle({ logoWidthPx, logoMaxHeightPx });
   const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const fallbackSize = Math.min(logoMaxHeightPx, 48);
 
-  const inner = (
+  const inner = logoSrc ? (
+    <img
+      src={logoSrc}
+      alt={displayName}
+      className="store-header-logo-img--configured shrink-0"
+      style={logoStyle}
+    />
+  ) : (
     <>
-      {logoSrc ? (
-        <img src={logoSrc} alt={displayName} className="rounded-full object-cover shrink-0 ring-1 ring-stone-200/80" style={logoStyle} />
-      ) : (
-        <span
-          className="rounded-full bg-stone-900 text-white flex items-center justify-center text-sm shrink-0 font-medium"
-          style={logoStyle}
-        >
-          {displayName.slice(0, 1).toUpperCase()}
-        </span>
-      )}
+      <span
+        className="store-header-logo-fallback shrink-0"
+        style={{ width: fallbackSize, height: fallbackSize }}
+      >
+        {displayName.slice(0, 1).toUpperCase()}
+      </span>
       <span className="truncate max-w-[8rem] sm:max-w-none font-semibold text-base sm:text-lg">{displayName}</span>
     </>
   );
 
   if (preview) {
     return (
-      <div className="flex items-center gap-2 truncate shrink-0 cursor-default">
+      <div className="flex items-center gap-2 truncate shrink-0 min-w-0 max-w-full cursor-default">
         {inner}
       </div>
     );
   }
 
   return (
-    <Link to={home} className="flex items-center gap-2 truncate shrink-0">
+    <Link to={home} className="flex items-center gap-2 truncate shrink-0 min-w-0 max-w-full">
       {inner}
     </Link>
   );
@@ -216,14 +217,14 @@ function SearchField({
 
   return (
     <form onSubmit={onSearch} className={className}>
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-60" />
+      <div className="store-header-search relative w-full flex items-center">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
         <input
           type="search"
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Ürün ara…"
-          className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200/80 rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+          className="w-full pl-11 pr-4 py-2.5 text-sm bg-transparent focus:outline-none"
         />
       </div>
     </form>
@@ -447,7 +448,13 @@ function ConfiguredStorefrontHeader({
         {isLogoCenterBelow ? (
           <>
             <div className="flex items-center justify-center py-2" style={rowHeight}>
-              <LogoBlock tenant={tenant} home={home} logoMaxHeightPx={settings.logoMaxHeightPx} preview={preview} />
+              <LogoBlock
+                tenant={tenant}
+                home={home}
+                logoWidthPx={settings.logoWidthPx}
+                logoMaxHeightPx={settings.logoMaxHeightPx}
+                preview={preview}
+              />
             </div>
             <div className="flex items-center gap-3 pb-2" style={{ minHeight: Math.max(40, settings.heightPx - 24) }}>
               <nav
@@ -473,10 +480,22 @@ function ConfiguredStorefrontHeader({
           <div className="flex items-center gap-3 sm:gap-4" style={rowHeight}>
             {settings.logoPosition === 'center' ? (
               <div className="flex-1 flex justify-center min-w-0">
-                <LogoBlock tenant={tenant} home={home} logoMaxHeightPx={settings.logoMaxHeightPx} preview={preview} />
+                <LogoBlock
+                tenant={tenant}
+                home={home}
+                logoWidthPx={settings.logoWidthPx}
+                logoMaxHeightPx={settings.logoMaxHeightPx}
+                preview={preview}
+              />
               </div>
             ) : (
-              <LogoBlock tenant={tenant} home={home} logoMaxHeightPx={settings.logoMaxHeightPx} preview={preview} />
+              <LogoBlock
+                tenant={tenant}
+                home={home}
+                logoWidthPx={settings.logoWidthPx}
+                logoMaxHeightPx={settings.logoMaxHeightPx}
+                preview={preview}
+              />
             )}
 
             {!isMinimal && settings.menuPosition === 'center' && (
@@ -515,8 +534,8 @@ function ConfiguredStorefrontHeader({
 export function StorefrontHeader({ tenant, storeLink, settings, preview = false }: Props) {
   const merged = mergeHeaderSettings(settings);
 
-  if (!merged.enabled) {
-    return <LegacyStorefrontHeader tenant={tenant} storeLink={storeLink} />;
+  if (!merged.enabled && !preview) {
+    return <LegacyStorefrontHeader tenant={tenant} storeLink={storeLink} logoSettings={merged} />;
   }
 
   return (
