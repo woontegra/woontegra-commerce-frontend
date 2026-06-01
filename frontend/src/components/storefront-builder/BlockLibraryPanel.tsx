@@ -1,15 +1,20 @@
-import { Megaphone, Plus } from 'lucide-react';
+import { LayoutPanelTop, Megaphone, Plus } from 'lucide-react';
 import {
   BLOCK_DESCRIPTIONS,
   blockLabel,
   SUPPORTED_BLOCK_TYPES,
 } from '../../pages/storefrontBuilderHelpers';
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
+import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
 import { BLOCK_ICONS, BLOCK_ICON_COLORS } from './blockLibraryMeta';
+
+export type GlobalBuilderSelectionId =
+  | typeof GLOBAL_ANNOUNCEMENT_BAR_ID
+  | typeof GLOBAL_HEADER_SETTINGS_ID;
 
 type BlockLibraryPanelProps = {
   onAddBlock: (type: string) => void;
-  onSelectGlobal: (id: typeof GLOBAL_ANNOUNCEMENT_BAR_ID) => void;
+  onSelectGlobal: (id: GlobalBuilderSelectionId) => void;
   selectedGlobalId: string | null;
 };
 
@@ -19,6 +24,7 @@ export default function BlockLibraryPanel({
   selectedGlobalId,
 }: BlockLibraryPanelProps) {
   const announcementSelected = selectedGlobalId === GLOBAL_ANNOUNCEMENT_BAR_ID;
+  const headerSelected = selectedGlobalId === GLOBAL_HEADER_SETTINGS_ID;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -31,25 +37,47 @@ export default function BlockLibraryPanel({
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 px-1 mb-1.5">
             Global Alanlar
           </p>
-          <button
-            type="button"
-            onClick={() => onSelectGlobal(GLOBAL_ANNOUNCEMENT_BAR_ID)}
-            className={`w-full group flex items-start gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition-all ${
-              announcementSelected
-                ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
-                : 'border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm'
-            }`}
-          >
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-violet-100 text-violet-700">
-              <Megaphone className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-slate-800 leading-tight">Üst Duyuru Barı</p>
-              <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                Header üstünde kampanya, iletişim ve duyuru metni gösterin.
-              </p>
-            </div>
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onSelectGlobal(GLOBAL_HEADER_SETTINGS_ID)}
+              className={`w-full group flex items-start gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition-all ${
+                headerSelected
+                  ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-sky-100 text-sky-700">
+                <LayoutPanelTop className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-slate-800 leading-tight">Header</p>
+                <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                  Logo, menü, arama, sepet ve renk ayarlarını yönetin.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectGlobal(GLOBAL_ANNOUNCEMENT_BAR_ID)}
+              className={`w-full group flex items-start gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition-all ${
+                announcementSelected
+                  ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm'
+              }`}
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-violet-100 text-violet-700">
+                <Megaphone className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-slate-800 leading-tight">Üst Duyuru Barı</p>
+                <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                  Header üstünde kampanya, iletişim ve duyuru metni gösterin.
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
 
         <div>

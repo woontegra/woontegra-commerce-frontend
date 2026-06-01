@@ -29,6 +29,11 @@ import {
   type AnnouncementBarSettings,
 } from '../utils/announcementBarHelpers';
 import {
+  extractHeaderSettingsFromTheme,
+  GLOBAL_HEADER_SETTINGS_ID,
+  type HeaderSettings,
+} from '../utils/headerSettingsHelpers';
+import {
   fetchHomeDraft,
   publishHomeLayout,
   saveHomeDraft,
@@ -64,6 +69,11 @@ export default function StorefrontBuilder() {
 
   const announcementBar = useMemo(
     () => extractAnnouncementBarFromTheme(layout.theme),
+    [layout.theme],
+  );
+
+  const headerSettings = useMemo(
+    () => extractHeaderSettingsFromTheme(layout.theme),
     [layout.theme],
   );
 
@@ -115,7 +125,7 @@ export default function StorefrontBuilder() {
     setSelectedId(id);
   };
 
-  const handleSelectGlobal = (id: typeof GLOBAL_ANNOUNCEMENT_BAR_ID) => {
+  const handleSelectGlobal = (id: typeof GLOBAL_ANNOUNCEMENT_BAR_ID | typeof GLOBAL_HEADER_SETTINGS_ID) => {
     setGlobalSelection(id);
     setSelectedId(null);
   };
@@ -127,6 +137,19 @@ export default function StorefrontBuilder() {
         ...prev.theme,
         announcementBar: {
           ...extractAnnouncementBarFromTheme(prev.theme),
+          ...patch,
+        },
+      },
+    }));
+  }, []);
+
+  const handleHeaderSettingsChange = useCallback((patch: Partial<HeaderSettings>) => {
+    setLayout(prev => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        headerSettings: {
+          ...extractHeaderSettingsFromTheme(prev.theme),
           ...patch,
         },
       },
@@ -362,6 +385,7 @@ export default function StorefrontBuilder() {
             onDragEnd={handleDragEnd}
             tenantSlug={storefrontSlug}
             announcementBar={announcementBar}
+            headerSettings={headerSettings}
             globalSelection={globalSelection}
           />
         </main>
@@ -371,8 +395,10 @@ export default function StorefrontBuilder() {
             section={selectedSection}
             globalSelection={globalSelection}
             announcementBar={announcementBar}
+            headerSettings={headerSettings}
             onChange={patch => selectedSection && handleSettingsChange(selectedSection.id, patch)}
             onAnnouncementBarChange={handleAnnouncementBarChange}
+            onHeaderSettingsChange={handleHeaderSettingsChange}
             onDelete={() => selectedSection && handleDelete(selectedSection.id)}
             onToggleEnabled={enabled => selectedSection && handleToggleEnabled(selectedSection.id, enabled)}
           />

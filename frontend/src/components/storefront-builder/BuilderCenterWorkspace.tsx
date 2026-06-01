@@ -21,8 +21,13 @@ import { PREVIEW_VIEWPORT_WIDTH } from '../../utils/heroBuilderConstants';
 import SortableSectionRow from './SortableSectionRow';
 import BuilderPreview from './BuilderPreview';
 import { AnnouncementBar } from '../../storefront/components/AnnouncementBar';
+import { StorefrontHeader } from '../../storefront/components/StorefrontHeader';
 import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
+import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
+import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
+import { useBranding } from '../../context/BrandingContext';
+import { displayStorefrontName } from '../../utils/displayStoreName';
 
 type BuilderCenterWorkspaceProps = {
   layout: StorefrontLayout;
@@ -35,6 +40,7 @@ type BuilderCenterWorkspaceProps = {
   onDragEnd: (event: DragEndEvent) => void;
   tenantSlug?: string | null;
   announcementBar: AnnouncementBarSettings;
+  headerSettings: HeaderSettings;
   globalSelection: string | null;
 };
 
@@ -55,8 +61,10 @@ export default function BuilderCenterWorkspace({
   onDragEnd,
   tenantSlug = null,
   announcementBar,
+  headerSettings,
   globalSelection,
 }: BuilderCenterWorkspaceProps) {
+  const { branding } = useBranding();
   const [previewViewport, setPreviewViewport] = useState<HeroPreviewViewport>('desktop');
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -64,10 +72,20 @@ export default function BuilderCenterWorkspace({
   );
 
   const showViewportSwitcher =
-    selectedSection?.type === 'hero' || globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID;
+    selectedSection?.type === 'hero' ||
+    globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ||
+    globalSelection === GLOBAL_HEADER_SETTINGS_ID;
 
   const previewViewportForBar: 'desktop' | 'mobile' | undefined =
     previewViewport === 'mobile' ? 'mobile' : previewViewport ? 'desktop' : undefined;
+
+  const previewTenant = {
+    id: 'builder-preview',
+    slug: tenantSlug || branding.storefrontSlug || 'preview',
+    name: displayStorefrontName(branding.siteName),
+    logoUrl: branding.logoUrl,
+    theme: 'default',
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-slate-50/50">
@@ -114,11 +132,13 @@ export default function BuilderCenterWorkspace({
           <div>
             <h2 className="text-[13px] font-semibold text-slate-800">Vitrin Önizleme</h2>
             <p className="text-[11px] text-slate-500">
-              {globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
-                ? 'Üst Duyuru Barı'
-                : selectedSection
-                  ? blockLabel(selectedSection.type)
-                  : 'Blok seçin'}
+              {globalSelection === GLOBAL_HEADER_SETTINGS_ID
+                ? 'Header'
+                : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
+                  ? 'Üst Duyuru Barı'
+                  : selectedSection
+                    ? blockLabel(selectedSection.type)
+                    : 'Blok seçin'}
             </p>
           </div>
           {showViewportSwitcher && (
@@ -167,7 +187,19 @@ export default function BuilderCenterWorkspace({
                     previewViewport={previewViewportForBar}
                   />
                 )}
-                {globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ? (
+                {(headerSettings.enabled || globalSelection === GLOBAL_HEADER_SETTINGS_ID) && (
+                  <StorefrontHeader
+                    tenant={previewTenant}
+                    storeLink={(path: string) => path}
+                    settings={headerSettings}
+                    preview
+                  />
+                )}
+                {globalSelection === GLOBAL_HEADER_SETTINGS_ID ? (
+                  <div className="px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
+                    Header tüm vitrin sayfalarında gezinme alanı olarak görünür.
+                  </div>
+                ) : globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ? (
                   <div className="px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
                     Duyuru barı tüm vitrin sayfalarında header üstünde görünür.
                   </div>

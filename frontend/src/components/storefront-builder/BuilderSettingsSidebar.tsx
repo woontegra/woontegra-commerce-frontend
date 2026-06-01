@@ -3,16 +3,21 @@ import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import { blockLabel } from '../../pages/storefrontBuilderHelpers';
 import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
 import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
+import type { HeaderSettings } from '../../utils/headerSettingsHelpers';
+import { GLOBAL_HEADER_SETTINGS_ID } from '../../utils/headerSettingsHelpers';
 import HeroSettingsPanel from './HeroSettingsPanel';
 import SectionSettingsPanel from './SectionSettingsPanel';
 import AnnouncementBarSettingsPanel from './AnnouncementBarSettingsPanel';
+import HeaderSettingsPanel from './HeaderSettingsPanel';
 
 type BuilderSettingsSidebarProps = {
   section: StorefrontSection | null;
   globalSelection: string | null;
   announcementBar: AnnouncementBarSettings;
+  headerSettings: HeaderSettings;
   onChange: (patch: Record<string, unknown>) => void;
   onAnnouncementBarChange: (patch: Partial<AnnouncementBarSettings>) => void;
+  onHeaderSettingsChange: (patch: Partial<HeaderSettings>) => void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
 };
@@ -21,11 +26,27 @@ export default function BuilderSettingsSidebar({
   section,
   globalSelection,
   announcementBar,
+  headerSettings,
   onChange,
   onAnnouncementBarChange,
+  onHeaderSettingsChange,
   onDelete,
   onToggleEnabled,
 }: BuilderSettingsSidebarProps) {
+  if (globalSelection === GLOBAL_HEADER_SETTINGS_ID) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-white">
+          <h2 className="text-[13px] font-semibold text-slate-800">Header</h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">Tüm vitrin sayfalarında gezinme alanı</p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <HeaderSettingsPanel settings={headerSettings} onChange={onHeaderSettingsChange} />
+        </div>
+      </div>
+    );
+  }
+
   if (globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID) {
     return (
       <div className="flex flex-col h-full min-h-0">

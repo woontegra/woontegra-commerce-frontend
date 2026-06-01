@@ -16,6 +16,7 @@ import {
   type StoreCustomer,
 } from '../services/storefrontAuthApi';
 import { useStorefrontTenant } from './useStorefrontTenant';
+import { getStorefrontRegisterErrorMessage } from '../utils/apiError';
 
 function tokenKey(tenantId: string) {
   return `woontegra_customer_token_${tenantId}`;
@@ -122,12 +123,16 @@ export function StorefrontAuthProvider({ children }: { children: ReactNode }) {
       password: string;
     }) => {
       if (!tenant?.slug) throw new Error('Mağaza yüklenmedi.');
-      const res = await registerCustomer(tenant.slug, data);
-      if (!res.success || !res.token || !res.customer) {
-        throw new Error(res.error || 'Kayıt olunamadı.');
+      try {
+        const res = await registerCustomer(tenant.slug, data);
+        if (!res.success || !res.token || !res.customer) {
+          throw new Error(res.error || 'Kayıt olunamadı.');
+        }
+        saveToken(res.token);
+        setCustomer(res.customer);
+      } catch (err: unknown) {
+        throw new Error(getStorefrontRegisterErrorMessage(err));
       }
-      saveToken(res.token);
-      setCustomer(res.customer);
     },
     [tenant?.slug, saveToken],
   );
@@ -168,8 +173,12 @@ export function StorefrontAuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export function useStorefrontAuthOptional(): Ctx | null {
+  return useContext(StorefrontAuthContext);
+}
+
 export function useStorefrontAuth(): Ctx {
-  const c = useContext(StorefrontAuthContext);
+  const c = useStorefrontAuthOptional();
   if (!c) throw new Error('useStorefrontAuth: StorefrontAuthProvider eksik');
   return c;
 }
