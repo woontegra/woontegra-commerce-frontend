@@ -10,6 +10,10 @@ import { calculateStoreShipping } from '../services/storefrontShippingApi';
 import type { StoreShippingQuote } from '../../types/shippingSettings.types';
 import { startPaytrPayment } from '../services/storefrontPaytrApi';
 import {
+  saveIyzicoCheckoutSession,
+  startIyzicoPayment,
+} from '../services/storefrontIyzicoApi';
+import {
   fetchStorePaymentMethods,
   type StorePaymentMethod,
 } from '../services/storefrontPaymentMethodsApi';
@@ -137,6 +141,7 @@ export default function StoreCheckoutPage() {
       try {
         const provider = form.paymentMethodId as
           | 'PAYTR'
+          | 'IYZICO'
           | 'BANK_TRANSFER'
           | 'CASH_ON_DELIVERY'
           | undefined;
@@ -221,7 +226,7 @@ export default function StoreCheckoutPage() {
     setSubmitting(true);
     await maybeSaveAddressToBook();
     const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
-    const provider = form.paymentMethodId as 'PAYTR' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
+    const provider = form.paymentMethodId as 'PAYTR' | 'IYZICO' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
 
     try {
       const res = await createStoreOrder(tenant.slug, {
@@ -281,6 +286,22 @@ export default function StoreCheckoutPage() {
               total:     res.order.total,
             },
           },
+        );
+        return;
+      }
+
+      if (provider === 'IYZICO') {
+        const payRes = await startIyzicoPayment(tenant.slug, { orderId: res.order.id });
+        if (!payRes.success || !payRes.checkoutFormContent) {
+          setError(
+            payRes.error ||
+              'Sipariş oluşturuldu ancak iyzico ödeme oturumu başlatılamadı. Lütfen tekrar deneyin veya farklı ödeme yöntemi seçin.',
+          );
+          return;
+        }
+        saveIyzicoCheckoutSession(res.order.orderNumber, payRes.checkoutFormContent);
+        navigate(
+          storeLink(`/store/odeme/iyzico/${encodeURIComponent(res.order.orderNumber)}`),
         );
         return;
       }
@@ -555,8 +576,15 @@ export default function StoreCheckoutPage() {
                   />
                   <div className="text-sm">
                     <span className="font-medium text-slate-900">{m.displayName}</span>
-                    {m.provider === 'PAYTR' && m.isTestMode && (
-                      <span className="ml-2 text-xs text-amber-700">(test modu)</span>
+                    {(m.provider === 'PAYTR' || m.provider === 'IYZICO') && m.isTestMode && (
+                      <span className="ml-2 text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                        Test Modu
+                      </span>
+                    )}
+                    {m.provider === 'IYZICO' && (
+                      <span className="block text-xs text-slate-500 mt-0.5">
+                        {m.description}
+                      </span>
                     )}
                     {m.provider === 'CASH_ON_DELIVERY' && m.extraFee != null && m.extraFee > 0 && (
                       <span className="block text-xs text-slate-500">

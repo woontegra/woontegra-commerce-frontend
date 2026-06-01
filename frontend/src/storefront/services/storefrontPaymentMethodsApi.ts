@@ -7,6 +7,14 @@ export type StorePaymentMethodPaytr = {
   isTestMode: boolean;
 };
 
+export type StorePaymentMethodIyzico = {
+  provider: 'IYZICO';
+  displayName: string;
+  description: string;
+  isActive: true;
+  isTestMode: boolean;
+};
+
 export type StorePaymentMethodBankTransfer = {
   provider: 'BANK_TRANSFER';
   displayName: string;
@@ -29,6 +37,7 @@ export type StorePaymentMethodCod = {
 
 export type StorePaymentMethod =
   | StorePaymentMethodPaytr
+  | StorePaymentMethodIyzico
   | StorePaymentMethodBankTransfer
   | StorePaymentMethodCod;
 

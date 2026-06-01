@@ -93,7 +93,7 @@ export type CreateStoreOrderPayload = {
     companyName?: string;
   };
   notes: string;
-  paymentProvider?: 'PAYTR' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
+  paymentProvider?: 'PAYTR' | 'IYZICO' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
 };
 
 export type CreateStoreOrderResponse = {

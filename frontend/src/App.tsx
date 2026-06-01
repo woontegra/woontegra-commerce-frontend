@@ -135,6 +135,7 @@ const StoreReturnRequestsPage = lazy(() => import('./storefront/pages/StoreRetur
 const StoreFavoritesPage  = lazy(() => import('./storefront/pages/StoreFavoritesPage'));
 const StoreOrderSuccessPage = lazy(() => import('./storefront/pages/StoreOrderSuccessPage'));
 const StorePaymentPage = lazy(() => import('./storefront/pages/StorePaymentPage'));
+const StoreIyzicoPaymentPage = lazy(() => import('./storefront/pages/StoreIyzicoPaymentPage'));
 const StorePaymentSuccessPage = lazy(() => import('./storefront/pages/StorePaymentSuccessPage'));
 const StorePaymentFailPage = lazy(() => import('./storefront/pages/StorePaymentFailPage'));
 const StorePaymentPendingPage = lazy(() => import('./storefront/pages/StorePaymentPendingPage'));
@@ -216,6 +217,7 @@ function App() {
                     <Route path="sepet" element={<StoreCartPage />} />
                     <Route path="odeme" element={<StoreCheckoutPage />} />
                     <Route path="odeme/paytr/:orderNumber" element={<StorePaymentPage />} />
+                    <Route path="odeme/iyzico/:orderNumber" element={<StoreIyzicoPaymentPage />} />
                     <Route path="odeme-bekleniyor/:orderNumber" element={<StorePaymentPendingPage />} />
                     <Route path="odeme-basarili/:orderNumber" element={<StorePaymentSuccessPage />} />
                     <Route path="odeme-basarisiz/:orderNumber" element={<StorePaymentFailPage />} />

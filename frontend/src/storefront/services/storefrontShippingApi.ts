@@ -3,7 +3,7 @@ import type { StoreShippingQuote } from '../../types/shippingSettings.types';
 
 export type CalculateShippingPayload = {
   items: { productId: string; variantId?: string | null; quantity: number }[];
-  paymentProvider?: 'PAYTR' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
+  paymentProvider?: 'PAYTR' | 'IYZICO' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
 };
 
 export async function calculateStoreShipping(
