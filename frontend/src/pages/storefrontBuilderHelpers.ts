@@ -111,6 +111,17 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         height: 'wide',
         heightMode: 'wide',
         secondaryButtonRadius: 'soft',
+        heroMode: 'single',
+        slides: [],
+        activeSlideId: '',
+        eyebrowText: '',
+        sliderSettings: {
+          autoplay: true,
+          intervalMs: 5000,
+          showDots: true,
+          showArrows: true,
+          transition: 'fade',
+        },
       };
     case 'categoryGrid':
       return {
@@ -125,7 +136,12 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
       };
     case 'featuredProducts':
       return {
-        title: 'Ürün Vitrini',
+        eyebrowText: 'Seçkin Parçalar',
+        title: 'Öne Çıkan Ürünler',
+        description: 'En çok tercih edilen ürünlerimiz',
+        headerAlign: 'left',
+        showEyebrow: true,
+        showDescription: true,
         limit: 8,
         columns: 4,
         columnsDesktop: 4,

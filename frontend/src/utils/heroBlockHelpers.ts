@@ -13,6 +13,7 @@ import {
   type HeroOverlayPreset,
   type HeroPreviewViewport,
 } from './heroBuilderConstants';
+import { mergeHeroSliderSettings } from './heroSliderHelpers';
 
 function str(settings: Record<string, unknown>, key: string, fallback = ''): string {
   const v = settings[key];
@@ -652,6 +653,7 @@ export function mergeHeroSettings(raw: Record<string, unknown>, merged: Record<s
 
   const imageUrl = str(merged, 'imageUrl');
   if (imageUrl) merged.backgroundType = 'image';
+  mergeHeroSliderSettings(raw, merged);
   return merged;
 }
 

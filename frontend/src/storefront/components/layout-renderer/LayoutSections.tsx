@@ -16,6 +16,7 @@ import { CategoryCard } from '../CategoryCard';
 import type { StorefrontProductSummary } from '../../types/storefront.types';
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
 import HeroBlockView from '../../../components/storefront-builder/HeroBlockView';
+import { shouldRenderHeroSection } from '../../../utils/heroSliderHelpers';
 import FeaturedProductsBlockView from '../../../components/storefront-builder/FeaturedProductsBlockView';
 import {
   featuredViewAllHref,
@@ -33,6 +34,7 @@ import {
   parseTrustBadges,
   resolveStorePath,
   sectionWidthClass,
+  productsSectionWidthClass,
 } from './layoutRendererHelpers';
 
 type SectionProps = {
@@ -90,6 +92,8 @@ function SectionHeader({
 
 export function HeroSection({ section, primaryColor, storeLink }: SectionProps) {
   const s = section.settings;
+  if (!shouldRenderHeroSection(s)) return null;
+
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const mobileImageUrl = normalizeStoreImageUrl(layoutStr(s, 'mobileImageUrl'));
 
@@ -168,8 +172,6 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   const { themeSettings } = useStorefrontGlobalTheme();
   const s = section.settings;
   const widthMode = layoutStr(s, 'widthMode', 'container');
-  const title = layoutStr(s, 'title', 'Ürün Vitrini');
-  const showTitle = layoutBool(s, 'showTitle', true);
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [emptyReason, setEmptyReason] = useState<FeaturedProductsEmptyReason>('none');
@@ -208,24 +210,18 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   }
 
   return (
-    <section className={`store-section--alt ${sectionWidthClass(widthMode)}`}>
-      {showTitle && (
-        <SectionHeader
-          eyebrow="Seçkin parçalar"
-          title={title}
-          description="En çok tercih edilen ürünlerimiz"
+    <section className="store-section--alt store-products-section w-full">
+      <div className={productsSectionWidthClass(widthMode)}>
+        <FeaturedProductsBlockView
+          settings={s}
+          products={products}
+          loading={loading}
+          emptyReason={emptyReason}
+          storeLink={storeLink}
+          viewAllHref={viewAllHref}
+          themeSettings={themeSettings}
         />
-      )}
-      <FeaturedProductsBlockView
-        settings={s}
-        products={products}
-        loading={loading}
-        emptyReason={emptyReason}
-        storeLink={storeLink}
-        viewAllHref={viewAllHref}
-        themeSettings={themeSettings}
-        hideSectionHeader
-      />
+      </div>
     </section>
   );
 }
@@ -255,7 +251,7 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
   return (
     <section className={`${sectionWidthClass(widthMode)}`}>
       <div
-        className={`store-campaign-banner ${!hasImage ? 'store-campaign-banner--no-image' : ''} ${bannerHeightClass(heightMode)}`}
+        className={`store-campaign-banner ${!hasImage ? 'store-campaign-banner--no-image' : 'store-campaign-banner--has-image'} ${bannerHeightClass(heightMode)}`}
         style={{
           backgroundColor,
           color: textColor,
@@ -263,12 +259,12 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
         }}
       >
         {bannerImage.imageLayerStyle && (
-          <div className="absolute inset-0 z-0" style={bannerImage.imageLayerStyle} aria-hidden />
+          <div className="absolute inset-0 z-0 store-campaign-image-layer" style={bannerImage.imageLayerStyle} aria-hidden />
         )}
         {bannerImage.showOverlay && bannerImage.overlayStyle && (
           <div className="absolute inset-0 z-[1]" style={bannerImage.overlayStyle} aria-hidden />
         )}
-        <div className="store-campaign-inner relative z-[2]">
+        <div className={`store-campaign-inner relative z-[2] ${hasImage ? 'store-campaign-inner--image' : ''}`}>
           <div className={`store-campaign-content flex flex-col ${textAlignCls}`}>
             <p className="store-section-subheading">Özel fırsat</p>
             <h2 className="store-campaign-title mt-2">{title}</h2>
@@ -280,10 +276,10 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
                 style={{ backgroundColor: primaryColor ?? '#1c1917' }}
               >
                 {buttonText}
+                <span aria-hidden>→</span>
               </Link>
             )}
           </div>
-          {!hasImage && <div className="store-campaign-visual" aria-hidden />}
         </div>
       </div>
     </section>
@@ -310,7 +306,7 @@ export function TrustBadgesSection({ section }: SectionProps) {
             return (
               <div key={`${b.title}-${i}`} className="store-trust-badge">
                 <div className="store-trust-badge-icon">
-                  <Icon className="w-5 h-5" strokeWidth={1.75} />
+                  <Icon className="w-6 h-6" strokeWidth={1.5} />
                 </div>
                 <p className="store-trust-badge-title">{b.title}</p>
                 {b.description && <p className="store-trust-badge-desc">{b.description}</p>}
@@ -333,26 +329,23 @@ export function TextImageSection({ section, storeLink }: SectionProps) {
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
 
-  if (!title && !text && !imageUrl && !buttonText) return null;
+  if (!imageUrl) return null;
+  if (!title && !text && !buttonText) return null;
 
   return (
     <section className="store-brand-story">
-      <div className="store-container mx-auto w-full px-4">
+      <div className="store-container-wide">
         <div
           className={`flex flex-col gap-8 sm:gap-12 lg:gap-16 ${imageRight ? 'lg:flex-row-reverse' : 'lg:flex-row'} lg:items-center`}
         >
           <div className="lg:w-[44%] flex-shrink-0">
-            {imageUrl ? (
-              <div className="store-brand-story-image">
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className={`w-full aspect-[4/5] ${objectFitClass(imageFit)}`}
-                />
-              </div>
-            ) : (
-              <div className="store-brand-story-image store-brand-story-placeholder" aria-hidden />
-            )}
+            <div className="store-brand-story-image">
+              <img
+                src={imageUrl}
+                alt=""
+                className={`w-full aspect-[4/5] ${objectFitClass(imageFit)}`}
+              />
+            </div>
           </div>
           <div className="flex-1 min-w-0">
             <p className="store-section-eyebrow">Marka hikayesi</p>

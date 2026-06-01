@@ -18,6 +18,7 @@ import {
 } from '../../utils/featuredProductsBlockHelpers';
 import type { StorefrontProductSummary } from '../../storefront/types/storefront.types';
 import type { ThemeSettings } from '../../utils/themeSettingsHelpers';
+import { productsSectionWidthClass } from '../../utils/storefrontImageLayout';
 
 function str(settings: Record<string, unknown>, key: string, fallback = '') {
   const v = settings[key];
@@ -122,22 +123,25 @@ function FeaturedProductsPreview({
 
   const storeLink = (path: string) => path;
   const viewAllHref = featuredViewAllHref(s, storeLink);
+  const widthMode = str(s, 'widthMode', 'container');
   const shellCls = isWorkspace
     ? 'p-4 sm:p-6 bg-white'
     : 'rounded-xl border border-slate-200 p-4 bg-white';
 
   return (
     <div className={shellCls}>
-      <FeaturedProductsBlockView
-        settings={s}
-        products={products}
-        loading={loading}
-        emptyReason={tenantSlug ? emptyReason : 'no_products'}
-        storeLink={storeLink}
-        viewAllHref={viewAllHref}
-        preview
-        themeSettings={themeSettings}
-      />
+      <div className={productsSectionWidthClass(widthMode)}>
+        <FeaturedProductsBlockView
+          settings={s}
+          products={products}
+          loading={loading}
+          emptyReason={tenantSlug ? emptyReason : 'no_products'}
+          storeLink={storeLink}
+          viewAllHref={viewAllHref}
+          preview
+          themeSettings={themeSettings}
+        />
+      </div>
     </div>
   );
 }
@@ -177,6 +181,7 @@ export default function BuilderPreview({
     case 'hero': {
       const rawUrl = imageSrc(s, 'imageUrl') || null;
       const rawMobileUrl = imageSrc(s, 'mobileImageUrl') || null;
+      const activeSlideId = String(s.activeSlideId ?? '');
       return (
         <HeroBlockView
           settings={s}
@@ -185,6 +190,7 @@ export default function BuilderPreview({
           themePrimary={themePrimary}
           preview
           previewViewport={previewViewport}
+          previewActiveSlideId={activeSlideId || null}
           className={isWorkspace ? 'w-full store-hero-section' : 'rounded-xl border border-stone-200/80 store-hero-section overflow-hidden'}
         />
       );
@@ -300,13 +306,18 @@ export default function BuilderPreview({
     case 'textImage': {
       const imageLeft = str(s, 'imagePosition', 'left') !== 'right';
       const fitCls = objectFitClass(str(s, 'imageFit', 'cover'));
+      const url = imageSrc(s, 'imageUrl');
+      if (!url.trim()) {
+        return (
+          <div className="rounded-xl border border-dashed border-stone-200/80 p-4 bg-stone-50/50 text-center">
+            <p className="text-[12px] store-text-muted">Görsel eklenince vitrinde gösterilir</p>
+          </div>
+        );
+      }
       return (
         <div className="rounded-xl border border-stone-200/80 p-4 store-brand-story">
           <div className={`flex gap-4 ${imageLeft ? '' : 'flex-row-reverse'}`}>
-            {imagePreview(
-              imageSrc(s, 'imageUrl'),
-              `w-24 h-28 rounded-xl ${fitCls} flex-shrink-0 store-brand-story-image`,
-            ) ?? <div className="w-24 h-28 rounded-xl store-brand-story-placeholder flex-shrink-0" />}
+            {imagePreview(url, `w-24 h-28 rounded-xl ${fitCls} flex-shrink-0 store-brand-story-image`)}
             <div className="min-w-0 flex-1">
               <p className="store-section-eyebrow text-[10px]">Marka hikayesi</p>
               <p className="store-section-heading text-base">{str(s, 'title', 'Başlık')}</p>

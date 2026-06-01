@@ -1,5 +1,6 @@
 import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import '../../styles/storefrontTheme.css';
+import '../../styles/heroBlock.css';
 import { storefrontThemeCssVariables, type ThemeSettings } from '../../utils/themeSettingsHelpers';
 
 type StorefrontThemeRootProps = {

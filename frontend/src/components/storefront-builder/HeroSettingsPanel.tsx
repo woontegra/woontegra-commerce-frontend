@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import { ColorField } from './builderSettingsUi';
 import BuilderImageField from './BuilderImageField';
 import HeroBlockView from './HeroBlockView';
+import HeroSlidesEditor from './HeroSlidesEditor';
 import { normalizeImageUrl } from '../../utils/imageUtils';
 import {
   FOCAL_GRID_POINTS,
@@ -16,6 +17,12 @@ import {
 } from '../../utils/heroBuilderConstants';
 import { placementToLegacyAlign, resolveHeightPreset } from '../../utils/heroBlockHelpers';
 import {
+  getSlidesForEditor,
+  heroSlidesToJson,
+  resolveHeroMode,
+  type HeroSlide,
+} from '../../utils/heroSliderHelpers';
+import {
   FieldHint,
   PlacementGrid,
   SegmentControl,
@@ -26,6 +33,7 @@ import {
 } from './heroBuilderControls';
 
 const HERO_TABS = [
+  { id: 'mod', label: 'Mod' },
   { id: 'content', label: 'İçerik' },
   { id: 'visual', label: 'Görsel' },
   { id: 'layout', label: 'Yerleşim' },
@@ -42,8 +50,12 @@ type HeroSettingsPanelProps = {
 };
 
 export default function HeroSettingsPanel({ section, onChange, tabbed = false }: HeroSettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<HeroTabId>('layout');
+  const [activeTab, setActiveTab] = useState<HeroTabId>('mod');
   const s = section.settings;
+  const isSlider = resolveHeroMode(s) === 'slider';
+  const slides = useMemo(() => getSlidesForEditor(s), [s]);
+  const activeSlideId = String(s.activeSlideId ?? slides[0]?.id ?? '');
+  const activeSlide = slides.find(sl => sl.id === activeSlideId) ?? slides[0] ?? null;
   const patch = (values: Record<string, unknown>) => onChange(values);
   const set = (key: string, value: unknown) => onChange({ [key]: value });
   const str = (key: string, fallback = '') => String(s[key] ?? fallback);
@@ -81,6 +93,15 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
     patch({ mobileImageUrl: url });
   };
 
+  const updateActiveSlide = (patchSlide: Partial<HeroSlide>) => {
+    if (!activeSlide) return;
+    const next = slides.map(sl => (sl.id === activeSlide.id ? { ...sl, ...patchSlide } : sl));
+    onChange({ slides: heroSlidesToJson(next), activeSlideId: activeSlide.id });
+  };
+
+  const slideImageUrl = activeSlide ? normalizeImageUrl(activeSlide.imageUrl) || null : null;
+  const slideMobileImageUrl = activeSlide ? normalizeImageUrl(activeSlide.mobileImageUrl) || null : null;
+
   const setPrimaryText = (v: string) => patch({ primaryButtonText: v, buttonText: v });
   const setPrimaryUrl = (v: string) => patch({ primaryButtonUrl: v, buttonUrl: v });
 
@@ -108,21 +129,36 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
 
   const setPlacement = (placement: HeroContentPlacement) => {
     const legacy = placementToLegacyAlign(placement);
+    if (isSlider && activeSlide) {
+      updateActiveSlide({ contentPlacement: placement });
+      return;
+    }
     patch({ contentPlacement: placement, ...legacy, alignment: legacy.contentAlign });
   };
 
   const setFocal = (point: HeroFocalPoint) => {
+    if (isSlider && activeSlide) {
+      updateActiveSlide({ imageFocalPoint: point });
+      return;
+    }
     patch({ imageFocalPoint: point, imagePosition: point });
   };
 
   const setOverlayPreset = (preset: HeroOverlayPreset) => {
     const opt = OVERLAY_PRESET_OPTIONS.find(o => o.id === preset);
     if (!opt) return;
+    const apply = (values: Record<string, unknown>) => {
+      if (isSlider && activeSlide) {
+        updateActiveSlide(values as Partial<HeroSlide>);
+        return;
+      }
+      patch(values);
+    };
     if (preset === 'none') {
-      patch({ overlayPreset: preset, overlayEnabled: false, overlayOpacity: 0, imageTone: 'original' });
+      apply({ overlayPreset: preset, overlayEnabled: false, overlayOpacity: 0, imageTone: 'original' });
       return;
     }
-    patch({
+    apply({
       overlayPreset: preset,
       overlayEnabled: true,
       overlayColor: opt.color,
@@ -172,13 +208,25 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
         )}
       </SettingCard>
 
-      <SettingCard title="İçerik konumu" hint="Başlık ve butonların hero içindeki yerleşimi.">
-        <PlacementGrid<HeroContentPlacement>
-          value={(str('contentPlacement', 'center') || 'center') as HeroContentPlacement}
-          points={PLACEMENT_GRID_POINTS}
-          onChange={setPlacement}
-        />
-      </SettingCard>
+      {isSlider && activeSlide && (
+        <SettingCard title="Aktif slide içerik konumu" hint="Seçili slide için başlık ve buton yerleşimi.">
+          <PlacementGrid<HeroContentPlacement>
+            value={(activeSlide.contentPlacement || 'center') as HeroContentPlacement}
+            points={PLACEMENT_GRID_POINTS}
+            onChange={setPlacement}
+          />
+        </SettingCard>
+      )}
+
+      {!isSlider && (
+        <SettingCard title="İçerik konumu" hint="Başlık ve butonların hero içindeki yerleşimi.">
+          <PlacementGrid<HeroContentPlacement>
+            value={(str('contentPlacement', 'center') || 'center') as HeroContentPlacement}
+            points={PLACEMENT_GRID_POINTS}
+            onChange={setPlacement}
+          />
+        </SettingCard>
+      )}
 
       <SettingCard title="Genişlik & kutu">
         <SegmentControl
@@ -235,7 +283,81 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
     </div>
   );
 
-  const visualTab = (
+  const visualTab = isSlider ? (
+    <div className="space-y-3">
+      {!activeSlide ? (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Slider için en az bir slide ekleyin.
+        </p>
+      ) : (
+        <>
+          <SettingCard title={`Slide görseli · ${activeSlide.title?.trim() || 'Başlıksız'}`}>
+            <BuilderImageField
+              value={activeSlide.imageUrl}
+              onChange={url => {
+                if (url.trim()) {
+                  updateActiveSlide({
+                    imageUrl: url,
+                    imageTone: 'original',
+                    overlayPreset: 'none',
+                    overlayEnabled: false,
+                  });
+                } else {
+                  updateActiveSlide({ imageUrl: url });
+                }
+              }}
+              recommendedSize="1920×700 px · 1920×800 px · WEBP, JPG, PNG"
+              helperText="Masaüstü ve tablet ekranlarda kullanılır."
+              folder="banners"
+            />
+            <BuilderImageField
+              value={activeSlide.mobileImageUrl}
+              onChange={url => updateActiveSlide({ mobileImageUrl: url })}
+              recommendedSize="1080×1350 px · 1080×1600 px · WEBP"
+              helperText="Mobilde öncelikli kullanılır. Boşsa desktop görseli gösterilir."
+              folder="banners"
+            />
+          </SettingCard>
+
+          <SettingCard title="Görsel odak noktası">
+            <PlacementGrid<HeroFocalPoint>
+              value={(activeSlide.imageFocalPoint || 'center') as HeroFocalPoint}
+              points={FOCAL_GRID_POINTS}
+              onChange={setFocal}
+            />
+          </SettingCard>
+
+          <SettingCard title="Overlay katmanı">
+            <SegmentControl<HeroOverlayPreset>
+              value={(activeSlide.overlayPreset || 'none') as HeroOverlayPreset}
+              options={OVERLAY_PRESET_OPTIONS.map(o => ({ id: o.id, label: o.label }))}
+              onChange={setOverlayPreset}
+              columns={2}
+            />
+            {(activeSlide.overlayPreset === 'custom' || activeSlide.overlayEnabled) &&
+              activeSlide.overlayPreset !== 'none' && (
+                <>
+                  <ColorField
+                    label="Overlay rengi"
+                    value={activeSlide.overlayColor || '#000000'}
+                    onChange={v => updateActiveSlide({ overlayColor: v })}
+                  />
+                  <SliderField
+                    label="Yoğunluk"
+                    value={activeSlide.overlayOpacity ?? 0}
+                    onChange={v => updateActiveSlide({ overlayOpacity: v, overlayEnabled: v > 0 })}
+                    min={0}
+                    max={100}
+                    step={5}
+                    unit="%"
+                  />
+                </>
+              )}
+          </SettingCard>
+        </>
+      )}
+    </div>
+  ) : (
     <div className="space-y-3">
       <SettingCard title="Desktop banner görseli" hint="Masaüstü ve tablet ekranlarda kullanılır.">
         <BuilderImageField
@@ -317,9 +439,79 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
     </div>
   );
 
-  const contentTab = (
+  const contentTab = isSlider ? (
+    <div className="space-y-3">
+      {!activeSlide ? (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Slider için en az bir slide ekleyin.
+        </p>
+      ) : (
+        <>
+          <SettingCard title={`Slide metinleri · ${activeSlide.title?.trim() || 'Başlıksız'}`}>
+            <TextField
+              label="Üst etiket"
+              value={activeSlide.eyebrowText}
+              onChange={v => updateActiveSlide({ eyebrowText: v })}
+            />
+            <TextField label="Başlık" value={activeSlide.title} onChange={v => updateActiveSlide({ title: v })} />
+            <TextField
+              label="Alt başlık"
+              value={activeSlide.subtitle}
+              onChange={v => updateActiveSlide({ subtitle: v })}
+            />
+          </SettingCard>
+
+          <SettingCard title="Ana buton (CTA)">
+            <ToggleSwitch
+              label="Göster"
+              checked={activeSlide.primaryButtonEnabled}
+              onChange={v => updateActiveSlide({ primaryButtonEnabled: v })}
+            />
+            {activeSlide.primaryButtonEnabled && (
+              <>
+                <TextField
+                  label="Metin"
+                  value={activeSlide.primaryButtonText}
+                  onChange={v => updateActiveSlide({ primaryButtonText: v })}
+                />
+                <TextField
+                  label="URL"
+                  value={activeSlide.primaryButtonUrl}
+                  onChange={v => updateActiveSlide({ primaryButtonUrl: v })}
+                  placeholder="/store/urunler"
+                />
+              </>
+            )}
+          </SettingCard>
+
+          <SettingCard title="İkinci buton">
+            <ToggleSwitch
+              label="Göster"
+              checked={activeSlide.secondaryButtonEnabled}
+              onChange={v => updateActiveSlide({ secondaryButtonEnabled: v })}
+            />
+            {activeSlide.secondaryButtonEnabled && (
+              <>
+                <TextField
+                  label="Metin"
+                  value={activeSlide.secondaryButtonText}
+                  onChange={v => updateActiveSlide({ secondaryButtonText: v })}
+                />
+                <TextField
+                  label="URL"
+                  value={activeSlide.secondaryButtonUrl}
+                  onChange={v => updateActiveSlide({ secondaryButtonUrl: v })}
+                />
+              </>
+            )}
+          </SettingCard>
+        </>
+      )}
+    </div>
+  ) : (
     <div className="space-y-3">
       <SettingCard title="Metinler">
+        <TextField label="Üst etiket" value={str('eyebrowText')} onChange={v => set('eyebrowText', v)} />
         <TextField label="Başlık" value={str('title')} onChange={v => set('title', v)} />
         <TextField label="Alt başlık" value={str('subtitle')} onChange={v => set('subtitle', v)} />
       </SettingCard>
@@ -481,6 +673,8 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
     </div>
   );
 
+  const modTab = <HeroSlidesEditor settings={s} onChange={onChange} />;
+
   const previewTab = (
     <SettingCard title="Hero önizleme" hint="Vitrin ile aynı render helper kullanılır.">
       <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 w-fit mb-3">
@@ -499,17 +693,19 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
       </div>
       <HeroBlockView
         settings={s}
-        imageUrl={imageUrl}
-        mobileImageUrl={mobileImageUrl}
+        imageUrl={isSlider ? slideImageUrl : imageUrl}
+        mobileImageUrl={isSlider ? slideMobileImageUrl : mobileImageUrl}
         themePrimary={null}
         preview
         previewViewport={previewViewport}
+        previewActiveSlideId={activeSlideId || null}
         className="rounded-lg overflow-hidden border border-slate-200"
       />
     </SettingCard>
   );
 
   const tabPanels: Record<HeroTabId, React.ReactNode> = {
+    mod: modTab,
     content: contentTab,
     visual: visualTab,
     layout: layoutTab,
