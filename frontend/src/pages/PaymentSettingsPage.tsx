@@ -25,7 +25,9 @@ import {
   findSetting,
   getSupportedProviders,
   iyzicoCardBadge,
+  iyzicoCardDescription,
   iyzicoSummaryLabel,
+  iyzicoSummaryStatus,
   isMaskedIban,
   IYZICO_PRODUCTION_URL,
   IYZICO_SANDBOX_URL,
@@ -286,7 +288,7 @@ function PaytrCard({
   );
 }
 
-// ─── iyzico (admin ayarları — vitrin kapalı) ─────────────────────────────────
+// ─── iyzico ───────────────────────────────────────────────────────────────────
 
 type IyzicoForm = {
   isActive: boolean;
@@ -349,31 +351,44 @@ function IyzicoCard({
     }
   };
 
-  const badge = iyzicoCardBadge(hasCredentials);
+  const badge = iyzicoCardBadge({
+    isActive: form.isActive,
+    hasCredentials,
+    isTestMode: form.isTestMode,
+  });
+  const statusDescription = iyzicoCardDescription({
+    isActive: form.isActive,
+    hasCredentials,
+  });
+  const showTestBadge = form.isActive && hasCredentials && form.isTestMode;
 
   return (
     <ProviderCardShell
       title={PROVIDER_LABELS.IYZICO}
-      subtitle="iyzico sanal POS — API bilgileri admin panelde saklanır"
+      subtitle="iyzico sanal POS — vitrin checkout entegrasyonu"
       status={badge}
       icon={CreditCard}
       footer={<SaveButton saving={saving} onClick={save} />}
     >
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 flex gap-2">
-        <AlertTriangle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-indigo-900 leading-relaxed">
-          Bu bilgiler kaydedilse bile iyzico şu an vitrinde ödeme yöntemi olarak gösterilmez.
-          Checkout entegrasyonu sonraki fazda yapılacaktır.
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[12px] text-slate-600 leading-relaxed flex-1 min-w-[200px]">
+          {statusDescription}
         </p>
+        {showTestBadge && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 shrink-0">
+            Test Modu
+          </span>
+        )}
       </div>
-      <p className="text-[12px] text-slate-600 leading-relaxed">
-        iyzico API bilgilerinizi bu alanda saklayabilirsiniz. Vitrin ödeme entegrasyonu sonraki fazda aktif edilecektir.
-      </p>
       <Toggle
         checked={form.isActive}
         onChange={v => setForm(f => ({ ...f, isActive: v }))}
-        label="Aktif (admin kaydı)"
-        description="Vitrin checkout'ta henüz listelenmez; yalnızca ayar kaydı içindir."
+        label="Aktif"
+        description={
+          form.isActive
+            ? 'Vitrin checkout adımında ödeme yöntemi olarak listelenir.'
+            : 'Pasifken vitrinde gösterilmez.'
+        }
       />
       <Toggle
         checked={form.isTestMode}
@@ -686,7 +701,7 @@ function PaymentStatusSummary({ settings }: { settings: AdminPaymentSetting[] })
         })}
         <li className="flex items-start justify-between gap-2 text-[13px] pt-1 border-t border-slate-100">
           <span className="text-slate-700">{PROVIDER_LABELS.IYZICO}</span>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-right max-w-[160px] leading-snug">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full text-right max-w-[160px] leading-snug ${statusBadgeClass(iyzicoSummaryStatus(iyzicoSetting))}`}>
             {iyzicoSummaryLabel(iyzicoSetting)}
           </span>
         </li>
@@ -734,7 +749,7 @@ function SecurityInfoPanel() {
 function supportedProviderBadgeClass(support: SupportedProviderSupport): string {
   switch (support) {
     case 'Aktif destek':                  return 'bg-emerald-100 text-emerald-700';
-    case 'Admin hazır, vitrin bekliyor':  return 'bg-indigo-100 text-indigo-700';
+    case 'Vitrinde kapalı':               return 'bg-slate-200 text-slate-700';
     case 'Kurulum hazırlığı':             return 'bg-violet-100 text-violet-700';
     case 'Planlandı':                     return 'bg-slate-200 text-slate-600';
     default:                              return 'bg-slate-100 text-slate-500';

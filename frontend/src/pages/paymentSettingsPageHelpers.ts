@@ -32,7 +32,7 @@ export function countPendingSetup(settings: AdminPaymentSetting[]): number {
   const bank = findSetting(settings, 'BANK_TRANSFER');
   if (bank?.isActive && !str(bank.credentials?.iban).trim()) n += 1;
   const iyzico = findSetting(settings, 'IYZICO');
-  if (!iyzico?.hasCredentials) n += 1;
+  if (iyzico?.isActive && !iyzico.hasCredentials) n += 1;
   return n;
 }
 
@@ -51,17 +51,42 @@ export type ProviderDisplayStatus =
   | 'Test Modu'
   | 'Yakında'
   | 'Eksik Kurulum'
-  | 'Vitrin Kapalı'
+  | 'Vitrinde Kapalı'
+  | 'Kurulum Eksik'
+  | 'Vitrinde Aktif'
   | 'Kurulum Hazırlığı';
 
-export function iyzicoCardBadge(hasCredentials: boolean): ProviderDisplayStatus {
-  return hasCredentials ? 'Vitrin Kapalı' : 'Kurulum Hazırlığı';
+export type IyzicoUiSetting = {
+  isActive: boolean;
+  hasCredentials: boolean;
+  isTestMode?: boolean;
+} | undefined;
+
+export function iyzicoCardBadge(setting: IyzicoUiSetting): ProviderDisplayStatus {
+  if (!setting?.isActive) return 'Vitrinde Kapalı';
+  if (!setting.hasCredentials) return 'Kurulum Eksik';
+  return 'Vitrinde Aktif';
 }
 
-/** Sağ kolon özet satırı — iyzico vitrin entegrasyonu kapalı. */
+export function iyzicoCardDescription(setting: IyzicoUiSetting): string {
+  if (!setting?.isActive) {
+    return 'iyzico ayarları kayıtlı olabilir ancak aktif edilmediği için ödeme adımında gösterilmez.';
+  }
+  if (!setting.hasCredentials) {
+    return 'iyzico\'yu vitrinde göstermek için API Key ve Secret Key bilgilerini tamamlayın.';
+  }
+  return 'iyzico, uygun mağaza vitrini checkout adımında ödeme yöntemi olarak gösterilir.';
+}
+
+/** Sağ kolon özet satırı — iyzico vitrin durumu. */
 export function iyzicoSummaryLabel(setting: AdminPaymentSetting | undefined): string {
-  if (setting?.hasCredentials) return 'Ayarlar kaydedildi, vitrin kapalı';
-  return 'Kurulum bekliyor';
+  if (!setting?.isActive) return 'Vitrinde kapalı';
+  if (!setting.hasCredentials) return 'Kurulum eksik';
+  return 'Vitrinde aktif';
+}
+
+export function iyzicoSummaryStatus(setting: AdminPaymentSetting | undefined): ProviderDisplayStatus {
+  return iyzicoCardBadge(setting);
 }
 
 export function iyzicoHasCredentials(setting: AdminPaymentSetting | undefined): boolean {
@@ -88,7 +113,9 @@ export function statusBadgeClass(status: ProviderDisplayStatus): string {
     case 'Test Modu':       return 'bg-amber-100 text-amber-800';
     case 'Eksik Kurulum':   return 'bg-orange-100 text-orange-800';
     case 'Yakında':         return 'bg-slate-200 text-slate-600';
-    case 'Vitrin Kapalı':   return 'bg-indigo-100 text-indigo-800';
+    case 'Vitrinde Kapalı': return 'bg-slate-200 text-slate-700';
+    case 'Kurulum Eksik':   return 'bg-orange-100 text-orange-800';
+    case 'Vitrinde Aktif':  return 'bg-emerald-100 text-emerald-800';
     case 'Kurulum Hazırlığı': return 'bg-violet-100 text-violet-800';
     default:                return 'bg-slate-100 text-slate-600';
   }
@@ -123,6 +150,11 @@ export function buildSetupChecklist(settings: AdminPaymentSetting[]): SetupCheck
       key:   'iyzico-creds',
       label: 'iyzico API bilgileri girildi',
       done:  Boolean(iyzico?.hasCredentials),
+    },
+    {
+      key:   'iyzico-storefront',
+      label: 'iyzico vitrinde aktif',
+      done:  Boolean(iyzico?.isActive && iyzico.hasCredentials),
     },
     {
       key:   'iban',
@@ -165,18 +197,19 @@ export type SupportedProviderSupport =
   | 'Planlandı'
   | 'Değerlendirilecek'
   | 'Kurulum hazırlığı'
-  | 'Admin hazır, vitrin bekliyor';
+  | 'Vitrinde kapalı';
 
 export function getSupportedProviders(settings: AdminPaymentSetting[]): Array<{ name: string; support: SupportedProviderSupport }> {
   const iyzico = findSetting(settings, 'IYZICO');
+  let iyzicoSupport: SupportedProviderSupport = 'Kurulum hazırlığı';
+  if (iyzico?.hasCredentials) {
+    iyzicoSupport = iyzico.isActive ? 'Aktif destek' : 'Vitrinde kapalı';
+  }
   return [
     { name: 'PayTR',            support: 'Aktif destek' },
     { name: 'Havale/EFT',       support: 'Aktif destek' },
     { name: 'Kapıda Ödeme',     support: 'Aktif destek' },
-    {
-      name: 'iyzico',
-      support: iyzico?.hasCredentials ? 'Admin hazır, vitrin bekliyor' : 'Kurulum hazırlığı',
-    },
+    { name: 'iyzico',           support: iyzicoSupport },
     { name: 'Banka Sanal POS',  support: 'Planlandı' },
     { name: 'Stripe',           support: 'Değerlendirilecek' },
     { name: 'PayPal',           support: 'Değerlendirilecek' },
