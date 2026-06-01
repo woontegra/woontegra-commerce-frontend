@@ -46,70 +46,82 @@ function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 
   const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
 
   return (
-    <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-40">
+    <header className="store-header sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="h-16 flex items-center justify-between gap-4">
-          <Link to={home} className="flex items-center gap-2 font-semibold text-lg truncate shrink-0">
+        <div className="h-16 sm:h-[4.25rem] flex items-center justify-between gap-3 sm:gap-4">
+          <Link to={home} className="flex items-center gap-2.5 font-semibold text-base sm:text-lg truncate shrink-0 store-text-body">
             {logoSrc ? (
-              <img src={logoSrc} alt={displayName} className="h-9 w-9 rounded-lg object-cover" />
+              <img src={logoSrc} alt={displayName} className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-1 ring-stone-200/80" />
             ) : (
-              <span className="h-9 w-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm">
+              <span className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-stone-900 text-white flex items-center justify-center text-sm font-medium">
                 {displayName.slice(0, 1).toUpperCase()}
               </span>
             )}
-            <span className="truncate max-w-[10rem] sm:max-w-none">{displayName}</span>
+            <span className="truncate max-w-[8rem] sm:max-w-none tracking-tight">{displayName}</span>
           </Link>
 
           <form onSubmit={onSearch} className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <div className="store-header-search relative w-full flex items-center">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <input
                 type="search"
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder="Ürün ara…"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-transparent focus:outline-none"
               />
             </div>
           </form>
 
-          <nav className="flex items-center gap-2 sm:gap-4 text-sm font-medium text-slate-600 shrink-0">
-            <NavLink to={home} className={({ isActive }) => (isActive ? 'text-indigo-600' : 'hover:text-indigo-600')} end>
+          <nav className="flex items-center gap-1 sm:gap-2 text-sm font-medium shrink-0">
+            <NavLink
+              to={home}
+              className={({ isActive }) =>
+                `hidden sm:inline px-2.5 py-1.5 store-header-nav-link ${isActive ? 'active font-medium' : ''}`
+              }
+              end
+            >
               Ana sayfa
             </NavLink>
-            <NavLink to={products} className={({ isActive }) => (isActive ? 'text-indigo-600' : 'hover:text-indigo-600')}>
+            <NavLink
+              to={products}
+              className={({ isActive }) =>
+                `hidden sm:inline px-2.5 py-1.5 store-header-nav-link ${isActive ? 'active font-medium' : ''}`
+              }
+            >
               Ürünler
             </NavLink>
             {!authLoading && isAuthenticated ? (
               <>
-                <Link to={account} className="hidden sm:inline hover:text-indigo-600">
+                <Link to={account} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
                   Hesabım
                 </Link>
                 <button
                   type="button"
                   onClick={() => auth?.logout()}
-                  className="hidden sm:inline hover:text-indigo-600"
+                  className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link"
                 >
                   Çıkış
                 </button>
               </>
             ) : (
               <>
-                <Link to={account} className="hidden sm:inline hover:text-indigo-600">
+                <Link to={account} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
                   Hesabım
                 </Link>
-                <Link to={login} className="hidden sm:inline hover:text-indigo-600">
+                <Link to={login} className="hidden lg:inline px-2.5 py-1.5 store-header-nav-link">
                   Giriş
                 </Link>
               </>
             )}
             <Link
               to={cartUrl}
-              className="relative px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50"
+              className="store-header-icon-btn relative inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
             >
-              Sepet
+              <ShoppingCart className="w-4 h-4" />
+              <span className="hidden sm:inline">Sepet</span>
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
+                <span className="store-header-cart-badge absolute -top-1 -right-1 min-w-[1.15rem] h-[1.15rem] px-0.5 rounded-full text-white text-[10px] flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
@@ -117,13 +129,16 @@ function LegacyStorefrontHeader({ tenant, storeLink }: Omit<Props, 'settings' | 
           </nav>
         </div>
         <form onSubmit={onSearch} className="md:hidden pb-3">
-          <input
-            type="search"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Ürün ara…"
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg"
-          />
+          <div className="store-header-search flex items-center">
+            <Search className="ml-3.5 h-4 w-4 text-stone-400 shrink-0" />
+            <input
+              type="search"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Ürün ara…"
+              className="w-full px-3 py-2.5 text-sm bg-transparent focus:outline-none"
+            />
+          </div>
         </form>
       </div>
     </header>
@@ -148,10 +163,10 @@ function LogoBlock({
   const inner = (
     <>
       {logoSrc ? (
-        <img src={logoSrc} alt={displayName} className="rounded-lg object-cover shrink-0" style={logoStyle} />
+        <img src={logoSrc} alt={displayName} className="rounded-full object-cover shrink-0 ring-1 ring-stone-200/80" style={logoStyle} />
       ) : (
         <span
-          className="rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm shrink-0"
+          className="rounded-full bg-stone-900 text-white flex items-center justify-center text-sm shrink-0 font-medium"
           style={logoStyle}
         >
           {displayName.slice(0, 1).toUpperCase()}

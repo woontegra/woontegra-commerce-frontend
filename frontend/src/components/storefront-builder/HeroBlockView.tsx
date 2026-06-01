@@ -65,50 +65,69 @@ export default function HeroBlockView({
   });
   const { content, visual, height } = model;
 
+  const hasImage = !!(visual.desktopImageLayerStyle || visual.mobileImageLayerStyle);
+  const viewVariant = hasImage ? 'hero-block-view--has-image' : 'hero-block-view--no-image';
+
   const renderImageLayers = () => {
     if (previewViewport || !visual.useResponsiveImages) {
       const layer = visual.desktopImageLayerStyle;
       if (!layer) return null;
-      return <div className="absolute inset-0" style={layer} aria-hidden />;
+      return <div className="absolute inset-0 z-0" style={layer} aria-hidden />;
     }
     return (
       <>
         {visual.desktopImageLayerStyle && (
-          <div className="absolute inset-0 hidden md:block" style={visual.desktopImageLayerStyle} aria-hidden />
+          <div className="absolute inset-0 z-0 hidden md:block" style={visual.desktopImageLayerStyle} aria-hidden />
         )}
         {visual.mobileImageLayerStyle ? (
-          <div className="absolute inset-0 md:hidden" style={visual.mobileImageLayerStyle} aria-hidden />
+          <div className="absolute inset-0 z-0 md:hidden" style={visual.mobileImageLayerStyle} aria-hidden />
         ) : (
           visual.desktopImageLayerStyle && (
-            <div className="absolute inset-0 md:hidden" style={visual.desktopImageLayerStyle} aria-hidden />
+            <div className="absolute inset-0 z-0 md:hidden" style={visual.desktopImageLayerStyle} aria-hidden />
           )
         )}
       </>
     );
   };
 
+  const shellClass =
+    `${model.sectionShell} hero-block-view ${viewVariant} ${height.className} ${className}`.trim();
+
   return (
-    <div className={`${model.sectionShell} ${height.className} ${className}`} style={height.style}>
-      {visual.baseStyle && <div className="absolute inset-0" style={visual.baseStyle} aria-hidden />}
+    <div className={shellClass} style={height.style}>
+      {visual.baseStyle && <div className="absolute inset-0 z-0" style={visual.baseStyle} aria-hidden />}
+      {!hasImage && (
+        <>
+          <div className="hero-block-deco hero-block-deco--orb-1" aria-hidden />
+          <div className="hero-block-deco hero-block-deco--orb-2" aria-hidden />
+          <div className="hero-block-deco hero-block-deco--grain" aria-hidden />
+        </>
+      )}
       {renderImageLayers()}
       {visual.showOverlay && visual.overlayStyle && (
-        <div className="absolute inset-0 pointer-events-none" style={visual.overlayStyle} aria-hidden />
+        <div className="absolute inset-0 z-[1] pointer-events-none" style={visual.overlayStyle} aria-hidden />
       )}
-      <div className={`relative px-4 sm:px-6 py-8 sm:py-12 flex flex-col min-h-[inherit] ${content.placement.outer}`}>
+      <div
+        className={`hero-block-content relative z-[2] px-4 sm:px-6 lg:px-8 py-10 sm:py-12 lg:py-14 flex flex-col min-h-[inherit] ${content.placement.outer}`}
+      >
         <div
           className={`${content.placement.inner} ${content.contentWidth.className} ${content.contentBoxClass}`}
           style={{ ...content.contentWidth.style, ...content.contentBoxStyle }}
         >
+          <span className="hero-block-eyebrow">Yeni Koleksiyon</span>
           <h1 className={`tracking-tight ${content.titleWeightClass}`} style={content.titleStyle}>
             {content.title}
           </h1>
           {content.subtitle && (
-            <p className={content.subtitleClass} style={content.subtitleStyle}>
+            <p
+              className={`hero-block-subtitle ${content.subtitleClass}`}
+              style={content.subtitleStyle}
+            >
               {content.subtitle}
             </p>
           )}
           {(content.primaryButton.show || content.secondaryButton.show) && (
-            <div className={`mt-8 flex flex-wrap gap-3 ${content.buttonRowClass}`}>
+            <div className={`mt-6 sm:mt-8 flex flex-wrap gap-3 ${content.buttonRowClass}`}>
               <HeroButton btn={content.primaryButton} preview={preview} />
               <HeroButton btn={content.secondaryButton} preview={preview} />
             </div>

@@ -185,7 +185,7 @@ export default function BuilderPreview({
           themePrimary={themePrimary}
           preview
           previewViewport={previewViewport}
-          className={isWorkspace ? 'w-full' : 'rounded-xl border border-slate-200'}
+          className={isWorkspace ? 'w-full store-hero-section' : 'rounded-xl border border-stone-200/80 store-hero-section overflow-hidden'}
         />
       );
     }
@@ -194,19 +194,29 @@ export default function BuilderPreview({
       const cols = num(s, 'columns', 4);
       const count = Math.min(num(s, 'limit', 4), cols);
       const cardCls = isWorkspace
-        ? 'rounded-xl border border-slate-200 p-6 bg-white'
-        : 'rounded-xl border border-slate-200 p-4 bg-white';
+        ? 'p-4 sm:p-6 store-section--warm'
+        : 'rounded-xl border border-stone-200/80 p-4 store-section--warm';
       return (
         <div className={cardCls}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[13px] font-semibold text-slate-800">{str(s, 'title', 'Kategoriler')}</p>
-            <span className="text-[10px] text-indigo-600">{str(s, 'viewAllLabel', 'Tüm kategorileri göster')}</span>
+          <div className="store-section-header mb-4">
+            <p className="store-section-eyebrow text-[10px]">Koleksiyonlar</p>
+            <p className="store-section-heading text-base">{str(s, 'title', 'Kategoriler')}</p>
           </div>
-          <div className={`grid ${gridColumnsClass(cols)} gap-2`}>
+          <div className={`grid ${gridColumnsClass(cols)} gap-3`}>
             {Array.from({ length: count }).map((_, i) => (
-              <div key={i} className="rounded-lg border border-slate-100 p-2 bg-slate-50">
-                {bool(s, 'showImages', true) && <div className="aspect-square rounded bg-slate-200 mb-1.5" />}
-                <div className="h-2 w-2/3 bg-slate-200 rounded" />
+              <div key={i} className="store-category-card">
+                {bool(s, 'showImages', true) ? (
+                  <div className="store-category-card-media">
+                    <div className="w-full h-full bg-stone-200/60" />
+                    <div className="store-category-card-overlay">
+                      <span className="store-category-card-label text-xs">Kategori {i + 1}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="store-category-card-placeholder py-6">
+                    <span className="store-category-card-placeholder-name text-xs">Kategori {i + 1}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -225,29 +235,36 @@ export default function BuilderPreview({
       );
 
     case 'campaignBanner': {
-      const bg = str(s, 'backgroundColor', '#fffbeb');
-      const color = str(s, 'textColor', '#78350f');
+      const bg = str(s, 'backgroundColor', '#f5f3ef');
+      const color = str(s, 'textColor', '#1c1917');
       const url = imageSrc(s, 'imageUrl') || null;
       const bannerImage = buildBannerImageLayerProps(s, url);
       return (
         <div
-          className="rounded-xl overflow-hidden border border-slate-200 px-4 py-5 relative min-h-[120px]"
+          className={`store-campaign-banner ${!url ? 'store-campaign-banner--no-image' : ''} relative overflow-hidden min-h-[140px]`}
           style={{ backgroundColor: bg, color }}
         >
           {bannerImage.imageLayerStyle && (
-            <div className="absolute inset-0" style={bannerImage.imageLayerStyle} aria-hidden />
+            <div className="absolute inset-0 z-0" style={bannerImage.imageLayerStyle} aria-hidden />
           )}
           {bannerImage.showOverlay && bannerImage.overlayStyle && (
-            <div className="absolute inset-0" style={bannerImage.overlayStyle} aria-hidden />
+            <div className="absolute inset-0 z-[1]" style={bannerImage.overlayStyle} aria-hidden />
           )}
-          <div className="relative">
-            <h3 className="text-[15px] font-semibold">{str(s, 'title', 'Kampanya')}</h3>
-            <p className="text-[12px] opacity-80 mt-0.5">{str(s, 'subtitle')}</p>
-            {str(s, 'buttonText') && (
-              <span className="inline-block mt-2 px-2.5 py-1 rounded-lg bg-black/10 text-[11px] font-medium">
-                {str(s, 'buttonText')}
-              </span>
-            )}
+          <div className="store-campaign-inner relative z-[2]">
+            <div className="store-campaign-content">
+              <p className="store-section-subheading text-[10px]">Özel fırsat</p>
+              <h3 className="store-campaign-title text-base mt-1">{str(s, 'title', 'Kampanya')}</h3>
+              <p className="store-campaign-subtitle text-[12px]">{str(s, 'subtitle')}</p>
+              {str(s, 'buttonText') && (
+                <span
+                  className="store-campaign-cta inline-flex mt-2 px-3 py-1.5 text-[10px] text-white"
+                  style={{ backgroundColor: themePrimary ?? '#1c1917' }}
+                >
+                  {str(s, 'buttonText')}
+                </span>
+              )}
+            </div>
+            {!url && <div className="store-campaign-visual min-h-[80px]" aria-hidden />}
           </div>
         </div>
       );
@@ -255,14 +272,24 @@ export default function BuilderPreview({
 
     case 'trustBadges': {
       const badges = parseTrustBadges(str(s, 'badges'));
+      const items = badges.length
+        ? badges
+        : [
+            { title: 'Güvenli ödeme', description: 'SSL koruması' },
+            { title: 'Hızlı kargo', description: '1–3 iş günü' },
+          ];
       return (
-        <div className="rounded-xl border border-slate-200 p-4 bg-white">
-          <p className="text-[13px] font-semibold text-slate-800 mb-3 text-center">{str(s, 'title', 'Güven')}</p>
-          <div className="grid gap-2">
-            {(badges.length ? badges : [{ title: 'Rozet', description: '' }]).map((b, i) => (
-              <div key={i} className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2.5 text-center">
-                <p className="text-[12px] font-semibold text-emerald-900">{b.title}</p>
-                {b.description && <p className="text-[10px] text-emerald-700/80 mt-0.5">{b.description}</p>}
+        <div className="rounded-xl border border-stone-200/80 p-4 store-trust-section">
+          <p className="store-section-eyebrow text-[10px] mb-1">Güven & hizmet</p>
+          <p className="store-section-heading text-base mb-4">{str(s, 'title', 'Güven')}</p>
+          <div className="store-trust-grid gap-2">
+            {items.map((b, i) => (
+              <div key={i} className="store-trust-badge py-3 px-2.5">
+                <div className="store-trust-badge-icon w-8 h-8 mb-2">
+                  <span className="text-xs">✦</span>
+                </div>
+                <p className="store-trust-badge-title text-xs">{b.title}</p>
+                {b.description && <p className="store-trust-badge-desc text-[10px]">{b.description}</p>}
               </div>
             ))}
           </div>
@@ -274,14 +301,18 @@ export default function BuilderPreview({
       const imageLeft = str(s, 'imagePosition', 'left') !== 'right';
       const fitCls = objectFitClass(str(s, 'imageFit', 'cover'));
       return (
-        <div className="rounded-xl border border-slate-200 p-4 bg-white">
-          <div className={`flex gap-3 ${imageLeft ? '' : 'flex-row-reverse'}`}>
-            {imagePreview(imageSrc(s, 'imageUrl'), `w-20 h-20 rounded-lg ${fitCls} flex-shrink-0`)}
+        <div className="rounded-xl border border-stone-200/80 p-4 store-brand-story">
+          <div className={`flex gap-4 ${imageLeft ? '' : 'flex-row-reverse'}`}>
+            {imagePreview(
+              imageSrc(s, 'imageUrl'),
+              `w-24 h-28 rounded-xl ${fitCls} flex-shrink-0 store-brand-story-image`,
+            ) ?? <div className="w-24 h-28 rounded-xl store-brand-story-placeholder flex-shrink-0" />}
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-slate-800">{str(s, 'title', 'Başlık')}</p>
-              <p className="text-[12px] text-slate-500 mt-1 line-clamp-3">{str(s, 'text', 'Metin')}</p>
+              <p className="store-section-eyebrow text-[10px]">Marka hikayesi</p>
+              <p className="store-section-heading text-base">{str(s, 'title', 'Başlık')}</p>
+              <p className="store-text-muted text-[12px] mt-1 line-clamp-3">{str(s, 'text', 'Metin')}</p>
               {str(s, 'buttonText') && (
-                <span className="inline-block mt-2 text-[11px] font-medium text-indigo-600">{str(s, 'buttonText')}</span>
+                <span className="store-btn-primary inline-flex mt-2 px-3 py-1 text-[10px]">{str(s, 'buttonText')}</span>
               )}
             </div>
           </div>

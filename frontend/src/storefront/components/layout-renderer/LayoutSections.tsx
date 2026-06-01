@@ -1,5 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  CreditCard,
+  Headphones,
+  RotateCcw,
+  Shield,
+  Sparkles,
+  Truck,
+  type LucideIcon,
+} from 'lucide-react';
 import { useStorefrontGlobalTheme } from '../../hooks/StorefrontGlobalThemeProvider';
 import { useStorefrontTenant } from '../../hooks/useStorefrontTenant';
 import { normalizeStoreImageUrl } from '../../services/storefrontApi';
@@ -32,13 +41,60 @@ type SectionProps = {
   storeLink: (path: string) => string;
 };
 
+const DEFAULT_TRUST_BADGES = [
+  { title: 'Güvenli ödeme', description: '256-bit SSL ile korunan ödeme altyapısı' },
+  { title: 'Hızlı kargo', description: '1–3 iş günü içinde kapınızda' },
+  { title: 'Kolay iade', description: '14 gün içinde koşulsuz iade' },
+  { title: 'Müşteri desteği', description: '7/24 yardım ve danışmanlık' },
+];
+
+function trustIconForTitle(title: string): LucideIcon {
+  const t = title.toLowerCase();
+  if (t.includes('güven') || t.includes('ssl') || t.includes('ödeme')) return Shield;
+  if (t.includes('kargo') || t.includes('teslim') || t.includes('hızlı')) return Truck;
+  if (t.includes('iade') || t.includes('değişim')) return RotateCcw;
+  if (t.includes('destek') || t.includes('müşteri') || t.includes('yardım')) return Headphones;
+  if (t.includes('kart') || t.includes('taksit')) return CreditCard;
+  return Sparkles;
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  viewAllLabel,
+  viewAllHref,
+}: {
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  viewAllLabel?: string;
+  viewAllHref?: string;
+}) {
+  if (!title && !eyebrow && !description && !viewAllLabel) return null;
+  return (
+    <div className="store-section-header flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+      <div>
+        {eyebrow && <p className="store-section-eyebrow">{eyebrow}</p>}
+        {title && <h2 className="store-section-heading">{title}</h2>}
+        {description && <p className="store-section-desc">{description}</p>}
+      </div>
+      {viewAllLabel && viewAllHref && (
+        <Link to={viewAllHref} className="store-section-link ml-auto sm:ml-0 shrink-0">
+          {viewAllLabel} →
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export function HeroSection({ section, primaryColor, storeLink }: SectionProps) {
   const s = section.settings;
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const mobileImageUrl = normalizeStoreImageUrl(layoutStr(s, 'mobileImageUrl'));
 
   return (
-    <section>
+    <section className="store-hero-section store-section--flush-top">
       <HeroBlockView
         settings={s}
         imageUrl={imageUrl}
@@ -67,24 +123,23 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
     [categories, limit],
   );
 
+  if (items.length === 0) return null;
+
   return (
-    <section className={`${sectionWidthClass(widthMode)} py-12`}>
+    <section className={`store-section--warm ${sectionWidthClass(widthMode)}`}>
       {(showTitle || viewAllLabel) && (
-        <div className="flex items-center justify-between mb-4 gap-3">
-          {showTitle && <h2 className="text-xl font-semibold text-slate-900">{title}</h2>}
-          {viewAllLabel && (
-            <Link to={storeLink('/store/urunler')} className="text-sm font-medium text-indigo-600 hover:underline whitespace-nowrap ml-auto">
-              {viewAllLabel}
-            </Link>
-          )}
-        </div>
+        <SectionHeader
+          eyebrow={showTitle ? 'Koleksiyonlar' : undefined}
+          title={showTitle ? title : undefined}
+          description={showTitle ? 'Özenle seçilmiş kategorilerimizi keşfedin' : undefined}
+          viewAllLabel={viewAllLabel || undefined}
+          viewAllHref={storeLink('/store/urunler')}
+        />
       )}
-      {items.length === 0 ? (
-        <p className="text-slate-500 text-sm">Henüz kategori yok.</p>
-      ) : displayMode === 'list' ? (
-        <ul className="flex gap-3 overflow-x-auto pb-2 snap-x">
+      {displayMode === 'list' ? (
+        <ul className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x scrollbar-thin -mx-1 px-1">
           {items.map(c => (
-            <li key={c.id} className="min-w-[140px] max-w-[160px] snap-start flex-shrink-0">
+            <li key={c.id} className="min-w-[168px] max-w-[192px] sm:min-w-[180px] snap-start flex-shrink-0">
               <CategoryCard
                 category={showImages ? c : { ...c, imageUrl: null }}
                 url={storeLink(`/store/kategori/${encodeURIComponent(c.slug)}`)}
@@ -93,7 +148,7 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
           ))}
         </ul>
       ) : (
-        <ul className={`grid ${gridColumnsClass(columns)} gap-3`}>
+        <ul className={`grid ${gridColumnsClass(columns)} gap-4 sm:gap-5`}>
           {items.map(c => (
             <li key={c.id}>
               <CategoryCard
@@ -113,6 +168,8 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   const { themeSettings } = useStorefrontGlobalTheme();
   const s = section.settings;
   const widthMode = layoutStr(s, 'widthMode', 'container');
+  const title = layoutStr(s, 'title', 'Ürün Vitrini');
+  const showTitle = layoutBool(s, 'showTitle', true);
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [emptyReason, setEmptyReason] = useState<FeaturedProductsEmptyReason>('none');
@@ -146,8 +203,19 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
 
   const viewAllHref = featuredViewAllHref(s, storeLink);
 
+  if (!loading && products.length === 0 && emptyReason !== 'none') {
+    return null;
+  }
+
   return (
-    <section className={`${sectionWidthClass(widthMode)} pb-16`}>
+    <section className={`store-section--alt ${sectionWidthClass(widthMode)}`}>
+      {showTitle && (
+        <SectionHeader
+          eyebrow="Seçkin parçalar"
+          title={title}
+          description="En çok tercih edilen ürünlerimiz"
+        />
+      )}
       <FeaturedProductsBlockView
         settings={s}
         products={products}
@@ -156,6 +224,7 @@ export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
         storeLink={storeLink}
         viewAllHref={viewAllHref}
         themeSettings={themeSettings}
+        hideSectionHeader
       />
     </section>
   );
@@ -168,45 +237,53 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
-  const backgroundColor = layoutStr(s, 'backgroundColor', '#fffbeb');
-  const textColor = layoutStr(s, 'textColor', '#78350f');
+  const backgroundColor = layoutStr(s, 'backgroundColor', '#f5f3ef');
+  const textColor = layoutStr(s, 'textColor', '#1c1917');
   const widthMode = layoutStr(s, 'widthMode', 'container');
   const heightMode = layoutStr(s, 'heightMode', 'medium');
   const textPosition = layoutStr(s, 'textPosition', 'left');
   const bannerImage = buildBannerImageLayerProps(s, imageUrl);
+  const hasImage = !!imageUrl;
 
   const textAlignCls =
-    textPosition === 'center' ? 'mx-auto text-center items-center' : textPosition === 'right' ? 'ml-auto text-right items-end' : 'text-left items-start';
+    textPosition === 'center'
+      ? 'mx-auto text-center items-center'
+      : textPosition === 'right'
+        ? 'ml-auto text-right items-end'
+        : 'text-left items-start';
 
   return (
-    <section className={`${sectionWidthClass(widthMode)} py-10`}>
+    <section className={`${sectionWidthClass(widthMode)}`}>
       <div
-        className={`relative overflow-hidden rounded-2xl border px-6 py-8 sm:px-10 sm:py-10 flex flex-col justify-center ${bannerHeightClass(heightMode)}`}
+        className={`store-campaign-banner ${!hasImage ? 'store-campaign-banner--no-image' : ''} ${bannerHeightClass(heightMode)}`}
         style={{
           backgroundColor,
           color: textColor,
-          borderColor: primaryColor ? `${primaryColor}33` : undefined,
+          borderColor: primaryColor ? `${primaryColor}22` : undefined,
         }}
       >
         {bannerImage.imageLayerStyle && (
-          <div className="absolute inset-0" style={bannerImage.imageLayerStyle} aria-hidden />
+          <div className="absolute inset-0 z-0" style={bannerImage.imageLayerStyle} aria-hidden />
         )}
         {bannerImage.showOverlay && bannerImage.overlayStyle && (
-          <div className="absolute inset-0" style={bannerImage.overlayStyle} aria-hidden />
+          <div className="absolute inset-0 z-[1]" style={bannerImage.overlayStyle} aria-hidden />
         )}
-        <div className={`relative max-w-lg flex flex-col ${textAlignCls}`}>
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Kampanya</p>
-          <h2 className="mt-1 text-2xl font-bold">{title}</h2>
-          {subtitle && <p className="mt-2 text-sm opacity-80">{subtitle}</p>}
-          {buttonText && (
-            <Link
-              to={buttonUrl}
-              className="inline-flex mt-5 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm hover:opacity-90"
-              style={{ backgroundColor: primaryColor ?? '#d97706' }}
-            >
-              {buttonText}
-            </Link>
-          )}
+        <div className="store-campaign-inner relative z-[2]">
+          <div className={`store-campaign-content flex flex-col ${textAlignCls}`}>
+            <p className="store-section-subheading">Özel fırsat</p>
+            <h2 className="store-campaign-title mt-2">{title}</h2>
+            {subtitle && <p className="store-campaign-subtitle">{subtitle}</p>}
+            {buttonText && (
+              <Link
+                to={buttonUrl}
+                className="store-campaign-cta"
+                style={{ backgroundColor: primaryColor ?? '#1c1917' }}
+              >
+                {buttonText}
+              </Link>
+            )}
+          </div>
+          {!hasImage && <div className="store-campaign-visual" aria-hidden />}
         </div>
       </div>
     </section>
@@ -217,22 +294,30 @@ export function TrustBadgesSection({ section }: SectionProps) {
   const s = section.settings;
   const title = layoutStr(s, 'title', 'Neden bizi tercih etmelisiniz?');
   const badges = parseTrustBadges(layoutStr(s, 'badges'));
+  const items = badges.length ? badges : DEFAULT_TRUST_BADGES;
 
   return (
-    <section className="max-w-6xl mx-auto px-4 py-12">
-      <h2 className="text-xl font-semibold text-slate-900 mb-4 text-center">{title}</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {(badges.length ? badges : [{ title: 'Güvenli alışveriş', description: '' }]).map((b, i) => (
-          <div
-            key={`${b.title}-${i}`}
-            className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center"
-          >
-            <p className="text-sm font-semibold text-emerald-900">{b.title}</p>
-            {b.description && (
-              <p className="text-xs text-emerald-800/80 mt-1">{b.description}</p>
-            )}
-          </div>
-        ))}
+    <section className="store-trust-section">
+      <div className="store-container mx-auto w-full px-4">
+        <SectionHeader
+          eyebrow="Güven & hizmet"
+          title={title}
+          description="Alışverişiniz boyunca yanınızdayız"
+        />
+        <div className="store-trust-grid">
+          {items.map((b, i) => {
+            const Icon = trustIconForTitle(b.title);
+            return (
+              <div key={`${b.title}-${i}`} className="store-trust-badge">
+                <div className="store-trust-badge-icon">
+                  <Icon className="w-5 h-5" strokeWidth={1.75} />
+                </div>
+                <p className="store-trust-badge-title">{b.title}</p>
+                {b.description && <p className="store-trust-badge-desc">{b.description}</p>}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -248,31 +333,41 @@ export function TextImageSection({ section, storeLink }: SectionProps) {
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
 
+  if (!title && !text && !imageUrl && !buttonText) return null;
+
   return (
-    <section className="max-w-6xl mx-auto px-4 py-12">
-      <div className={`flex flex-col gap-6 sm:gap-8 ${imageRight ? 'sm:flex-row-reverse' : 'sm:flex-row'} sm:items-center`}>
-        <div className="sm:w-2/5 flex-shrink-0">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt=""
-              className={`w-full rounded-2xl aspect-[4/3] bg-slate-100 ${objectFitClass(imageFit)}`}
-            />
-          ) : (
-            <div className="w-full rounded-2xl aspect-[4/3] bg-slate-100" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          {title && <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>}
-          {text && <p className="mt-3 text-slate-600 text-sm sm:text-base whitespace-pre-wrap">{text}</p>}
-          {buttonText && (
-            <Link
-              to={buttonUrl}
-              className="inline-flex mt-5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-            >
-              {buttonText}
-            </Link>
-          )}
+    <section className="store-brand-story">
+      <div className="store-container mx-auto w-full px-4">
+        <div
+          className={`flex flex-col gap-8 sm:gap-12 lg:gap-16 ${imageRight ? 'lg:flex-row-reverse' : 'lg:flex-row'} lg:items-center`}
+        >
+          <div className="lg:w-[44%] flex-shrink-0">
+            {imageUrl ? (
+              <div className="store-brand-story-image">
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className={`w-full aspect-[4/5] ${objectFitClass(imageFit)}`}
+                />
+              </div>
+            ) : (
+              <div className="store-brand-story-image store-brand-story-placeholder" aria-hidden />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="store-section-eyebrow">Marka hikayesi</p>
+            {title && <h2 className="store-section-heading text-2xl sm:text-3xl lg:text-4xl">{title}</h2>}
+            {text && (
+              <p className="mt-5 store-text-muted text-sm sm:text-base leading-relaxed whitespace-pre-wrap max-w-xl">
+                {text}
+              </p>
+            )}
+            {buttonText && (
+              <Link to={buttonUrl} className="store-btn-primary inline-flex mt-8 px-8 py-3 text-sm">
+                {buttonText}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </section>

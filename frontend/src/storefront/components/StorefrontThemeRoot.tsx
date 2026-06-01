@@ -13,9 +13,7 @@ export function StorefrontThemeRoot({ themeSettings, className = '', children }:
     () => storefrontThemeCssVariables(themeSettings) as CSSProperties,
     [themeSettings],
   );
-  const rootClass = themeSettings.enabled
-    ? `storefront-theme-root min-h-screen flex flex-col ${className}`.trim()
-    : `min-h-screen flex flex-col bg-slate-50 text-slate-900 ${className}`.trim();
+  const rootClass = `storefront-theme-root min-h-screen flex flex-col ${className}`.trim();
 
   return (
     <div className={rootClass} style={style}>

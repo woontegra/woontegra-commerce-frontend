@@ -1,25 +1,25 @@
 .hero-block-height {
-  min-height: var(--hero-h-mobile, 460px);
+  min-height: var(--hero-h-mobile, 420px);
 }
 
 @media (min-width: 768px) {
   .hero-block-height {
-    min-height: var(--hero-h-tablet, 560px);
+    min-height: var(--hero-h-tablet, 520px);
   }
 }
 
 @media (min-width: 1024px) {
   .hero-block-height {
-    min-height: var(--hero-h-desktop, 700px);
+    min-height: var(--hero-h-desktop, 580px);
   }
 }
 
 .hero-block-height--fullscreen {
-  min-height: 80vh;
+  min-height: 75vh;
 }
 
 @media (min-width: 1024px) {
   .hero-block-height--fullscreen {
-    min-height: calc(100vh - 4rem);
+    min-height: calc(100vh - 4.5rem);
   }
 }

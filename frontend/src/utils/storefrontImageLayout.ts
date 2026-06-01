@@ -153,6 +153,20 @@ export type HeroLayerProps = {
   overlayStyle?: Record<string, string>;
 };
 
+const LEGACY_INDIGO_DEFAULTS = new Set(['#4f46e5', '#6366f1', '#4338ca', '#5b21b6']);
+
+const PREMIUM_HERO_GRADIENT =
+  'linear-gradient(145deg, #141312 0%, #1c1917 38%, #292524 72%, #44403c 100%)';
+
+function isLegacyIndigoDefault(color: string): boolean {
+  return LEGACY_INDIGO_DEFAULTS.has(color.trim().toLowerCase());
+}
+
+function premiumHeroGradientFrom(color: string): string {
+  if (isLegacyIndigoDefault(color)) return PREMIUM_HERO_GRADIENT;
+  return `linear-gradient(145deg, ${color}, #292524)`;
+}
+
 export function buildHeroLayerProps(
   settings: Record<string, unknown>,
   themePrimary: string | null,
@@ -160,7 +174,8 @@ export function buildHeroLayerProps(
 ): HeroLayerProps {
   const hasImage = !!imageUrl?.trim();
   const bgType = resolveHeroBackgroundType(settings, hasImage);
-  const bgColor = str(settings, 'backgroundColor', themePrimary ?? '#4f46e5').trim() || '#4f46e5';
+  const fallbackBg = themePrimary && !isLegacyIndigoDefault(themePrimary) ? themePrimary : '#1c1917';
+  const bgColor = str(settings, 'backgroundColor', fallbackBg).trim() || fallbackBg;
   const textColor = str(settings, 'textColor', '#ffffff');
   const alignment = resolveHeroContentAlign(settings);
   const imageFit = str(settings, 'imageFit', 'cover');
@@ -178,12 +193,16 @@ export function buildHeroLayerProps(
   let baseStyle: Record<string, string> | undefined;
   if (!useImage) {
     if (bgType === 'color') {
-      baseStyle = { backgroundColor: bgColor };
+      baseStyle = isLegacyIndigoDefault(bgColor)
+        ? { background: PREMIUM_HERO_GRADIENT }
+        : { backgroundColor: bgColor };
     } else {
-      baseStyle = { background: `linear-gradient(135deg, ${bgColor}, #6366f1)` };
+      baseStyle = { background: premiumHeroGradientFrom(bgColor) };
     }
   } else if (imageFit === 'contain') {
-    baseStyle = { backgroundColor: bgColor };
+    baseStyle = isLegacyIndigoDefault(bgColor)
+      ? { background: PREMIUM_HERO_GRADIENT }
+      : { backgroundColor: bgColor };
   }
 
   let imageLayerStyle: Record<string, string> | undefined;

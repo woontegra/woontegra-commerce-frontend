@@ -23,28 +23,101 @@ type Props = {
   preview?: boolean;
 };
 
-function LegacyStorefrontFooter({ tenant, settings }: { tenant: StorefrontTenantInfo; settings: StorefrontThemeSettings }) {
+function LegacyStorefrontFooter({
+  tenant,
+  settings,
+  storeLink,
+}: {
+  tenant: StorefrontTenantInfo;
+  settings: StorefrontThemeSettings;
+  storeLink?: (path: string) => string;
+}) {
   const year = new Date().getFullYear();
-  const footerNote = settings.footerText ?? `© ${year} ${tenant.name}. Tüm hakları saklıdır.`;
+  const displayName = displayStorefrontName(tenant.name);
+  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const home = storeLink ? storeLink('/store') : '/store';
+  const products = storeLink ? storeLink('/store/urunler') : '/store/urunler';
+  const cart = storeLink ? storeLink('/store/sepet') : '/store/sepet';
+  const account = storeLink ? storeLink('/store/hesabim') : '/store/hesabim';
+
+  const quickLinks = [
+    { label: 'Ana sayfa', to: home },
+    { label: 'Ürünler', to: products },
+    { label: 'Sepet', to: cart },
+    { label: 'Hesabım', to: account },
+  ];
 
   return (
-    <footer className="border-t border-slate-200 bg-white mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="flex flex-col sm:flex-row justify-between gap-6 text-sm text-slate-500">
-          <p>{footerNote}</p>
-          {settings.socialLinks.length > 0 && (
-            <ul className="flex flex-wrap gap-4">
-              {settings.socialLinks.map(s => (
-                <li key={s.url}>
-                  <a href={s.url} target="_blank" rel="noreferrer" className="hover:text-indigo-600">
-                    {s.label}
-                  </a>
+    <footer className="store-footer mt-auto">
+      <div className="store-container mx-auto w-full px-4 py-14 sm:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <Link to={home} className="inline-flex items-center gap-3 mb-4">
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={displayName}
+                  className="h-11 w-11 rounded-full object-cover ring-1 ring-stone-200/80"
+                />
+              ) : (
+                <span className="h-11 w-11 rounded-full bg-stone-900 text-white flex items-center justify-center text-sm font-medium">
+                  {displayName.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="store-footer-brand">{displayName}</span>
+            </Link>
+            <p className="store-footer-muted text-sm leading-relaxed max-w-xs">
+              {settings.footerText ??
+                'Özenle seçilmiş ürünler, güvenli alışveriş ve hızlı teslimat ile kapınıza.'}
+            </p>
+          </div>
+
+          <div>
+            <h3 className="store-footer-col-title">Mağaza</h3>
+            <ul className="space-y-2.5">
+              {quickLinks.map(link => (
+                <li key={link.to}>
+                  <Link to={link.to} className="store-footer-link">
+                    {link.label}
+                  </Link>
                 </li>
               ))}
             </ul>
-          )}
+          </div>
+
+          <div>
+            <h3 className="store-footer-col-title">Yardım</h3>
+            <ul className="space-y-2.5">
+              <li><span className="store-footer-link">Sık sorulan sorular</span></li>
+              <li><span className="store-footer-link">Kargo & teslimat</span></li>
+              <li><span className="store-footer-link">İade politikası</span></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="store-footer-col-title">İletişim</h3>
+            <ul className="space-y-2.5 store-footer-muted text-sm">
+              <li>Hafta içi 09:00 – 18:00</li>
+              <li>destek@{tenant.slug || 'magaza'}.com</li>
+            </ul>
+            {settings.socialLinks.length > 0 && (
+              <ul className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
+                {settings.socialLinks.map(s => (
+                  <li key={s.url}>
+                    <a href={s.url} target="_blank" rel="noreferrer" className="store-section-link text-xs">
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-        <p className="mt-4 text-xs text-slate-400">Woontegra e-ticaret altyapısı</p>
+
+        <div className="store-footer-bottom">
+          <p>© {year} {displayName}. Tüm hakları saklıdır.</p>
+          <p className="opacity-70">Woontegra e-ticaret altyapısı</p>
+        </div>
       </div>
     </footer>
   );
@@ -277,7 +350,7 @@ export function StorefrontFooter({
   preview = false,
 }: Props) {
   const legacySettings = themeSettings ?? {
-    primaryColor: '#4f46e5',
+    primaryColor: '#1c1917',
     logoUrl: tenant.logoUrl,
     faviconUrl: null,
     bannerTitle: null,
@@ -288,7 +361,7 @@ export function StorefrontFooter({
 
   const merged = mergeFooterSettings(footerSettings);
   if (!merged.enabled) {
-    return <LegacyStorefrontFooter tenant={tenant} settings={legacySettings} />;
+    return <LegacyStorefrontFooter tenant={tenant} settings={legacySettings} storeLink={storeLink} />;
   }
 
   return (

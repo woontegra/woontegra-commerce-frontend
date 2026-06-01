@@ -23,6 +23,8 @@ type FeaturedProductsBlockViewProps = {
   viewAllHref: string;
   preview?: boolean;
   themeSettings?: ThemeSettings | null;
+  /** LayoutSections kendi başlığını render ediyorsa true */
+  hideSectionHeader?: boolean;
 };
 
 function str(settings: Record<string, unknown>, key: string, fallback = ''): string {
@@ -56,22 +58,22 @@ function ProductListRow({
 }) {
   const sale = effectivePrice(product.price, product.discountPrice);
   const body = (
-    <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:shadow-sm transition-shadow">
-      <div className="w-full sm:w-28 h-28 flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden">
+    <div className="store-product-list-row flex flex-col sm:flex-row gap-4 p-4 sm:p-5">
+      <div className="w-full sm:w-28 h-28 flex-shrink-0 rounded-xl store-product-card-image overflow-hidden">
         {product.image ? (
           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Görsel yok</div>
+          <div className="w-full h-full flex items-center justify-center text-xs store-text-muted">Görsel yok</div>
         )}
       </div>
-      <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <h3 className="font-semibold text-slate-900 truncate">{product.name}</h3>
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+        <h3 className="font-medium store-text-body truncate">{product.name}</h3>
         {showPrice && (
-          <p className="mt-1 text-sm font-medium text-indigo-600">{formatTry(sale)}</p>
+          <p className="text-sm font-semibold store-text-primary tracking-tight">{formatTry(sale)}</p>
         )}
         {showAddToCart && (
-          <span className="mt-2 inline-flex w-fit px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">
-            Sepete Ekle
+          <span className="mt-2 inline-flex w-fit px-4 py-1.5 store-btn-primary text-xs">
+            Sepete ekle
           </span>
         )}
       </div>
@@ -106,7 +108,7 @@ function ProductCarousel({
       <button
         type="button"
         onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="store-carousel-btn absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         aria-label="Önceki"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -116,7 +118,7 @@ function ProductCarousel({
         className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1 touch-pan-x"
       >
         {products.map(p => (
-          <div key={p.id} className="snap-start flex-shrink-0 w-[220px] sm:w-[240px]">
+          <div key={p.id} className="snap-start flex-shrink-0 w-[240px] sm:w-[260px]">
             <ProductCard
               product={p}
               productUrl={preview ? '#' : productUrl(p.slug)}
@@ -131,7 +133,7 @@ function ProductCarousel({
       <button
         type="button"
         onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center text-slate-600 hover:bg-slate-50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="store-carousel-btn absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         aria-label="Sonraki"
       >
         <ChevronRight className="w-4 h-4" />
@@ -149,6 +151,7 @@ export default function FeaturedProductsBlockView({
   viewAllHref,
   preview = false,
   themeSettings = null,
+  hideSectionHeader = false,
 }: FeaturedProductsBlockViewProps) {
   const title = str(settings, 'title', 'Ürün Vitrini');
   const showTitle = bool(settings, 'showTitle', true);
@@ -173,29 +176,33 @@ export default function FeaturedProductsBlockView({
 
   return (
     <>
-      {(showTitle || showViewAll) && (
-        <div className="flex items-center justify-between mb-4 gap-3">
-          {showTitle && <h2 className="text-xl font-semibold text-slate-900">{title}</h2>}
-          {showViewAll && (
-            preview ? (
-              <span className="text-sm font-medium store-link-primary">{viewAllLabel}</span>
-            ) : (
-              <Link to={viewAllHref} className="text-sm font-medium store-link-primary hover:underline whitespace-nowrap">
-                {viewAllLabel}
-              </Link>
-            )
+      {!hideSectionHeader && (showTitle || showViewAll) && (
+        <div className="store-section-header flex items-end justify-between gap-3">
+          {showTitle && (
+            <div>
+              <p className="store-section-eyebrow">Seçkin parçalar</p>
+              <h2 className="store-section-heading">{title}</h2>
+            </div>
           )}
+          {showViewAll &&
+            (preview ? (
+              <span className="store-section-link">{viewAllLabel} →</span>
+            ) : (
+              <Link to={viewAllHref} className="store-section-link whitespace-nowrap">
+                {viewAllLabel} →
+              </Link>
+            ))}
         </div>
       )}
 
       {loading ? (
         <div className={`${productGridResponsiveClass(colsMobile, colsTablet, colsDesktop)}`}>
           {Array.from({ length: Math.min(colsDesktop, 4) }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-white border border-slate-200 h-52 animate-pulse" />
+            <div key={i} className="store-skeleton-card h-52 sm:h-56 animate-pulse" />
           ))}
         </div>
       ) : products.length === 0 ? (
-        <p className="text-slate-500 text-sm rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-8 text-center">
+        <p className="store-empty-state text-sm px-4 py-10 text-center">
           {featuredEmptyMessage(emptyReason, sourceType)}
         </p>
       ) : displayMode === 'list' ? (
