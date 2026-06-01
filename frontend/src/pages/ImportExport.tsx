@@ -1,17 +1,21 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { api } from '../services/apiClient';
+import { productService } from '../services/product.service';
+import { refreshOnboardingUserInStore } from '../utils/onboardingClient';
 
 const UPGRADE_BILLING_HREF = '/dashboard/billing';
 const UPGRADE_PLANS_HREF   = '/plans';
-import { refreshOnboardingUserInStore } from '../utils/onboardingClient';
+const MAX_FILE_MB          = 10;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Entity   = 'products' | 'customers' | 'orders';
-type ImportEntity = 'products' | 'customers';
+type Entity        = 'products' | 'customers' | 'orders';
+type ImportEntity  = 'products' | 'customers';
 
 interface RowError { row: number; field: string; message: string; value?: string }
+
 interface ImportResult {
   total:             number;
   created:           number;
@@ -22,6 +26,14 @@ interface ImportResult {
   reason?:           'PLAN_LIMIT';
 }
 
+interface LastOperation {
+  type:      'import' | 'export';
+  entity:    string;
+  label:     string;
+  at:        string;
+  summary?:  string;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ENTITIES = [
@@ -30,12 +42,66 @@ const ENTITIES = [
   { key: 'orders',    label: 'Siparişler', icon: '🛒', canImport: false },
 ] as const;
 
+const IMPORT_RULES = [
+  'CSV dosyası UTF-8 kodlamasında olmalıdır.',
+  'İlk satır sütun başlıklarını içermelidir.',
+  'SKU alanı benzersiz olmalıdır (ürün import).',
+  'Images sütununda birden fazla URL için | karakterini kullanın.',
+  'Fiyat ve stok alanları sayısal olmalıdır.',
+  'Maksimum dosya boyutu 10 MB.',
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtDateTime(iso: string) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    day:    '2-digit',
+    month:  'short',
+    year:   'numeric',
+    hour:   '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+async function fetchExport(url: string, filename: string, token: string | null) {
+  const res  = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(href);
+}
+
+// ─── UI primitives ────────────────────────────────────────────────────────────
+
+function SummaryMetric({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="wn-card px-4 py-3 min-w-[120px] flex-1">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-semibold text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
+      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function Panel({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <div className="wn-card overflow-hidden h-full flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100">
+        <h2 className="text-sm font-medium text-slate-900 tracking-tight">{title}</h2>
+        {action}
+      </div>
+      <div className="p-5 flex-1">{children}</div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ImportExport: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
-
-  // Import state
   const [importEntity, setImportEntity] = useState<ImportEntity>('products');
   const [file,         setFile]         = useState<File | null>(null);
   const [dragging,     setDragging]     = useState(false);
@@ -44,25 +110,57 @@ const ImportExport: React.FC = () => {
   const [importError,  setImportError]  = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Export state
-  const [exportEntity,  setExportEntity]  = useState<Entity>('products');
-  const [exporting,     setExporting]     = useState(false);
-  const [orderStatus,   setOrderStatus]   = useState('');
-  const [orderFrom,     setOrderFrom]     = useState('');
-  const [orderTo,       setOrderTo]       = useState('');
+  const [exportEntity, setExportEntity] = useState<Entity>('products');
+  const [exporting,    setExporting]    = useState(false);
+  const [orderStatus,  setOrderStatus]  = useState('');
+  const [orderFrom,    setOrderFrom]    = useState('');
+  const [orderTo,      setOrderTo]      = useState('');
+
+  const [productTotal, setProductTotal]   = useState<number | null>(null);
+  const [lastImport,   setLastImport]     = useState<LastOperation | null>(null);
+  const [lastExport,   setLastExport]     = useState<LastOperation | null>(null);
+
+  const loadProductTotal = useCallback(async () => {
+    try {
+      const res = await productService.search({ limit: 1 });
+      setProductTotal(res.total ?? res.items.length);
+    } catch {
+      setProductTotal(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProductTotal();
+  }, [loadProductTotal]);
+
+  const errorRowCount = importResult?.errors.length ?? 0;
+  const operationStatus = importing
+    ? 'İçe aktarılıyor…'
+    : exporting
+      ? 'Dışa aktarılıyor…'
+      : importResult
+        ? importError
+          ? 'Son işlem hatalı'
+          : 'Son işlem tamamlandı'
+        : 'Hazır';
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   const onDragOver  = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
   const onDrop      = (e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false);
+    e.preventDefault();
+    setDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) pickFile(f);
   };
 
   const pickFile = (f: File) => {
-    if (!f.name.endsWith('.csv')) {
+    if (!f.name.toLowerCase().endsWith('.csv')) {
       setImportError('Sadece .csv dosyaları kabul edilir.');
+      return;
+    }
+    if (f.size > MAX_FILE_MB * 1024 * 1024) {
+      setImportError(`Dosya boyutu ${MAX_FILE_MB} MB sınırını aşıyor.`);
       return;
     }
     setFile(f);
@@ -70,7 +168,14 @@ const ImportExport: React.FC = () => {
     setImportError(null);
   };
 
-  // ── Import ───────────────────────────────────────────────────────────────
+  const downloadTemplate = (entity: ImportEntity) => {
+    const token = localStorage.getItem('token');
+    const url   = `${api.defaults.baseURL ?? '/api'}/csv/template/${entity}`;
+    fetchExport(url, `${entity}_template.csv`, token).catch((err: Error) => {
+      toast.error(`Şablon indirilemedi: ${err.message}`);
+    });
+  };
+
   const handleImport = useCallback(async () => {
     if (!file) return;
     setImporting(true);
@@ -84,34 +189,35 @@ const ImportExport: React.FC = () => {
       const res = await api.post(`/csv/import/${importEntity}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const result = (res.data as any).result;
+      const result = (res.data as { result: ImportResult }).result;
       setImportResult(result);
-      if (importEntity === 'products' && result && ((result.created ?? 0) + (result.updated ?? 0) > 0)) {
+      setLastImport({
+        type:    'import',
+        entity:  importEntity,
+        label:   ENTITIES.find(e => e.key === importEntity)?.label ?? importEntity,
+        at:      new Date().toISOString(),
+        summary: `${result.created} oluşturuldu · ${result.updated} güncellendi · ${result.errors.length} hata`,
+      });
+      if (importEntity === 'products' && (result.created ?? 0) + (result.updated ?? 0) > 0) {
         void refreshOnboardingUserInStore();
+        void loadProductTotal();
       }
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Import başarısız.';
+      if (result.errors.length === 0) {
+        toast.success('İçe aktarma tamamlandı.');
+      } else {
+        toast(`${result.errors.length} satırda hata var.`, { icon: '⚠️' });
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string; result?: ImportResult } }; message?: string };
+      const msg = axiosErr?.response?.data?.message || axiosErr?.message || 'Import başarısız.';
       setImportError(msg);
-      if (err?.response?.data?.result) setImportResult(err.response.data.result);
+      if (axiosErr?.response?.data?.result) setImportResult(axiosErr.response.data.result);
+      toast.error(msg);
     } finally {
       setImporting(false);
     }
-  }, [file, importEntity]);
+  }, [file, importEntity, loadProductTotal]);
 
-  // ── Template download ────────────────────────────────────────────────────
-  const downloadTemplate = (entity: ImportEntity) => {
-    const token = localStorage.getItem('token');
-    const url   = `${(api.defaults.baseURL ?? '/api')}/csv/template/${entity}`;
-    const a     = document.createElement('a');
-    a.href      = url;
-    a.setAttribute('download', `${entity}_template.csv`);
-    // Add token as query param for auth (simple approach)
-    a.href = `${url}?_t=${Date.now()}`;
-    // Use fetch with auth header instead
-    fetchExport(url, `${entity}_template.csv`, token);
-  };
-
-  // ── Export ───────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
     setExporting(true);
     const token = localStorage.getItem('token');
@@ -120,355 +226,406 @@ const ImportExport: React.FC = () => {
     if (exportEntity === 'orders') {
       const params = new URLSearchParams();
       if (orderStatus) params.set('status', orderStatus);
-      if (orderFrom)   params.set('from',   orderFrom);
-      if (orderTo)     params.set('to',     orderTo);
+      if (orderFrom)   params.set('from', orderFrom);
+      if (orderTo)     params.set('to', orderTo);
       if (params.toString()) url += `?${params}`;
     }
 
-    await fetchExport(url, `${exportEntity}_export.csv`, token);
-    setExporting(false);
+    try {
+      await fetchExport(url, `${exportEntity}_export.csv`, token);
+      setLastExport({
+        type:    'export',
+        entity:  exportEntity,
+        label:   ENTITIES.find(e => e.key === exportEntity)?.label ?? exportEntity,
+        at:      new Date().toISOString(),
+        summary: 'CSV dosyası indirildi',
+      });
+      toast.success('Dışa aktarma başarılı.');
+    } catch (err: unknown) {
+      toast.error(`Dosya indirilemedi: ${(err as Error).message}`);
+    } finally {
+      setExporting(false);
+    }
   }, [exportEntity, orderStatus, orderFrom, orderTo]);
 
-  async function fetchExport(url: string, filename: string, token: string | null) {
-    try {
-      const res  = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const href = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = href; a.download = filename; a.click();
-      URL.revokeObjectURL(href);
-    } catch (err: any) {
-      alert(`Dosya indirilemedi: ${err.message}`);
-    }
-  }
+  const exportEntityLabel = ENTITIES.find(e => e.key === exportEntity)?.label ?? exportEntity;
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6 pb-10 page-enter">
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CSV İçe/Dışa Aktar</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Toplu ürün, müşteri ve sipariş verisi yönetimi
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            CSV İçe / Dışa Aktar
+          </h1>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-xl leading-relaxed">
+            Ürün, müşteri ve sipariş verilerinizi CSV dosyalarıyla yönetin.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => downloadTemplate(importEntity)}
+            className="btn btn-secondary"
+          >
+            Örnek Şablon İndir
+          </button>
+          <button
+            type="button"
+            disabled
+            title="İşlem geçmişi sonraki fazda aktif olacak."
+            className="btn btn-ghost opacity-50 cursor-not-allowed"
+          >
+            İşlem Geçmişi
+          </button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
-        {(['import', 'export'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition ${
-              activeTab === tab
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-          >
-            {tab === 'import' ? '⬆ İçe Aktar' : '⬇ Dışa Aktar'}
-          </button>
-        ))}
+      {/* Summary metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <SummaryMetric
+          label="Toplam Ürün"
+          value={productTotal ?? '—'}
+          sub={productTotal == null ? 'Yüklenemedi' : 'katalog'}
+        />
+        <SummaryMetric
+          label="Son İçe Aktarım"
+          value={lastImport ? fmtDateTime(lastImport.at) : 'Henüz yok'}
+          sub={lastImport?.label}
+        />
+        <SummaryMetric
+          label="Son Dışa Aktarım"
+          value={lastExport ? fmtDateTime(lastExport.at) : 'Henüz yok'}
+          sub={lastExport?.label}
+        />
+        <SummaryMetric
+          label="Hatalı Kayıt"
+          value={errorRowCount}
+          sub={importResult ? 'son işlem' : '—'}
+        />
+        <SummaryMetric label="İşlem Durumu" value={operationStatus} />
       </div>
 
-      {/* ── IMPORT TAB ─────────────────────────────────────────────────────── */}
-      {activeTab === 'import' && (
-        <div className="space-y-6">
-          {/* Entity selector */}
-          <div className="flex gap-3">
-            {ENTITIES.filter(e => e.canImport).map(e => (
-              <button
-                key={e.key}
-                onClick={() => { setImportEntity(e.key as ImportEntity); setFile(null); setImportResult(null); setImportError(null); }}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition ${
-                  importEntity === e.key
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400'
-                }`}
-              >
-                {e.icon} {e.label}
-              </button>
-            ))}
-          </div>
+      {/* Main two-column layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
 
-          {/* Template download hint */}
-          <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
-            <span className="text-blue-600 dark:text-blue-400 text-lg">💡</span>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              CSV formatından emin değilseniz{' '}
-              <button
-                onClick={() => downloadTemplate(importEntity)}
-                className="font-semibold underline hover:no-underline"
-              >
-                örnek şablonu indirin
-              </button>
-              . Images sütununda birden fazla URL için <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">|</code> kullanın.
-            </p>
-          </div>
-
-          {/* Drop zone */}
-          <div
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`cursor-pointer border-2 border-dashed rounded-2xl p-12 text-center transition ${
-              dragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : file
-                  ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
-                  : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f); }}
-            />
-            {file ? (
-              <>
-                <div className="text-4xl mb-3">✅</div>
-                <p className="font-medium text-green-700 dark:text-green-400">{file.name}</p>
-                <p className="text-sm text-green-600 dark:text-green-500 mt-1">
-                  {(file.size / 1024).toFixed(1)} KB — değiştirmek için tıklayın
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-5xl mb-4">📂</div>
-                <p className="font-medium text-gray-700 dark:text-gray-300">
-                  CSV dosyasını buraya sürükleyin veya tıklayın
-                </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Maks 10 MB</p>
-              </>
-            )}
-          </div>
-
-          {/* Import button */}
-          <button
-            onClick={handleImport}
-            disabled={!file || importing}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
-          >
-            {importing ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                İçe aktarılıyor...
-              </>
-            ) : (
-              <>⬆ İçe Aktar</>
-            )}
-          </button>
-
-          {/* Error banner */}
-          {importError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-400">
-              ❌ {importError}
-            </div>
-          )}
-
-          {/* Result summary */}
-          {importResult && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: 'Toplam',    value: importResult.total,   color: 'text-gray-700 dark:text-gray-300',  bg: 'bg-gray-100 dark:bg-gray-800' },
-                  { label: 'Oluşturuldu', value: importResult.created, color: 'text-green-700 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
-                  { label: 'Güncellendi', value: importResult.updated, color: 'text-blue-700 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                  { label: 'Atlandı',   value: importResult.skipped, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-                ].map(s => (
-                  <div key={s.label} className={`${s.bg} rounded-xl px-4 py-3 text-center`}>
-                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
+        {/* Left — Import */}
+        <div className="xl:col-span-2 space-y-6">
+          <Panel title="İçe Aktar">
+            <div className="space-y-5">
+              {/* Entity tabs */}
+              <div>
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Veri tipi</p>
+                <div className="flex flex-wrap gap-2">
+                  {ENTITIES.map(e => {
+                    const isImportable = e.canImport;
+                    const isActive = isImportable && importEntity === e.key;
+                    return (
+                      <button
+                        key={e.key}
+                        type="button"
+                        disabled={!isImportable}
+                        title={!isImportable ? 'Sipariş import sonraki fazda aktif olacak.' : undefined}
+                        onClick={() => {
+                          if (!isImportable) return;
+                          setImportEntity(e.key as ImportEntity);
+                          setFile(null);
+                          setImportResult(null);
+                          setImportError(null);
+                        }}
+                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-medium border transition ${
+                          !isImportable
+                            ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'
+                            : isActive
+                              ? 'border-indigo-200 bg-indigo-50 text-indigo-800 ring-1 ring-indigo-100'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
+                        }`}
+                      >
+                        <span>{e.icon}</span>
+                        {e.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {importEntity === 'products'
-                && ((importResult.skippedPlanLimit ?? 0) > 0 || importResult.reason === 'PLAN_LIMIT') && (
-                <div className="space-y-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 text-sm text-indigo-900 dark:text-indigo-200">
-                  {(importResult.skippedPlanLimit ?? 0) > 0 ? (
-                    <p className="text-base font-semibold">
-                      <span className="tabular-nums text-indigo-700 dark:text-indigo-300">{importResult.skippedPlanLimit}</span>
-                      {' '}
-                      ürün daha yüklemek için plan yükseltin.
-                    </p>
-                  ) : (
-                    <p className="text-base font-semibold">Plan limitiniz doldu.</p>
-                  )}
-                  {importResult.created > 0 && (
-                    <p className="text-indigo-800/95 dark:text-indigo-200/90">
-                      Bu içe aktarmada <strong className="tabular-nums">{importResult.created}</strong> yeni ürün oluşturuldu.
-                    </p>
-                  )}
-                  <p>
-                    <Link
-                      to={UPGRADE_BILLING_HREF}
-                      className="font-semibold text-indigo-700 dark:text-indigo-300 underline decoration-2 underline-offset-2 hover:no-underline"
-                    >
-                      Devam etmek için plan yükseltin
-                    </Link>
-                    <span className="text-indigo-400 dark:text-indigo-500"> · </span>
-                    <Link
-                      to={UPGRADE_PLANS_HREF}
-                      className="font-medium text-indigo-600 dark:text-indigo-300 underline underline-offset-2 hover:no-underline"
-                    >
-                      Tüm planları gör
-                    </Link>
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Link
-                      to={UPGRADE_BILLING_HREF}
-                      className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                    >
-                      Planı Yükselt
-                    </Link>
-                    <Link
-                      to={UPGRADE_PLANS_HREF}
-                      className="inline-flex items-center justify-center rounded-xl border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-indigo-800 dark:text-indigo-100 transition hover:bg-indigo-100/80 dark:hover:bg-gray-800"
-                    >
-                      Planları karşılaştır
-                    </Link>
-                  </div>
-                </div>
-              )}
-
-              {/* Row errors */}
-              {importResult.errors.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 border border-red-200 dark:border-red-800 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-red-100 dark:border-red-900 bg-red-50 dark:bg-red-900/20 flex items-center gap-2">
-                    <span className="text-red-600 dark:text-red-400 font-semibold text-sm">
-                      ⚠ {importResult.errors.length} satır hatası
-                    </span>
-                  </div>
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-64 overflow-y-auto">
-                    {importResult.errors.map((e, i) => (
-                      <div key={i} className="px-4 py-2.5 flex items-start gap-3 text-sm">
-                        <span className="flex-shrink-0 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded font-mono">
-                          Satır {e.row}
-                        </span>
-                        <span className="text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-0.5 rounded font-mono">
-                          {e.field}
-                        </span>
-                        <span className="text-gray-600 dark:text-gray-400 flex-1">{e.message}</span>
-                        {e.value && (
-                          <span className="text-xs text-gray-400 dark:text-gray-600 font-mono truncate max-w-24">
-                            "{e.value}"
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {importResult.errors.length === 0
-                && !((importResult.skippedPlanLimit ?? 0) > 0 || importResult.reason === 'PLAN_LIMIT') && (
-                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
-                  ✅ İçe aktarma hatasız tamamlandı!
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── EXPORT TAB ─────────────────────────────────────────────────────── */}
-      {activeTab === 'export' && (
-        <div className="space-y-6">
-          {/* Entity cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {ENTITIES.map(e => (
-              <button
-                key={e.key}
-                onClick={() => setExportEntity(e.key as Entity)}
-                className={`p-5 rounded-2xl border-2 text-left transition ${
-                  exportEntity === e.key
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300'
-                }`}
-              >
-                <div className="text-3xl mb-2">{e.icon}</div>
-                <p className="font-semibold text-gray-900 dark:text-white">{e.label}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {e.key === 'products'  && 'Tüm ürünleri dışa aktar'}
-                  {e.key === 'customers' && 'Tüm müşterileri dışa aktar'}
-                  {e.key === 'orders'    && 'Sipariş geçmişini dışa aktar'}
-                </p>
-              </button>
-            ))}
-          </div>
-
-          {/* Order filters */}
-          {exportEntity === 'orders' && (
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-4">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sipariş Filtreleri</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Durum</label>
-                  <select
-                    value={orderStatus}
-                    onChange={e => setOrderStatus(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              {/* CSV help */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-4 py-3.5 space-y-2">
+                <p className="text-[13px] font-medium text-slate-800">CSV format rehberi</p>
+                <p className="text-[13px] text-slate-600 leading-relaxed">
+                  CSV formatından emin değilseniz{' '}
+                  <button
+                    type="button"
+                    onClick={() => downloadTemplate(importEntity)}
+                    className="font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
                   >
-                    {['', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELED'].map(s => (
-                      <option key={s} value={s}>{s || 'Tümü'}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Başlangıç Tarihi</label>
-                  <input
-                    type="date"
-                    value={orderFrom}
-                    onChange={e => setOrderFrom(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Bitiş Tarihi</label>
-                  <input
-                    type="date"
-                    value={orderTo}
-                    onChange={e => setOrderTo(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                    örnek şablonu indirin
+                  </button>
+                  .
+                </p>
+                <p className="text-[12px] text-slate-500 leading-relaxed">
+                  <strong className="font-medium text-slate-600">Images</strong> sütununda birden fazla görsel URL&apos;si
+                  için <code className="px-1 py-0.5 rounded bg-white/80 text-indigo-700 font-mono text-[11px]">|</code>{' '}
+                  karakterini kullanın.
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* Export button */}
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
-          >
-            {exporting ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Hazırlanıyor...
-              </>
-            ) : (
-              <>⬇ CSV İndir ({ENTITIES.find(e => e.key === exportEntity)?.label})</>
-            )}
-          </button>
+              {/* Drop zone */}
+              <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter') fileInputRef.current?.click(); }}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`cursor-pointer border-2 border-dashed rounded-2xl px-6 py-14 text-center transition ${
+                  dragging
+                    ? 'border-indigo-400 bg-indigo-50/60'
+                    : file
+                      ? 'border-emerald-300 bg-emerald-50/40'
+                      : 'border-slate-200 bg-slate-50/50 hover:border-indigo-300 hover:bg-indigo-50/30'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f); }}
+                />
+                {file ? (
+                  <>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="font-medium text-slate-900">{file.name}</p>
+                    <p className="text-[13px] text-slate-500 mt-1">
+                      {(file.size / 1024).toFixed(1)} KB · Değiştirmek için tıklayın veya sürükleyin
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <p className="font-medium text-slate-800">CSV dosyasını sürükleyip bırakın</p>
+                    <p className="text-[13px] text-slate-500 mt-1">veya dosya seçmek için tıklayın</p>
+                    <p className="text-[12px] text-slate-400 mt-2">
+                      Desteklenen format: .csv · Maks. {MAX_FILE_MB} MB
+                    </p>
+                  </>
+                )}
+              </div>
 
-          {/* Info */}
-          <div className="flex items-start gap-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3">
-            <span className="text-lg">ℹ️</span>
-            <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-              <p>Dışa aktarılan CSV dosyası Excel ile uyumludur (UTF-8 BOM).</p>
-              <p>Ürünler için <strong>images</strong> sütunundaki URL'ler <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">|</code> ile ayrılmıştır.</p>
-              <p>Dışa aktarılan dosyayı düzenleyip tekrar içe aktarabilirsiniz.</p>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={!file || importing}
+                className="btn btn-primary w-full"
+              >
+                {importing ? 'İçe aktarılıyor…' : 'İçe Aktar'}
+              </button>
+
+              {importError && (
+                <div className="rounded-xl border border-red-200 bg-red-50/60 px-4 py-3 text-[13px] text-red-800">
+                  {importError}
+                </div>
+              )}
+
+              {importResult && (
+                <ImportResultPanel
+                  result={importResult}
+                  importEntity={importEntity}
+                />
+              )}
             </div>
-          </div>
+          </Panel>
         </div>
-      )}
+
+        {/* Right — Export + rules + last op */}
+        <div className="space-y-6 xl:sticky xl:top-4">
+          <Panel title="Dışa Aktar">
+            <div className="space-y-4">
+              <div>
+                <label className="wn-label">Veri tipi</label>
+                <select
+                  value={exportEntity}
+                  onChange={e => setExportEntity(e.target.value as Entity)}
+                  className="wn-select w-full"
+                >
+                  {ENTITIES.map(e => (
+                    <option key={e.key} value={e.key}>{e.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {exportEntity === 'orders' && (
+                <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <p className="text-[12px] font-medium text-slate-700">Sipariş filtreleri</p>
+                  <div>
+                    <label className="wn-label">Durum</label>
+                    <select
+                      value={orderStatus}
+                      onChange={e => setOrderStatus(e.target.value)}
+                      className="wn-select w-full"
+                    >
+                      {['', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELED'].map(s => (
+                        <option key={s} value={s}>{s || 'Tümü'}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="wn-label">Başlangıç</label>
+                      <input type="date" value={orderFrom} onChange={e => setOrderFrom(e.target.value)} className="wn-input w-full" />
+                    </div>
+                    <div>
+                      <label className="wn-label">Bitiş</label>
+                      <input type="date" value={orderTo} onChange={e => setOrderTo(e.target.value)} className="wn-input w-full" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="btn btn-primary w-full"
+              >
+                {exporting ? 'Hazırlanıyor…' : `Dışa Aktar (${exportEntityLabel})`}
+              </button>
+
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                Dışa aktarılan CSV Excel ile uyumludur (UTF-8 BOM). Dosyayı düzenleyip tekrar içe aktarabilirsiniz.
+              </p>
+            </div>
+          </Panel>
+
+          <Panel title="Import kuralları">
+            <ul className="space-y-2">
+              {IMPORT_RULES.map(rule => (
+                <li key={rule} className="flex items-start gap-2 text-[13px] text-slate-600 leading-relaxed">
+                  <span className="text-indigo-400 mt-0.5 shrink-0">•</span>
+                  {rule}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+
+          <Panel title="Son işlem özeti">
+            {!lastImport && !lastExport && !importResult ? (
+              <div className="empty-state py-8 px-2">
+                <p className="empty-state-title text-base">Henüz işlem yapılmadı</p>
+                <p className="empty-state-desc mx-auto text-[13px]">
+                  İçe veya dışa aktarma yaptığınızda özet burada görünecektir.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 text-[13px]">
+                {lastImport && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
+                    <p className="font-medium text-slate-800">Son içe aktarım</p>
+                    <p className="text-slate-500 mt-0.5">{lastImport.label} · {fmtDateTime(lastImport.at)}</p>
+                    {lastImport.summary && <p className="text-slate-600 mt-1">{lastImport.summary}</p>}
+                  </div>
+                )}
+                {lastExport && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
+                    <p className="font-medium text-slate-800">Son dışa aktarım</p>
+                    <p className="text-slate-500 mt-0.5">{lastExport.label} · {fmtDateTime(lastExport.at)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 };
+
+// ─── Import result sub-panel ──────────────────────────────────────────────────
+
+function ImportResultPanel({
+  result,
+  importEntity,
+}: {
+  result:       ImportResult;
+  importEntity: ImportEntity;
+}) {
+  return (
+    <div className="space-y-4 pt-2 border-t border-slate-100">
+      <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">İşlem sonucu</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Toplam',      value: result.total,   tone: 'text-slate-900' },
+          { label: 'Oluşturuldu', value: result.created, tone: 'text-emerald-700' },
+          { label: 'Güncellendi', value: result.updated, tone: 'text-indigo-700' },
+          { label: 'Atlandı',     value: result.skipped, tone: 'text-amber-700' },
+        ].map(s => (
+          <div key={s.label} className="wn-card px-3 py-2.5 text-center">
+            <p className={`text-xl font-semibold tabular-nums ${s.tone}`}>{s.value}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {importEntity === 'products'
+        && ((result.skippedPlanLimit ?? 0) > 0 || result.reason === 'PLAN_LIMIT') && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 text-[13px] text-indigo-900 space-y-3">
+          {(result.skippedPlanLimit ?? 0) > 0 ? (
+            <p className="font-medium">
+              <span className="tabular-nums">{result.skippedPlanLimit}</span> ürün daha yüklemek için plan yükseltin.
+            </p>
+          ) : (
+            <p className="font-medium">Plan limitiniz doldu.</p>
+          )}
+          {result.created > 0 && (
+            <p>Bu içe aktarmada <strong className="tabular-nums">{result.created}</strong> yeni ürün oluşturuldu.</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Link to={UPGRADE_BILLING_HREF} className="btn btn-primary text-[13px] py-2">Planı Yükselt</Link>
+            <Link to={UPGRADE_PLANS_HREF} className="btn btn-secondary text-[13px] py-2">Planları karşılaştır</Link>
+          </div>
+        </div>
+      )}
+
+      {result.errors.length > 0 && (
+        <div className="wn-card overflow-hidden border-red-100">
+          <div className="px-4 py-2.5 border-b border-red-100 bg-red-50/60">
+            <p className="text-[13px] font-medium text-red-800">
+              {result.errors.length} satır hatası
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
+            {result.errors.map((e, i) => (
+              <div key={i} className="px-4 py-2.5 flex flex-wrap items-start gap-2 text-[12px]">
+                <span className="font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Satır {e.row}</span>
+                <span className="font-mono bg-red-50 text-red-700 px-2 py-0.5 rounded">{e.field}</span>
+                <span className="text-slate-600 flex-1 min-w-[140px]">{e.message}</span>
+                {e.value && (
+                  <span className="font-mono text-slate-400 truncate max-w-[120px]">&quot;{e.value}&quot;</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {result.errors.length === 0
+        && !((result.skippedPlanLimit ?? 0) > 0 || result.reason === 'PLAN_LIMIT') && (
+        <p className="text-[13px] font-medium text-emerald-700">İçe aktarma hatasız tamamlandı.</p>
+      )}
+    </div>
+  );
+}
 
 export default ImportExport;
