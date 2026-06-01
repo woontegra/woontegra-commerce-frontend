@@ -28,7 +28,7 @@ function SkeletonRows({ cols }: { cols: number }) {
   return (
     <>
       {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} className="border-b border-white/[0.04]">
+        <tr key={i} className="border-b border-slate-100/80">
           {Array.from({ length: cols }).map((_, j) => (
             <td key={j} className="px-4 py-3.5">
               <div className="skeleton h-4 rounded" style={{ width: `${60 + Math.random() * 30}%` }} />
@@ -126,8 +126,8 @@ export function Pagination({ page, totalPages, total, limit, onChange }: Paginat
   const to   = Math.min(page * limit, total);
 
   return (
-    <div className="flex items-center justify-between px-4 py-4 border-t border-white/[0.06]">
-      <p className="text-xs text-slate-500">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+      <p className="text-xs font-normal text-slate-500">
         {from}–{to} / {total} kayıt
       </p>
       <div className="flex items-center gap-1.5">
@@ -152,10 +152,10 @@ export function Pagination({ page, totalPages, total, limit, onChange }: Paginat
             <button
               key={p}
               onClick={() => onChange(p)}
-              className={`w-8 h-8 rounded-lg text-xs font-medium transition-all duration-150 ${
+              className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors duration-150 ${
                 p === page
-                  ? 'bg-brand-500 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
               {p}

@@ -159,16 +159,16 @@ const NAV: NavGroup[] = [
 // ─── Plan lock badge ──────────────────────────────────────────────────────────
 
 const PLAN_LOCK_COLORS: Record<PlanTier, string> = {
-  STARTER: 'bg-slate-700/50 text-slate-400 border-slate-600',
-  PRO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-  ENTERPRISE: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  STARTER: 'bg-slate-700/40 text-slate-400 border-slate-600/50',
+  PRO: 'bg-indigo-500/15 text-indigo-300/90 border-indigo-400/20',
+  ENTERPRISE: 'bg-amber-500/15 text-amber-300/90 border-amber-400/20',
 };
 
 function SidebarLockBadge({ requiredPlan }: { requiredPlan: PlanTier }) {
   return (
     <span
       title={`${PLAN_META[requiredPlan].label} planı gerekli`}
-      className={`ml-auto flex-shrink-0 flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${PLAN_LOCK_COLORS[requiredPlan]}`}
+      className={`ml-auto flex-shrink-0 flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-md border ${PLAN_LOCK_COLORS[requiredPlan]}`}
     >
       <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -186,7 +186,7 @@ function SidebarCountBadge({ count }: { count: number }) {
   return (
     <span
       title={`${count} cevap bekleyen soru`}
-      className="ml-auto flex-shrink-0 min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white tabular-nums"
+      className="ml-auto flex-shrink-0 min-w-[1.15rem] h-[18px] px-1 flex items-center justify-center rounded-full bg-indigo-500/90 text-[9px] font-medium text-white tabular-nums"
     >
       {label}
     </span>
@@ -224,13 +224,13 @@ function SidebarLink({
         : undefined
       }
       className={[
-        'group flex items-center rounded-xl transition-all duration-200 ease-out',
-        collapsed ? 'justify-center p-3 w-full relative' : 'gap-3 px-3 py-2.5',
-        'hover:bg-white/[0.08] hover:translate-x-0.5',
+        'group flex items-center rounded-xl transition-colors duration-150',
+        collapsed ? 'justify-center p-2.5 w-full relative' : 'gap-2.5 px-3 py-2',
+        'hover:bg-white/[0.05]',
         isActive
-          ? 'bg-gradient-to-r from-brand-500/20 to-brand-500/5 text-white shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)] border-l-2 border-brand-400'
-          : 'text-slate-400 hover:text-slate-200',
-        featureLocked ? 'opacity-60' : '',
+          ? 'bg-indigo-500/10 text-white border-l-2 border-indigo-400/80'
+          : 'text-slate-400 hover:text-slate-200 border-l-2 border-transparent',
+        featureLocked ? 'opacity-55' : '',
       ].filter(Boolean).join(' ')}
     >
       <span className={`relative flex-shrink-0 ${collapsed ? '' : ''}`}>
@@ -247,15 +247,15 @@ function SidebarLink({
           }`}
         />
         {collapsed && badgeCount > 0 && !featureLocked && (
-          <span className="absolute -top-1 -right-1 min-w-[0.9rem] h-[0.9rem] px-0.5 flex items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold text-white leading-none">
+          <span className="absolute -top-1 -right-1 min-w-[0.85rem] h-[0.85rem] px-0.5 flex items-center justify-center rounded-full bg-indigo-500 text-[8px] font-medium text-white leading-none">
             {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         )}
       </span>
       {!collapsed && (
         <>
-          <span className={`truncate flex-1 text-[13px] font-medium ${
-            isActive ? 'text-white' : ''
+          <span className={`truncate flex-1 text-[13px] font-normal ${
+            isActive ? 'text-white font-medium' : ''
           }`}>
             {item.label}
           </span>
@@ -322,7 +322,7 @@ function NavSection({
           onClick={onToggle}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/[0.06] transition-all duration-200 group"
         >
-          <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase group-hover:text-slate-300 transition-colors">
+          <span className="text-[10px] font-medium tracking-[0.1em] text-slate-500 uppercase group-hover:text-slate-400 transition-colors">
             {group.label}
           </span>
           <svg
@@ -353,24 +353,21 @@ function NavSection({
 
 // ─── Plan sidebar badge ───────────────────────────────────────────────────────
 
-const PLAN_PILL: Record<PlanTier, { bg: string; text: string; icon: string; glow: string }> = {
+const PLAN_PILL: Record<PlanTier, { bg: string; text: string; icon: string }> = {
   STARTER: {
-    bg: 'bg-slate-700/80',
+    bg: 'bg-slate-600/50',
     text: 'text-slate-200',
     icon: 'text-slate-400',
-    glow: 'shadow-none',
   },
   PRO: {
-    bg: 'bg-gradient-to-r from-indigo-600 to-indigo-500',
-    text: 'text-white',
-    icon: 'text-indigo-200',
-    glow: 'shadow-lg shadow-indigo-500/25',
+    bg: 'bg-indigo-500/25 ring-1 ring-indigo-400/25',
+    text: 'text-indigo-100',
+    icon: 'text-indigo-300/80',
   },
   ENTERPRISE: {
-    bg: 'bg-gradient-to-r from-amber-500 to-amber-400',
-    text: 'text-amber-950',
-    icon: 'text-amber-100',
-    glow: 'shadow-lg shadow-amber-500/25',
+    bg: 'bg-amber-500/20 ring-1 ring-amber-400/25',
+    text: 'text-amber-100',
+    icon: 'text-amber-300/80',
   },
 };
 
@@ -382,16 +379,16 @@ function PlanSidebarBadge() {
   const planLabel = getPlanDisplayLabel(plan, tenantStatus);
 
   return (
-    <div className="mx-2 mb-2 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.1] p-4 backdrop-blur-sm">
+    <div className="mx-2 mb-2 rounded-2xl bg-white/[0.04] border border-white/[0.08] p-3.5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
-          <svg className={`w-4 h-4 ${pill.icon}`} viewBox="0 0 20 20" fill="currentColor">
+          <svg className={`w-3.5 h-3.5 ${pill.icon}`} viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Aktif Plan</span>
+          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-[0.1em]">Aktif Plan</span>
         </div>
-        <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${pill.bg} ${pill.text} ${pill.glow}`}>
+        <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full ${pill.bg} ${pill.text}`}>
           {planLabel}
         </span>
       </div>
@@ -400,7 +397,7 @@ function PlanSidebarBadge() {
       {upgradeTo && (
         <button
           onClick={() => navigate('/dashboard/billing')}
-          className="w-full text-[12px] font-semibold text-white bg-brand-500 hover:bg-brand-400 active:scale-[0.98] flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-brand-500/20 hover:shadow-brand-500/30"
+          className="w-full text-[12px] font-medium text-white bg-indigo-600/90 hover:bg-indigo-500 flex items-center justify-center gap-2 py-2 rounded-xl transition-colors duration-150"
         >
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
@@ -482,7 +479,7 @@ export default function DashboardLayout() {
   const sidebarW = collapsed ? 'w-20' : 'w-64';
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
 
       {/* Mobile backdrop */}
       {mobileSidebarOpen && (
@@ -508,15 +505,15 @@ export default function DashboardLayout() {
               {branding.logoUrl ? (
                 <img src={branding.logoUrl} alt={displayStoreName(branding.siteName)} className="h-7 max-w-[140px] object-contain" />
               ) : (
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-brand-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-brand-500/20">W</div>
-                  <span className="text-sm font-bold text-white tracking-tight truncate">{displayStoreName(branding.siteName)}</span>
+        <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">W</div>
+                  <span className="text-sm font-medium text-white tracking-tight truncate">{displayStoreName(branding.siteName)}</span>
                 </div>
               )}
             </div>
           )}
           {collapsed && (
-            <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-brand-500/20">W</div>
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-xs font-medium">W</div>
           )}
 
           {/* Collapse button (desktop) */}
@@ -571,7 +568,7 @@ export default function DashboardLayout() {
           {canAccessPlatformAdmin && (
             <div className={`mt-4 ${!collapsed ? 'pt-3 border-t border-white/[0.05]' : ''}`}>
               {!collapsed && (
-                <p className="px-3 py-2 text-[11px] font-bold tracking-wider text-brand-400/80 uppercase">
+                <p className="px-3 py-2 text-[10px] font-medium tracking-[0.1em] text-indigo-400/70 uppercase">
                   Yönetim
                 </p>
               )}
@@ -607,7 +604,7 @@ export default function DashboardLayout() {
       <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
 
         {/* ── Topbar ──────────────────────────────────────────────────────────── */}
-        <header className="h-14 flex-shrink-0 flex items-center gap-4 px-6 bg-white border-b border-slate-200 relative z-10">
+        <header className="h-[52px] flex-shrink-0 flex items-center gap-3 px-5 bg-white/90 backdrop-blur-sm border-b border-slate-200/70 relative z-10">
 
           {/* Mobile menu toggle */}
           <button
@@ -629,7 +626,7 @@ export default function DashboardLayout() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Ara..."
-                className="wn-input pl-9 py-2 text-sm h-9"
+                className="wn-input pl-9 py-1.5 text-[13px] h-8 bg-slate-50/50 border-slate-200/70"
               />
             </div>
           </div>
@@ -642,13 +639,13 @@ export default function DashboardLayout() {
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(o => !o)}
-                className="flex items-center gap-2.5 h-9 pl-2 pr-3 rounded-xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200"
+                className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200/70"
               >
-                <div className="w-7 h-7 rounded-lg bg-brand-gradient flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">
                   {user?.firstName?.[0]?.toUpperCase() ?? 'U'}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-medium text-slate-800 leading-tight">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-xs font-normal text-slate-700 leading-tight">{user?.firstName} {user?.lastName}</p>
                   <p className="text-[10px] text-slate-400 leading-tight capitalize">{user?.role?.toLowerCase()}</p>
                 </div>
                 <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -660,9 +657,9 @@ export default function DashboardLayout() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-52 z-20 animate-scale-in">
-                    <div className="bg-white rounded-xl overflow-hidden shadow-lg border border-slate-200">
+                    <div className="bg-white rounded-xl overflow-hidden shadow-md border border-slate-200/80">
                       <div className="p-3 border-b border-slate-100">
-                        <p className="text-xs font-semibold text-slate-800">{user?.firstName} {user?.lastName}</p>
+                        <p className="text-xs font-medium text-slate-800">{user?.firstName} {user?.lastName}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">{user?.email}</p>
                       </div>
                       <div className="p-1.5 space-y-0.5">
@@ -740,7 +737,7 @@ export default function DashboardLayout() {
               </div>
             </div>
           )}
-          <div className="p-6 animate-fade-in">
+          <div className="p-5 md:p-6 animate-fade-in">
             <Outlet />
           </div>
         </main>

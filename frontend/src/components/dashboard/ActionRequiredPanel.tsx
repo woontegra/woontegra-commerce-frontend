@@ -28,7 +28,7 @@ export default function ActionRequiredPanel({ items, loading }: ActionRequiredPa
   return (
     <div className="wn-card p-6">
       <div className="mb-5">
-        <h2 className="text-sm font-bold text-slate-900">Aksiyon Gerektirenler</h2>
+        <h2 className="text-sm font-medium text-slate-900">Aksiyon Gerektirenler</h2>
         <p className="text-xs text-slate-400 mt-0.5">Operasyonunuzda dikkat gerektiren kalemler</p>
       </div>
 
@@ -45,7 +45,7 @@ export default function ActionRequiredPanel({ items, loading }: ActionRequiredPa
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-slate-700">Bekleyen aksiyon yok</p>
+          <p className="text-sm font-medium text-slate-700">Bekleyen aksiyon yok</p>
           <p className="text-xs text-slate-400 mt-1">Tüm operasyon kalemleri güncel görünüyor.</p>
         </div>
       ) : (
@@ -59,8 +59,8 @@ export default function ActionRequiredPanel({ items, loading }: ActionRequiredPa
                 to={item.href}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors ${TONE_CLASSES[item.tone]}`}
               >
-                <span className="text-xs font-semibold leading-snug">{item.label}</span>
-                <span className="text-lg font-black tabular-nums flex-shrink-0">
+                <span className="text-xs font-medium leading-snug">{item.label}</span>
+                <span className="text-base font-semibold tabular-nums flex-shrink-0">
                   {item.count!.toLocaleString('tr-TR')}
                 </span>
               </Link>

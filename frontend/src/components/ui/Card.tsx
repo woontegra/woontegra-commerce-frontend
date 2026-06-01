@@ -29,7 +29,7 @@ export const Card: React.FC<CardProps> = ({
   const isHoverable = hoverable || hover;
   return (
     <div
-      className={`wn-card ${isHoverable ? 'cursor-pointer' : ''} ${PADDING[padding]} ${className}`}
+      className={`wn-card ${isHoverable ? 'wn-card-hover cursor-pointer' : ''} ${PADDING[padding]} ${className}`}
       onClick={onClick}
     >
       {children}
@@ -48,11 +48,11 @@ export const CardHeader: React.FC<{
   <div className={`flex items-start justify-between gap-4 mb-6 ${className}`}>
     <div>
       {typeof title === 'string' ? (
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <h3 className="text-sm font-medium text-slate-900">{title}</h3>
       ) : title}
       {subtitle && (
         typeof subtitle === 'string'
-          ? <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+          ? <p className="text-xs font-normal text-slate-500 mt-0.5">{subtitle}</p>
           : subtitle
       )}
     </div>

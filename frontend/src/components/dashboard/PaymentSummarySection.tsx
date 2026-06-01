@@ -75,7 +75,7 @@ function SummaryList({
             >
               {labels[key] ?? key}
             </span>
-            <span className="text-sm font-bold text-slate-900 tabular-nums">
+            <span className="text-sm font-medium text-slate-900 tabular-nums">
               {count.toLocaleString('tr-TR')}
             </span>
           </>
@@ -153,7 +153,7 @@ export default function PaymentSummarySection({
   return (
     <div className="wn-card p-6 h-full">
       <div className="mb-5">
-        <h2 className="text-sm font-bold text-slate-900">Ödeme Özeti</h2>
+        <h2 className="text-sm font-medium text-slate-900">Ödeme Özeti</h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Son {days} gün — vitrin siparişleri
         </p>
@@ -178,7 +178,7 @@ export default function PaymentSummarySection({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+            <h3 className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-3">
               Ödeme Yöntemleri
             </h3>
             <SummaryList
@@ -190,7 +190,7 @@ export default function PaymentSummarySection({
             />
           </div>
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+            <h3 className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-3">
               Ödeme Durumları
             </h3>
             <SummaryList

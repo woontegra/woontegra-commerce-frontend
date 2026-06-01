@@ -39,7 +39,7 @@ export default function OrderStatusSection({
   return (
     <div className="wn-card p-6 h-full">
       <div className="mb-5">
-        <h2 className="text-sm font-bold text-slate-900">Sipariş Durumları</h2>
+        <h2 className="text-sm font-medium text-slate-900">Sipariş Durumları</h2>
         <p className="text-xs text-slate-400 mt-0.5">Tüm kanallar — vitrin + pazaryeri</p>
       </div>
 
@@ -66,7 +66,7 @@ export default function OrderStatusSection({
                 <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${tone}`}>
                   {label}
                 </span>
-                <span className="text-sm font-bold text-slate-900 tabular-nums">
+                <span className="text-sm font-medium text-slate-900 tabular-nums">
                   {count.toLocaleString('tr-TR')}
                 </span>
               </Link>
@@ -78,8 +78,8 @@ export default function OrderStatusSection({
               to="/dashboard/orders?status=PAID"
               className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5 hover:bg-indigo-100/70 transition-colors"
             >
-              <span className="text-xs font-semibold text-indigo-800">Kargoya hazır (ödendi)</span>
-              <span className="text-sm font-bold text-indigo-900 tabular-nums">
+              <span className="text-xs font-medium text-indigo-800">Kargoya hazır (ödendi)</span>
+              <span className="text-sm font-medium text-indigo-900 tabular-nums">
                 {readyToShip!.toLocaleString('tr-TR')}
               </span>
             </Link>

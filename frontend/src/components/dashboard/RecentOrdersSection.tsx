@@ -31,13 +31,13 @@ function fmtDate(iso: string) {
 function SourceBadge({ source }: { source?: string }) {
   if (source === 'TRENDYOL') {
     return (
-      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-100">
+      <span className="text-[10px] font-medium uppercase px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-100/80">
         Trendyol
       </span>
     );
   }
   return (
-    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+    <span className="text-[10px] font-medium uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100/80">
       Woontegra
     </span>
   );
@@ -53,10 +53,10 @@ export default function RecentOrdersSection({ orders, loading }: RecentOrdersSec
     <div className="wn-card p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">Son Siparişler</h2>
+          <h2 className="text-sm font-medium text-slate-900">Son Siparişler</h2>
           <p className="text-xs text-slate-400 mt-0.5">Son 10 sipariş — tüm kanallar</p>
         </div>
-        <Link to="/dashboard/orders" className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
+        <Link to="/dashboard/orders" className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
           Tümünü gör →
         </Link>
       </div>
@@ -69,11 +69,11 @@ export default function RecentOrdersSection({ orders, loading }: RecentOrdersSec
         </div>
       ) : orders.length === 0 ? (
         <div className="py-10 text-center">
-          <p className="text-sm font-semibold text-slate-700">Henüz sipariş yok</p>
+          <p className="text-sm font-medium text-slate-700">Henüz sipariş yok</p>
           <p className="text-xs text-slate-400 mt-1 mb-4">İlk satışınız geldiğinde burada görünecek.</p>
           <Link
             to="/dashboard/products/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors"
           >
             Ürün Ekle
           </Link>
@@ -82,7 +82,7 @@ export default function RecentOrdersSection({ orders, loading }: RecentOrdersSec
         <div className="overflow-x-auto -mx-2">
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <tr className="text-left text-[11px] font-medium text-slate-400 uppercase tracking-wide">
                 <th className="px-2 pb-3">Sipariş</th>
                 <th className="px-2 pb-3">Kaynak</th>
                 <th className="px-2 pb-3">Müşteri</th>
@@ -104,7 +104,7 @@ export default function RecentOrdersSection({ orders, loading }: RecentOrdersSec
                     <td className="px-2 py-3">
                       <Link
                         to={`/dashboard/orders/${order.id}`}
-                        className="font-semibold text-indigo-600 hover:text-indigo-800"
+                        className="font-medium text-indigo-600 hover:text-indigo-800"
                       >
                         #{num}
                       </Link>
@@ -118,7 +118,7 @@ export default function RecentOrdersSection({ orders, loading }: RecentOrdersSec
                         {STATUS_LABELS[order.status] ?? order.externalStatusLabel ?? order.status}
                       </span>
                     </td>
-                    <td className="px-2 py-3 text-right font-semibold text-slate-900 tabular-nums">
+                    <td className="px-2 py-3 text-right font-medium text-slate-800 tabular-nums">
                       {fmtCurrency(order.totalAmount, order.currency)}
                     </td>
                     <td className="px-2 py-3 text-right text-xs text-slate-400 whitespace-nowrap">

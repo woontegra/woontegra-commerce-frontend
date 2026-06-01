@@ -189,8 +189,8 @@ function StatCard({ label, value, sub, icon, iconBg, loading, href }: StatCardPr
         {icon}
       </div>
       <div>
-        <p className="text-2xl font-black text-slate-900 tracking-tight">{value}</p>
-        <p className="text-sm font-semibold text-slate-700 mt-0.5">{label}</p>
+        <p className="text-2xl font-semibold text-slate-900 tracking-tight">{value}</p>
+        <p className="text-sm font-medium text-slate-600 mt-0.5">{label}</p>
         {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
       </div>
     </>
@@ -208,7 +208,7 @@ function StatCard({ label, value, sub, icon, iconBg, loading, href }: StatCardPr
     );
   }
 
-  const cls = 'wn-card p-5 flex flex-col gap-3 hover:shadow-md transition-shadow';
+  const cls = 'wn-card p-5 flex flex-col gap-3 transition-shadow duration-150';
   if (href) {
     return <Link to={href} className={cls}>{inner}</Link>;
   }
@@ -219,14 +219,14 @@ function SalesChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-lg text-xs">
-      <p className="text-slate-500 mb-2 font-semibold">{label}</p>
+      <p className="text-slate-500 mb-2 font-medium">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: p.color }} />
           <span className="text-slate-600">
             {p.dataKey === 'revenue' ? 'Ciro' : 'Sipariş'}:
           </span>
-          <span className="font-bold text-slate-900">
+          <span className="font-medium text-slate-900">
             {p.dataKey === 'revenue'
               ? fmtCurrency(p.value)
               : fmt(p.value)}
@@ -396,7 +396,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+          <h1 className="text-lg font-medium text-slate-900 tracking-tight">
             {greeting}, {user?.firstName} 👋
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -445,19 +445,19 @@ export default function Dashboard() {
       {/* Quick start — only when no products */}
       {!loading && (overview?.totalProducts ?? 0) === 0 && (
         <div className="wn-card p-6 border-indigo-200 bg-indigo-50/40">
-          <h2 className="text-base font-bold text-slate-900">Hızlı Başlangıç</h2>
+          <h2 className="text-sm font-medium text-slate-900">Hızlı Başlangıç</h2>
           <p className="text-sm text-slate-600 mt-1">Mağazanızı kurup ilk satışa hazırlanın.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
             <Link to="/dashboard/products/new" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-indigo-300 transition-colors">
-              <p className="font-semibold text-slate-800">İlk ürününü ekle</p>
+              <p className="font-medium text-slate-800">İlk ürününü ekle</p>
               <p className="text-xs text-slate-500 mt-1">Tek ürünle başlayıp mağazanı hemen yayına al.</p>
             </Link>
             <Link to="/dashboard/products/import/xml" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-indigo-300 transition-colors">
-              <p className="font-semibold text-slate-800">XML ile yükle</p>
+              <p className="font-medium text-slate-800">XML ile yükle</p>
               <p className="text-xs text-slate-500 mt-1">Toplu ürün aktarımı için XML import sihirbazını kullan.</p>
             </Link>
             <Link to="/dashboard/settings" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-indigo-300 transition-colors">
-              <p className="font-semibold text-slate-800">Tema seç</p>
+              <p className="font-medium text-slate-800">Tema seç</p>
               <p className="text-xs text-slate-500 mt-1">Markana uygun görünümü ayarlayıp satışa hazırlan.</p>
             </Link>
           </div>
@@ -571,7 +571,7 @@ export default function Dashboard() {
       <div className="wn-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Satış Grafiği</h2>
+            <h2 className="text-sm font-medium text-slate-900">Satış Grafiği</h2>
             <p className="text-xs text-slate-400 mt-0.5">Son {days} gün — ciro ve sipariş adedi (vitrin)</p>
           </div>
         </div>
@@ -580,7 +580,7 @@ export default function Dashboard() {
           <div className="h-56 bg-slate-50 rounded-xl animate-pulse" />
         ) : !chartHasData ? (
           <div className="py-14 text-center">
-            <p className="text-sm font-semibold text-slate-700">Henüz satış verisi yok</p>
+            <p className="text-sm font-medium text-slate-700">Henüz satış verisi yok</p>
             <p className="text-xs text-slate-400 mt-1">İlk siparişleriniz geldiğinde grafik burada görünecek.</p>
           </div>
         ) : (
@@ -651,7 +651,7 @@ export default function Dashboard() {
 
       {/* Quick links */}
       <div className="wn-card p-6">
-        <h2 className="text-sm font-bold text-slate-900 mb-4">Hızlı Erişim</h2>
+        <h2 className="text-sm font-medium text-slate-900 mb-4">Hızlı Erişim</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {[
             { label: 'Ürün Ekle',         href: '/dashboard/products/new',           bg: 'bg-indigo-50  text-indigo-700',  icon: '➕' },
@@ -665,7 +665,7 @@ export default function Dashboard() {
             <Link
               key={item.href}
               to={item.href}
-              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-sm font-semibold ${item.bg}`}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-200/80 hover:border-slate-300/80 hover:shadow-sm transition-all text-[13px] font-medium ${item.bg}`}
             >
               <span>{item.icon}</span>
               {item.label}

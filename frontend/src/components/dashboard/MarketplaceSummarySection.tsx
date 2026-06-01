@@ -40,7 +40,7 @@ function MetricRow({ label, value, sub }: { label: string; value: string; sub?: 
         <p className="text-xs font-medium text-slate-600">{label}</p>
         {sub && <p className="text-[11px] text-slate-400">{sub}</p>}
       </div>
-      <span className="text-sm font-bold text-slate-900 tabular-nums">{value}</span>
+      <span className="text-sm font-medium text-slate-900 tabular-nums">{value}</span>
     </div>
   );
 }
@@ -59,8 +59,8 @@ export default function MarketplaceSummarySection({
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-900">Pazaryeri Özeti</h2>
-            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-100">
+            <h2 className="text-sm font-medium text-slate-900">Pazaryeri Özeti</h2>
+            <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-100/80">
               Trendyol
             </span>
           </div>
@@ -96,7 +96,7 @@ export default function MarketplaceSummarySection({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Bağlantı</h3>
+            <h3 className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Bağlantı</h3>
             <MetricRow
               label="Durum"
               value={connected ? 'Bağlı' : 'Bağlı değil'}
@@ -108,7 +108,7 @@ export default function MarketplaceSummarySection({
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ürün gönderimi</h3>
+            <h3 className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Ürün gönderimi</h3>
             <MetricRow label="Gönderilen ürün" value={fmt(overview?.sentProducts ?? trendyol?.sent)} />
             <MetricRow label="Hatalı gönderim" value={fmt(overview?.failedProducts ?? trendyol?.errors)} />
             <MetricRow
@@ -118,7 +118,7 @@ export default function MarketplaceSummarySection({
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Son gönderimler</h3>
+            <h3 className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Son gönderimler</h3>
             {!overview?.recentSent?.length ? (
               <p className="text-xs text-slate-400 py-4 text-center">Henüz gönderim yapılmamış</p>
             ) : (
@@ -141,7 +141,7 @@ export default function MarketplaceSummarySection({
                 {overview!.topErrors!.slice(0, 3).map((t, i) => (
                   <div key={i} className="flex justify-between text-xs py-1">
                     <span className="truncate text-slate-600">{t.productName ?? '—'}</span>
-                    <span className="font-bold text-red-600 ml-2">{t.errorCount}</span>
+                    <span className="font-medium text-red-600 ml-2">{t.errorCount}</span>
                   </div>
                 ))}
               </div>
