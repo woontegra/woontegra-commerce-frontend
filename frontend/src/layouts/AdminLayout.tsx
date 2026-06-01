@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, CreditCard,
   ClipboardList, LogOut, ChevronRight, Menu, X, Shield,
-  AlertTriangle, ToggleRight, ScrollText,
+  AlertTriangle, ToggleRight, ScrollText, MessageSquare,
 } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { useAppStore } from '../store/useAppStore';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/admin/tenants',         label: 'Tenantlar',      icon: Building2 },
   { to: '/admin/users',           label: 'Kullanıcılar',   icon: Users },
   { to: '/admin/billing',         label: 'Faturalama',    icon: CreditCard },
+  { to: '/admin/support',         label: 'Destek Talepleri', icon: MessageSquare },
   { to: '/admin/feature-flags',   label: 'Feature Flags',  icon: ToggleRight },
   { to: '/admin/system-logs',     label: 'Sistem Logları', icon: ScrollText },
   { to: '/admin/audit-logs',      label: 'Audit Loglar',   icon: ClipboardList },

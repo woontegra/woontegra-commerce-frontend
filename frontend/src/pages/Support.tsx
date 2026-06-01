@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   AlertCircle,
@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
+  Send,
   Ticket,
 } from 'lucide-react';
 import {
@@ -18,12 +19,16 @@ import {
   statusLabel,
   type SupportSummary,
   type SupportTicket,
+  type SupportTicketDetail,
+  type SupportTicketMessage,
   type SupportTicketPriority,
   type SupportTicketStatus,
 } from './supportPageHelpers';
 import {
   createSupportTicket,
   fetchSupportTickets,
+  getSupportTicket,
+  sendSupportTicketMessage,
 } from '../services/support.service';
 
 type TabKey = 'tickets' | 'chat';
@@ -53,6 +58,215 @@ function Panel({ title, desc, children }: { title: string; desc?: string; childr
   );
 }
 
+function MessageBubble({ msg }: { msg: SupportTicketMessage }) {
+  const isUser = msg.senderType === 'user';
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
+          isUser
+            ? 'bg-indigo-600 text-white rounded-br-md'
+            : 'bg-slate-100 text-slate-800 rounded-bl-md'
+        }`}
+      >
+        <p className="text-[11px] font-medium mb-1 opacity-80">
+          {isUser ? 'Siz' : 'Destek'}
+        </p>
+        <p className="text-[13px] whitespace-pre-wrap break-words">{msg.message}</p>
+        <p className={`text-[10px] mt-1.5 ${isUser ? 'text-indigo-100' : 'text-slate-400'}`}>
+          {formatSupportDate(msg.createdAt)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MessageThread({
+  messages,
+  loading,
+}: {
+  messages: SupportTicketMessage[];
+  loading?: boolean;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, loading]);
+
+  if (loading) {
+    return (
+      <div className="py-10 text-center text-slate-500">
+        <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto mb-2" />
+        Mesajlar yükleniyor…
+      </div>
+    );
+  }
+
+  if (messages.length === 0) {
+    return (
+      <p className="text-[13px] text-slate-500 text-center py-8">
+        Henüz mesaj bulunmuyor.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+      {messages.map(msg => (
+        <MessageBubble key={msg.id} msg={msg} />
+      ))}
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
+function TicketDetailPanel({
+  ticket,
+  loading,
+  error,
+  onRetry,
+  messageInput,
+  onMessageChange,
+  onSend,
+  sending,
+  messageError,
+  compact,
+}: {
+  ticket: SupportTicketDetail | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  messageInput: string;
+  onMessageChange: (v: string) => void;
+  onSend: () => void;
+  sending: boolean;
+  messageError: string | null;
+  compact?: boolean;
+}) {
+  const isClosed = ticket?.status === 'closed';
+
+  if (loading) {
+    return (
+      <Panel title="Talep detayı">
+        <div className="py-8 text-center text-slate-500">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto mb-2" />
+          Talep detayı yükleniyor…
+        </div>
+      </Panel>
+    );
+  }
+
+  if (error) {
+    return (
+      <Panel title="Talep detayı">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-[13px] text-red-800">
+          <p className="font-medium">Talep detayı yüklenemedi.</p>
+          <p className="text-[12px] mt-0.5 opacity-90">{error}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="btn btn-secondary text-[12px] mt-3 inline-flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Tekrar Dene
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <Panel title="Talep detayı">
+        <p className="text-[13px] text-slate-500 leading-relaxed">
+          Detayları görüntülemek için listeden bir destek talebi seçin.
+        </p>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel
+      title={`Talep #${ticket.id}`}
+      desc={ticket.subject}
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadgeClass(ticket.status)}`}>
+            {statusLabel(ticket.status)}
+          </span>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${priorityBadgeClass(ticket.priority)}`}>
+            {priorityLabel(ticket.priority)}
+          </span>
+        </div>
+        <dl className="grid grid-cols-1 gap-2 text-[12px]">
+          <div className="flex justify-between gap-2">
+            <dt className="text-slate-500">Oluşturulma</dt>
+            <dd className="font-medium text-slate-800">{formatSupportDate(ticket.createdAt)}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt className="text-slate-500">Son güncelleme</dt>
+            <dd className="font-medium text-slate-800">{formatSupportDate(ticket.updatedAt)}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt className="text-slate-500">Mesaj sayısı</dt>
+            <dd className="font-medium text-slate-800">{ticket.messages.length}</dd>
+          </div>
+        </dl>
+
+        {!compact && (
+          <>
+            <div className="border-t border-slate-100 pt-4">
+              <h3 className="text-[12px] font-semibold text-slate-700 mb-3">Mesaj geçmişi</h3>
+              <MessageThread messages={ticket.messages} />
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 space-y-2">
+              <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+                Yeni mesaj
+              </label>
+              {isClosed && (
+                <p className="text-[12px] text-slate-500">
+                  Bu talep kapalı olduğu için yeni mesaj gönderilemez.
+                </p>
+              )}
+              {messageError && (
+                <p className="text-[12px] text-red-600">{messageError}</p>
+              )}
+              <textarea
+                className={`${inputCls} min-h-[88px] resize-y disabled:bg-slate-50 disabled:text-slate-400`}
+                value={messageInput}
+                onChange={e => onMessageChange(e.target.value)}
+                placeholder={isClosed ? 'Kapalı talep' : 'Mesajınızı yazın…'}
+                disabled={isClosed || sending}
+              />
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={isClosed || sending || !messageInput.trim()}
+                className="btn btn-primary text-[13px] inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gönderiliyor…
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Gönder
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 export default function Support() {
   const [activeTab, setActiveTab] = useState<TabKey>('tickets');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -71,6 +285,13 @@ export default function Support() {
     priority: 'medium' as SupportTicketPriority,
     category: 'GENERAL',
   });
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [ticketDetail, setTicketDetail] = useState<SupportTicketDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -95,9 +316,34 @@ export default function Support() {
     setLoading(false);
   }, []);
 
+  const loadTicketDetail = useCallback(async (ticketId: number) => {
+    setDetailLoading(true);
+    setDetailError(null);
+    setMessageError(null);
+    const result = await getSupportTicket(ticketId);
+    if (result.ok) {
+      setTicketDetail(result.ticket);
+      setDetailError(null);
+    } else {
+      setTicketDetail(null);
+      setDetailError(result.message);
+    }
+    setDetailLoading(false);
+  }, []);
+
   useEffect(() => {
     void loadTickets();
   }, [loadTickets]);
+
+  const selectTicket = useCallback((ticketId: number, switchToChat = false) => {
+    setSelectedTicketId(ticketId);
+    setMessageInput('');
+    setMessageError(null);
+    if (switchToChat) {
+      setActiveTab('chat');
+    }
+    void loadTicketDetail(ticketId);
+  }, [loadTicketDetail]);
 
   const stats = summary;
   const filtered = useMemo(
@@ -107,6 +353,7 @@ export default function Support() {
 
   const canCreate = moduleState === 'available';
   const filtersDisabled = moduleState !== 'available';
+  const isClosed = ticketDetail?.status === 'closed';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,9 +382,29 @@ export default function Support() {
       toast.success('Destek talebiniz oluşturuldu.');
       setTicketForm({ subject: '', message: '', priority: 'medium', category: 'GENERAL' });
       setShowCreateInfo(false);
-      void loadTickets();
+      await loadTickets();
     } else {
       toast.error(result.message);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedTicketId || !ticketDetail || isClosed) return;
+    const text = messageInput.trim();
+    if (text.length < 2) {
+      setMessageError('Mesaj en az 2 karakter olmalıdır.');
+      return;
+    }
+    setSendingMessage(true);
+    setMessageError(null);
+    const result = await sendSupportTicketMessage(selectedTicketId, text);
+    setSendingMessage(false);
+    if (result.ok) {
+      toast.success('Mesajınız gönderildi.');
+      setMessageInput('');
+      await Promise.all([loadTicketDetail(selectedTicketId), loadTickets()]);
+    } else {
+      setMessageError(result.message);
     }
   };
 
@@ -309,7 +576,12 @@ export default function Support() {
                         </tr>
                       ) : (
                         filtered.map(ticket => (
-                          <tr key={ticket.id} className="border-b border-slate-50 last:border-0">
+                          <tr
+                            key={ticket.id}
+                            className={`border-b border-slate-50 last:border-0 ${
+                              selectedTicketId === ticket.id ? 'bg-indigo-50/50' : ''
+                            }`}
+                          >
                             <td className="py-3 pr-3 font-mono text-slate-600">#{ticket.id}</td>
                             <td className="py-3 pr-3 font-medium text-slate-800 max-w-[200px] truncate">
                               {ticket.subject}
@@ -331,10 +603,7 @@ export default function Support() {
                               <button
                                 type="button"
                                 disabled={moduleState !== 'available'}
-                                onClick={() => {
-                                  setActiveTab('chat');
-                                  toast('Mesajlaşma detayı sonraki fazda aktif edilecektir.', { icon: 'ℹ️' });
-                                }}
+                                onClick={() => selectTicket(ticket.id, true)}
                                 className="text-[12px] font-medium text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed"
                               >
                                 Görüntüle
@@ -352,21 +621,101 @@ export default function Support() {
 
           {activeTab === 'chat' && (
             <Panel title="Mesajlaşma" desc="Talep bazlı destek sohbeti">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-8 text-center">
-                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-[14px] font-medium text-slate-800">
-                  Mesajlaşma modülü sonraki fazda aktif edilecek.
-                </p>
-                <p className="text-[12px] text-slate-500 mt-2 max-w-md mx-auto">
-                  Destek talebi detayı ve mesaj geçmişi backend entegrasyonu tamamlandığında
-                  bu sekmeden yönetilebilecek.
-                </p>
-              </div>
+              {!selectedTicketId ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-8 text-center">
+                  <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-[14px] font-medium text-slate-800">
+                    Mesajlaşmaları görüntülemek için bir destek talebi seçin.
+                  </p>
+                  <p className="text-[12px] text-slate-500 mt-2 max-w-md mx-auto">
+                    Destek Talepleri sekmesinden &quot;Görüntüle&quot; ile bir talep açabilirsiniz.
+                  </p>
+                </div>
+              ) : detailError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-[13px] text-red-800">
+                  <p className="font-medium">Mesajlar yüklenemedi.</p>
+                  <p className="text-[12px] mt-0.5 opacity-90">{detailError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void loadTicketDetail(selectedTicketId)}
+                    className="btn btn-secondary text-[12px] mt-3 inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Tekrar Dene
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {ticketDetail && (
+                    <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-100">
+                      <span className="font-mono text-[12px] text-slate-500">#{ticketDetail.id}</span>
+                      <span className="font-medium text-slate-800">{ticketDetail.subject}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadgeClass(ticketDetail.status)}`}>
+                        {statusLabel(ticketDetail.status)}
+                      </span>
+                    </div>
+                  )}
+                  <MessageThread
+                    messages={ticketDetail?.messages ?? []}
+                    loading={detailLoading}
+                  />
+                  {ticketDetail && (
+                    <div className="border-t border-slate-100 pt-4 space-y-2">
+                      {isClosed && (
+                        <p className="text-[12px] text-slate-500">
+                          Bu talep kapalı olduğu için yeni mesaj gönderilemez.
+                        </p>
+                      )}
+                      {messageError && (
+                        <p className="text-[12px] text-red-600">{messageError}</p>
+                      )}
+                      <textarea
+                        className={`${inputCls} min-h-[96px] resize-y disabled:bg-slate-50 disabled:text-slate-400`}
+                        value={messageInput}
+                        onChange={e => setMessageInput(e.target.value)}
+                        placeholder={isClosed ? 'Kapalı talep' : 'Mesajınızı yazın…'}
+                        disabled={isClosed || sendingMessage || detailLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleSendMessage()}
+                        disabled={isClosed || sendingMessage || detailLoading || !messageInput.trim()}
+                        className="btn btn-primary text-[13px] inline-flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {sendingMessage ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Gönderiliyor…
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            Gönder
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </Panel>
           )}
         </div>
 
         <div className="space-y-6">
+          <TicketDetailPanel
+            ticket={ticketDetail}
+            loading={detailLoading && selectedTicketId != null}
+            error={selectedTicketId != null ? detailError : null}
+            onRetry={() => selectedTicketId != null && void loadTicketDetail(selectedTicketId)}
+            messageInput={messageInput}
+            onMessageChange={setMessageInput}
+            onSend={() => void handleSendMessage()}
+            sending={sendingMessage}
+            messageError={messageError}
+            compact={activeTab === 'chat'}
+          />
+
           <Panel title="Destek durumu">
             <ul className="space-y-2 text-[12px] text-slate-600">
               <li className="flex justify-between gap-2">
@@ -386,20 +735,18 @@ export default function Support() {
                 <span className="font-medium text-slate-800">{filtered.length}</span>
               </li>
               <li className="flex justify-between gap-2">
+                <span>Seçili talep</span>
+                <span className="font-medium text-slate-800">
+                  {selectedTicketId != null ? `#${selectedTicketId}` : '—'}
+                </span>
+              </li>
+              <li className="flex justify-between gap-2">
                 <span>Aktif filtre</span>
                 <span className="font-medium text-slate-800">
                   {statusLabel(statusFilter)} · {priorityLabel(priorityFilter)}
                 </span>
               </li>
             </ul>
-          </Panel>
-
-          <Panel title="Bilgilendirme">
-            <p className="text-[12px] text-slate-600 leading-relaxed">
-              Destek talepleri oluşturma ve mesajlaşma modülü tenant panelinde kademeli olarak
-              devreye alınacaktır. Bağlantı sorunlarında yalnızca &quot;Tekrar Dene&quot; ile
-              yeniden istek gönderilir; otomatik tekrar yapılmaz.
-            </p>
           </Panel>
         </div>
       </div>

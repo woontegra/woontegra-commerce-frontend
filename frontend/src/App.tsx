@@ -88,6 +88,7 @@ const AdminBilling       = lazy(() => import('./pages/admin/AdminBilling'));
 const AdminAuditLogs     = lazy(() => import('./pages/admin/AdminAuditLogs'));
 const AdminSystemLogs    = lazy(() => import('./pages/admin/AdminSystemLogs'));
 const AdminFeatureFlags       = lazy(() => import('./pages/admin/AdminFeatureFlags'));
+const AdminSupportTickets     = lazy(() => import('./pages/admin/AdminSupportTickets'));
 const AdminUserPermissions    = lazy(() => import('./pages/admin/AdminUserPermissions'));
 const PanelRouteRedirect = lazy(() => import('./components/PanelRouteRedirect'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -343,6 +344,7 @@ function App() {
           <Route path="tenants/:id"      element={<AdminTenantDetail />} />
           <Route path="users"            element={<AdminUsers />} />
           <Route path="billing"          element={<AdminBilling />} />
+          <Route path="support"          element={<AdminSupportTickets />} />
           <Route path="audit-logs"            element={<AdminAuditLogs />} />
           <Route path="system-logs"           element={<AdminSystemLogs />} />
           <Route path="users/:userId/permissions" element={<AdminUserPermissions />} />

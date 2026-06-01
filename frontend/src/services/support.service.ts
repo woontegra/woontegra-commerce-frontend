@@ -1,5 +1,13 @@
 import api, { extractErrorMessage } from './apiClient';
-import type { SupportLoadResult, SupportSummary, SupportTicket } from '../pages/supportPageHelpers';
+import type {
+  SupportDetailLoadResult,
+  SupportLoadResult,
+  SupportSendMessageResult,
+  SupportSummary,
+  SupportTicket,
+  SupportTicketDetail,
+  SupportTicketMessage,
+} from '../pages/supportPageHelpers';
 
 type TicketsPayload = {
   success?: boolean;
@@ -82,5 +90,52 @@ export async function createSupportTicket(body: {
     return { ok: true };
   } catch (err: unknown) {
     return { ok: false, message: extractErrorMessage(err, 'Talep oluşturulamadı.') };
+  }
+}
+
+function normalizeTicketDetail(body: unknown): SupportTicketDetail | null {
+  const root = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  const data = root.data && typeof root.data === 'object'
+    ? (root.data as Record<string, unknown>)
+    : root;
+  const ticket = data.ticket;
+  if (!ticket || typeof ticket !== 'object') return null;
+  const t = ticket as SupportTicketDetail;
+  if (!Array.isArray(t.messages)) {
+    t.messages = [];
+  }
+  return t;
+}
+
+export async function getSupportTicket(id: number): Promise<SupportDetailLoadResult> {
+  try {
+    const r = await api.get(`/support/tickets/${id}`, { skipErrorToast: true });
+    const ticket = normalizeTicketDetail(r.data);
+    if (!ticket) {
+      return { ok: false, message: 'Talep detayı alınamadı.' };
+    }
+    return { ok: true, ticket };
+  } catch (err: unknown) {
+    return { ok: false, message: extractErrorMessage(err, 'Talep detayı yüklenemedi.') };
+  }
+}
+
+export async function sendSupportTicketMessage(
+  id: number,
+  message: string,
+): Promise<SupportSendMessageResult> {
+  try {
+    const r = await api.post(`/support/tickets/${id}/messages`, { message }, { skipErrorToast: true });
+    const root = r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : {};
+    const data = root.data && typeof root.data === 'object'
+      ? (root.data as Record<string, unknown>)
+      : root;
+    const msg = data.message as SupportTicketMessage | undefined;
+    if (!msg) {
+      return { ok: false, message: 'Mesaj gönderilemedi.' };
+    }
+    return { ok: true, message: msg };
+  } catch (err: unknown) {
+    return { ok: false, message: extractErrorMessage(err, 'Mesaj gönderilemedi.') };
   }
 }

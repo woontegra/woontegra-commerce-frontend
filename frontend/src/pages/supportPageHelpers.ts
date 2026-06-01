@@ -8,6 +8,16 @@ export interface SupportSummary {
   resolved: number;
 }
 
+export type SupportMessageSenderType = 'user' | 'support';
+
+export interface SupportTicketMessage {
+  id: string;
+  message: string;
+  senderType: SupportMessageSenderType;
+  isInternal: boolean;
+  createdAt: string;
+}
+
 export interface SupportTicket {
   id: number;
   subject: string;
@@ -17,12 +27,8 @@ export interface SupportTicket {
   createdAt: string;
   updatedAt: string;
   messageCount?: number;
-  lastMessage?: {
-    id: number;
-    message: string;
-    createdAt: string;
-    isInternal: boolean;
-  } | null;
+  lastMessage?: SupportTicketMessage | null;
+  messages?: SupportTicketMessage[];
   user?: {
     id: string;
     email: string;
@@ -30,6 +36,18 @@ export interface SupportTicket {
     lastName: string;
   };
 }
+
+export type SupportTicketDetail = SupportTicket & {
+  messages: SupportTicketMessage[];
+};
+
+export type SupportDetailLoadResult =
+  | { ok: true; ticket: SupportTicketDetail }
+  | { ok: false; message: string };
+
+export type SupportSendMessageResult =
+  | { ok: true; message: SupportTicketMessage }
+  | { ok: false; message: string };
 
 export type SupportLoadReason = 'not_available' | 'network' | 'error';
 
