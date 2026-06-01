@@ -1,4 +1,5 @@
 import type { StorefrontBlockType, StorefrontLayout, StorefrontSection } from '../types/storefrontBuilder.types';
+import { buildHeroLayerProps } from '../utils/storefrontImageLayout';
 
 export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
   'hero',
@@ -50,6 +51,12 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         backgroundType: 'gradient',
         backgroundColor: '#4f46e5',
         textColor: '#ffffff',
+        imageFit: 'cover',
+        imagePosition: 'center',
+        overlayEnabled: true,
+        overlayColor: '#4f46e5',
+        overlayOpacity: 30,
+        height: 'medium',
       };
     case 'categoryGrid':
       return {
@@ -77,6 +84,10 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         imageUrl: '',
         backgroundColor: '#fffbeb',
         textColor: '#78350f',
+        imageFit: 'cover',
+        imagePosition: 'right',
+        overlayEnabled: false,
+        overlayOpacity: 25,
       };
     case 'trustBadges':
       return {
@@ -90,6 +101,7 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         text: 'Markanızı tanıtan kısa bir metin ekleyin.',
         imageUrl: '',
         imagePosition: 'left',
+        imageFit: 'cover',
         buttonText: '',
         buttonUrl: '',
       };
@@ -203,25 +215,16 @@ export function heroBackgroundStyle(
   settings: Record<string, unknown>,
   themePrimary: string | null,
 ): { style: Record<string, string>; hasImageOverlay: boolean } {
-  const bgType = String(settings.backgroundType ?? 'gradient');
-  const bgColor = String(settings.backgroundColor ?? themePrimary ?? '#4f46e5').trim() || '#4f46e5';
-  const imageUrl = String(settings.imageUrl ?? '').trim();
-
-  if (bgType === 'image' && imageUrl) {
-    return {
-      style: {
-        backgroundImage: `linear-gradient(rgba(15,23,42,0.45), rgba(15,23,42,0.45)), url("${imageUrl.replace(/"/g, '\\"')}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      },
-      hasImageOverlay: true,
-    };
+  const { baseStyle, imageLayerStyle, showOverlay, overlayStyle } = buildHeroLayerProps(
+    settings,
+    themePrimary,
+    String(settings.imageUrl ?? '').trim() || null,
+  );
+  const style: Record<string, string> = { ...(baseStyle ?? {}), ...(imageLayerStyle ?? {}) };
+  if (showOverlay && overlayStyle?.backgroundColor && imageLayerStyle) {
+    style.backgroundImage = `linear-gradient(${overlayStyle.backgroundColor}, ${overlayStyle.backgroundColor}), ${imageLayerStyle.backgroundImage}`;
   }
-  if (bgType === 'solid') {
-    return { style: { backgroundColor: bgColor }, hasImageOverlay: false };
-  }
-  return {
-    style: { background: `linear-gradient(135deg, ${bgColor}, #6366f1)` },
-    hasImageOverlay: false,
-  };
+  return { style, hasImageOverlay: Boolean(imageLayerStyle) };
 }
+
+export { buildHeroLayerProps, buildBannerImageLayerProps, objectFitClass } from '../utils/storefrontImageLayout';

@@ -1,8 +1,10 @@
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import {
   blockLabel,
+  buildBannerImageLayerProps,
+  buildHeroLayerProps,
   gridColumnsClass,
-  heroBackgroundStyle,
+  objectFitClass,
   parseTrustBadges,
 } from '../../pages/storefrontBuilderHelpers';
 import { normalizeImageUrl } from '../../utils/imageUtils';
@@ -77,15 +79,20 @@ export default function BuilderPreview({ section }: BuilderPreviewProps) {
 
   switch (section.type) {
     case 'hero': {
-      const align = str(s, 'alignment', 'center');
-      const alignCls =
-        align === 'left' ? 'text-left items-start' : align === 'right' ? 'text-right items-end' : 'text-center items-center';
-      const heroSettings = { ...s, imageUrl: imageSrc(s, 'imageUrl') || str(s, 'imageUrl') };
-      const { style: bgStyle } = heroBackgroundStyle(heroSettings, null);
-      const textColor = str(s, 'textColor', '#ffffff');
+      const bgType = str(s, 'backgroundType', 'gradient');
+      const url = bgType === 'image' ? (imageSrc(s, 'imageUrl') || null) : null;
+      const layers = buildHeroLayerProps(s, null, url);
       return (
-        <div className="rounded-xl overflow-hidden border border-slate-200 p-5" style={{ ...bgStyle, color: textColor }}>
-          <div className={`flex flex-col gap-2 ${alignCls}`}>
+        <div
+          className={`rounded-xl overflow-hidden border border-slate-200 relative flex flex-col justify-center ${layers.heightClass}`}
+          style={{ color: layers.textColor, minHeight: '180px' }}
+        >
+          {layers.baseStyle && <div className="absolute inset-0" style={layers.baseStyle} aria-hidden />}
+          {layers.imageLayerStyle && <div className="absolute inset-0" style={layers.imageLayerStyle} aria-hidden />}
+          {layers.showOverlay && layers.overlayStyle && (
+            <div className="absolute inset-0" style={layers.overlayStyle} aria-hidden />
+          )}
+          <div className={`relative p-5 flex flex-col gap-2 ${layers.alignClass}`}>
             <h3 className="text-lg font-semibold">{str(s, 'title', 'Başlık')}</h3>
             <p className="text-[13px] opacity-90 max-w-sm">{str(s, 'subtitle', 'Alt başlık')}</p>
             {str(s, 'buttonText') && (
@@ -152,17 +159,18 @@ export default function BuilderPreview({ section }: BuilderPreviewProps) {
     case 'campaignBanner': {
       const bg = str(s, 'backgroundColor', '#fffbeb');
       const color = str(s, 'textColor', '#78350f');
+      const url = imageSrc(s, 'imageUrl') || null;
+      const bannerImage = buildBannerImageLayerProps(s, url);
       return (
         <div
-          className="rounded-xl overflow-hidden border border-slate-200 px-4 py-5 relative"
+          className="rounded-xl overflow-hidden border border-slate-200 px-4 py-5 relative min-h-[120px]"
           style={{ backgroundColor: bg, color }}
         >
-          {imageSrc(s, 'imageUrl') && (
-            <img
-              src={imageSrc(s, 'imageUrl')}
-              alt=""
-              className="absolute right-0 top-0 h-full w-1/3 object-cover opacity-30"
-            />
+          {bannerImage.imageLayerStyle && (
+            <div className="absolute inset-0" style={bannerImage.imageLayerStyle} aria-hidden />
+          )}
+          {bannerImage.showOverlay && bannerImage.overlayStyle && (
+            <div className="absolute inset-0" style={bannerImage.overlayStyle} aria-hidden />
           )}
           <div className="relative">
             <h3 className="text-[15px] font-semibold">{str(s, 'title', 'Kampanya')}</h3>
@@ -196,10 +204,11 @@ export default function BuilderPreview({ section }: BuilderPreviewProps) {
 
     case 'textImage': {
       const imageLeft = str(s, 'imagePosition', 'left') !== 'right';
+      const fitCls = objectFitClass(str(s, 'imageFit', 'cover'));
       return (
         <div className="rounded-xl border border-slate-200 p-4 bg-white">
           <div className={`flex gap-3 ${imageLeft ? '' : 'flex-row-reverse'}`}>
-            {imagePreview(imageSrc(s, 'imageUrl'), 'w-20 h-20 rounded-lg object-cover flex-shrink-0')}
+            {imagePreview(imageSrc(s, 'imageUrl'), `w-20 h-20 rounded-lg ${fitCls} flex-shrink-0`)}
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-semibold text-slate-800">{str(s, 'title', 'Başlık')}</p>
               <p className="text-[12px] text-slate-500 mt-1 line-clamp-3">{str(s, 'text', 'Metin')}</p>

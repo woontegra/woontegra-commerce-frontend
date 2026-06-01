@@ -103,6 +103,134 @@ function CheckboxField({
   );
 }
 
+function ImageFitField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <Field label="Görsel görünümü">
+      <select className={inputCls} value={value || 'cover'} onChange={e => onChange(e.target.value)}>
+        <option value="cover">Kapla</option>
+        <option value="contain">Sığdır</option>
+      </select>
+    </Field>
+  );
+}
+
+function ImagePositionField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <Field label="Görsel pozisyonu">
+      <select className={inputCls} value={value || 'center'} onChange={e => onChange(e.target.value)}>
+        <option value="center">Orta</option>
+        <option value="top">Üst</option>
+        <option value="bottom">Alt</option>
+        <option value="left">Sol</option>
+        <option value="right">Sağ</option>
+      </select>
+    </Field>
+  );
+}
+
+function OverlayOpacityField({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <Field label={`Overlay yoğunluğu (${value}%)`}>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        className="w-full accent-indigo-600"
+      />
+    </Field>
+  );
+}
+
+function HeroHeightField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <Field label="Hero yüksekliği">
+      <select className={inputCls} value={value || 'medium'} onChange={e => onChange(e.target.value)}>
+        <option value="small">Kompakt</option>
+        <option value="medium">Standart</option>
+        <option value="large">Geniş</option>
+      </select>
+    </Field>
+  );
+}
+
+function BackgroundImageControls({
+  set,
+  str,
+  bool,
+  num,
+  showHeight,
+  showOverlayColor,
+  overlayEnabledDefault = true,
+  imagePositionDefault = 'center',
+}: {
+  set: (key: string, value: unknown) => void;
+  str: (key: string, fallback?: string) => string;
+  bool: (key: string, fallback?: boolean) => boolean;
+  num: (key: string, fallback?: number) => number;
+  showHeight?: boolean;
+  showOverlayColor?: boolean;
+  overlayEnabledDefault?: boolean;
+  imagePositionDefault?: string;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Görsel görünümü</p>
+      <ImageFitField value={str('imageFit', 'cover')} onChange={v => set('imageFit', v)} />
+      <ImagePositionField value={str('imagePosition', imagePositionDefault)} onChange={v => set('imagePosition', v)} />
+      {showHeight && (
+        <HeroHeightField value={str('height', 'medium')} onChange={v => set('height', v)} />
+      )}
+      <CheckboxField
+        label="Overlay açık"
+        checked={bool('overlayEnabled', overlayEnabledDefault)}
+        onChange={v => set('overlayEnabled', v)}
+      />
+      {bool('overlayEnabled', overlayEnabledDefault) && (
+        <>
+          {showOverlayColor && (
+            <ColorField
+              label="Overlay rengi"
+              value={str('overlayColor', '#4f46e5')}
+              onChange={v => set('overlayColor', v)}
+            />
+          )}
+          <OverlayOpacityField
+            value={num('overlayOpacity', 30)}
+            onChange={v => set('overlayOpacity', v)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 function TrustBadgesEditor({
   value,
   onChange,
@@ -211,7 +339,18 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
             onChange={v => set('imageUrl', v)}
             recommendedSize="1920×700"
             helperText="Arka plan tipi “Görsel” seçiliyken kullanılır."
+            folder="banners"
           />
+          {str('backgroundType', 'gradient') === 'image' && (
+            <BackgroundImageControls
+              set={set}
+              str={str}
+              bool={bool}
+              num={num}
+              showHeight
+              showOverlayColor
+            />
+          )}
           <Field label="Hizalama">
             <select className={inputCls} value={str('alignment', 'center')} onChange={e => set('alignment', e.target.value)}>
               <option value="left">Sol</option>
@@ -274,7 +413,19 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
             value={str('imageUrl')}
             onChange={v => set('imageUrl', v)}
             recommendedSize="1600×500"
+            folder="banners"
           />
+          {str('imageUrl') && (
+            <BackgroundImageControls
+              set={set}
+              str={str}
+              bool={bool}
+              num={num}
+              overlayEnabledDefault={false}
+              imagePositionDefault="right"
+            />
+          )}
+          <ColorField label="Arka plan rengi" value={str('backgroundColor', '#fffbeb')} onChange={v => set('backgroundColor', v)} />
           <ColorField label="Metin rengi" value={str('textColor', '#78350f')} onChange={v => set('textColor', v)} />
         </div>
       );
@@ -298,7 +449,9 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
             value={str('imageUrl')}
             onChange={v => set('imageUrl', v)}
             recommendedSize="900×700"
+            folder="builder"
           />
+          <ImageFitField value={str('imageFit', 'cover')} onChange={v => set('imageFit', v)} />
           <Field label="Görsel konumu">
             <select className={inputCls} value={str('imagePosition', 'left')} onChange={e => set('imagePosition', e.target.value)}>
               <option value="left">Sol</option>

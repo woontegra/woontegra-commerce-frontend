@@ -7,11 +7,13 @@ import { CategoryCard } from '../CategoryCard';
 import type { StorefrontProductSummary } from '../../types/storefront.types';
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
 import {
+  buildBannerImageLayerProps,
+  buildHeroLayerProps,
   gridColumnsClass,
-  heroBackgroundStyle,
   layoutBool,
   layoutNum,
   layoutStr,
+  objectFitClass,
   parseTrustBadges,
   resolveStorePath,
 } from './layoutRendererHelpers';
@@ -22,6 +24,29 @@ type SectionProps = {
   storeLink: (path: string) => string;
 };
 
+function HeroLayers({
+  settings,
+  primaryColor,
+  imageUrl,
+}: {
+  settings: Record<string, unknown>;
+  primaryColor: string | null;
+  imageUrl: string | null;
+}) {
+  const layers = buildHeroLayerProps(settings, primaryColor, imageUrl);
+  return (
+    <>
+      {layers.baseStyle && <div className="absolute inset-0" style={layers.baseStyle} aria-hidden />}
+      {layers.imageLayerStyle && (
+        <div className="absolute inset-0" style={layers.imageLayerStyle} aria-hidden />
+      )}
+      {layers.showOverlay && layers.overlayStyle && (
+        <div className="absolute inset-0" style={layers.overlayStyle} aria-hidden />
+      )}
+    </>
+  );
+}
+
 export function HeroSection({ section, primaryColor, storeLink }: SectionProps) {
   const s = section.settings;
   const title = layoutStr(s, 'title', 'Hoş geldiniz');
@@ -29,27 +54,16 @@ export function HeroSection({ section, primaryColor, storeLink }: SectionProps) 
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
-  const alignment = layoutStr(s, 'alignment', 'center');
   const textColor = layoutStr(s, 'textColor', '#ffffff');
-  const alignCls =
-    alignment === 'left'
-      ? 'text-left items-start'
-      : alignment === 'right'
-        ? 'text-right items-end'
-        : 'text-center items-center';
-
-  const { style: bgStyle, hasImageOverlay } = heroBackgroundStyle(s, primaryColor);
+  const layers = buildHeroLayerProps(s, primaryColor, imageUrl);
 
   return (
-    <section className="relative overflow-hidden" style={{ ...bgStyle, color: textColor }}>
-      {!hasImageOverlay && imageUrl && (
-        <img
-          src={imageUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-25"
-        />
-      )}
-      <div className={`relative max-w-6xl mx-auto px-4 py-16 sm:py-20 flex flex-col ${alignCls}`}>
+    <section
+      className={`relative overflow-hidden flex flex-col justify-center ${layers.heightClass}`}
+      style={{ color: textColor }}
+    >
+      <HeroLayers settings={s} primaryColor={primaryColor} imageUrl={imageUrl} />
+      <div className={`relative max-w-6xl mx-auto px-4 py-12 sm:py-16 w-full flex flex-col ${layers.alignClass}`}>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{title}</h1>
         {subtitle && (
           <p className="mt-3 max-w-xl text-sm sm:text-base opacity-90">{subtitle}</p>
@@ -186,19 +200,23 @@ export function CampaignBannerSection({ section, primaryColor, storeLink }: Sect
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const backgroundColor = layoutStr(s, 'backgroundColor', '#fffbeb');
   const textColor = layoutStr(s, 'textColor', '#78350f');
+  const bannerImage = buildBannerImageLayerProps(s, imageUrl);
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-10">
       <div
-        className="relative overflow-hidden rounded-2xl border px-6 py-8 sm:px-10 sm:py-10"
+        className="relative overflow-hidden rounded-2xl border px-6 py-8 sm:px-10 sm:py-10 min-h-[200px]"
         style={{
           backgroundColor,
           color: textColor,
           borderColor: primaryColor ? `${primaryColor}33` : undefined,
         }}
       >
-        {imageUrl && (
-          <img src={imageUrl} alt="" className="absolute right-0 top-0 h-full w-1/3 object-cover opacity-20 hidden sm:block" />
+        {bannerImage.imageLayerStyle && (
+          <div className="absolute inset-0" style={bannerImage.imageLayerStyle} aria-hidden />
+        )}
+        {bannerImage.showOverlay && bannerImage.overlayStyle && (
+          <div className="absolute inset-0" style={bannerImage.overlayStyle} aria-hidden />
         )}
         <div className="relative max-w-lg">
           <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Kampanya</p>
@@ -250,6 +268,7 @@ export function TextImageSection({ section, storeLink }: SectionProps) {
   const text = layoutStr(s, 'text');
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
   const imageRight = layoutStr(s, 'imagePosition', 'left') === 'right';
+  const imageFit = layoutStr(s, 'imageFit', 'cover');
   const buttonText = layoutStr(s, 'buttonText');
   const buttonUrl = resolveStorePath(layoutStr(s, 'buttonUrl', '/store/urunler'), storeLink);
 
@@ -258,7 +277,11 @@ export function TextImageSection({ section, storeLink }: SectionProps) {
       <div className={`flex flex-col gap-6 sm:gap-8 ${imageRight ? 'sm:flex-row-reverse' : 'sm:flex-row'} sm:items-center`}>
         <div className="sm:w-2/5 flex-shrink-0">
           {imageUrl ? (
-            <img src={imageUrl} alt="" className="w-full rounded-2xl object-cover aspect-[4/3] bg-slate-100" />
+            <img
+              src={imageUrl}
+              alt=""
+              className={`w-full rounded-2xl aspect-[4/3] bg-slate-100 ${objectFitClass(imageFit)}`}
+            />
           ) : (
             <div className="w-full rounded-2xl aspect-[4/3] bg-slate-100" />
           )}

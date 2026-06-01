@@ -1,4 +1,15 @@
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
+import {
+  buildBannerImageLayerProps,
+  buildHeroLayerProps,
+  objectFitClass,
+} from '../../../utils/storefrontImageLayout';
+
+export {
+  buildBannerImageLayerProps,
+  buildHeroLayerProps,
+  objectFitClass,
+};
 
 export const KNOWN_LAYOUT_SECTION_TYPES = new Set([
   'hero',
@@ -69,33 +80,6 @@ export function gridColumnsClass(columns: number): string {
   if (columns === 2) return 'grid-cols-2';
   if (columns === 3) return 'grid-cols-2 sm:grid-cols-3';
   return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
-}
-
-export function heroBackgroundStyle(
-  settings: Record<string, unknown>,
-  themePrimary: string | null,
-): { style: Record<string, string>; hasImageOverlay: boolean } {
-  const bgType = String(settings.backgroundType ?? 'gradient');
-  const bgColor = String(settings.backgroundColor ?? themePrimary ?? '#4f46e5').trim() || '#4f46e5';
-  const imageUrl = String(settings.imageUrl ?? '').trim();
-
-  if (bgType === 'image' && imageUrl) {
-    return {
-      style: {
-        backgroundImage: `linear-gradient(rgba(15,23,42,0.45), rgba(15,23,42,0.45)), url("${imageUrl.replace(/"/g, '\\"')}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      },
-      hasImageOverlay: true,
-    };
-  }
-  if (bgType === 'solid') {
-    return { style: { backgroundColor: bgColor }, hasImageOverlay: false };
-  }
-  return {
-    style: { background: `linear-gradient(135deg, ${bgColor}, #6366f1)` },
-    hasImageOverlay: false,
-  };
 }
 
 export function themePrimaryColor(theme: Record<string, unknown> | undefined): string | null {
