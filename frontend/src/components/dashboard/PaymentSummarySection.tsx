@@ -16,6 +16,8 @@ interface PaymentSummarySectionProps {
   summary: PaymentSummary | null | undefined;
   loading: boolean;
   days: number;
+  /** Tek sütun — dashboard sağ paneli için */
+  variant?: 'default' | 'compact';
 }
 
 function SummaryList({
@@ -106,10 +108,23 @@ function SummaryList({
   );
 }
 
+const COMPACT_ROWS: Array<{
+  kind:  'provider' | 'status';
+  key:   string;
+  label: string;
+}> = [
+  { kind: 'provider', key: 'PAYTR',            label: 'Kredi Kartı / PayTR' },
+  { kind: 'provider', key: 'BANK_TRANSFER',    label: 'Havale / EFT' },
+  { kind: 'provider', key: 'CASH_ON_DELIVERY', label: 'Kapıda ödeme' },
+  { kind: 'status',   key: 'FAILED',           label: 'Başarısız ödeme' },
+  { kind: 'status',   key: 'PENDING',          label: 'Ödeme bekleyen' },
+];
+
 export default function PaymentSummarySection({
   summary,
   loading,
   days,
+  variant = 'default',
 }: PaymentSummarySectionProps) {
   const data = summary ?? emptyPaymentSummary();
 
@@ -126,17 +141,40 @@ export default function PaymentSummarySection({
   const totalOrders = providerItems.reduce((s, i) => s + i.count, 0);
   const hasData = totalOrders > 0;
 
+  const compactItems = COMPACT_ROWS.map(row => ({
+    key:   row.key,
+    count: row.kind === 'provider'
+      ? (data.byProvider[row.key as keyof typeof data.byProvider] ?? 0)
+      : (data.byStatus[row.key as keyof typeof data.byStatus] ?? 0),
+    label: row.label,
+    tone:  row.kind,
+  }));
+
   return (
-    <div className="wn-card p-6">
+    <div className="wn-card p-6 h-full">
       <div className="mb-5">
         <h2 className="text-sm font-bold text-slate-900">Ödeme Özeti</h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Son {days} gün — vitrin siparişleri (ödeme yöntemi / durum)
+          Son {days} gün — vitrin siparişleri
         </p>
       </div>
 
       {!loading && !hasData ? (
-        <p className="text-sm text-slate-500 py-4 text-center">Henüz ödeme verisi yok</p>
+        <p className="text-sm text-slate-500 py-6 text-center">Henüz ödeme verisi yok</p>
+      ) : variant === 'compact' ? (
+        <SummaryList
+          items={compactItems.map(({ key, count }) => ({ key, count }))}
+          labels={Object.fromEntries(compactItems.map(r => [r.key, r.label]))}
+          tone="provider"
+          loading={loading}
+          linkForKey={(key) => {
+            const row = COMPACT_ROWS.find(r => r.key === key);
+            if (!row) return null;
+            return row.kind === 'provider'
+              ? ordersFilterLinkForProvider(key)
+              : ordersFilterLinkForStatus(key);
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
