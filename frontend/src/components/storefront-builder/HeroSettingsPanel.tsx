@@ -59,6 +59,7 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   const primaryText = str('primaryButtonText') || str('buttonText');
   const primaryUrl = str('primaryButtonUrl') || str('buttonUrl', '/store/urunler');
   const imageUrl = normalizeImageUrl(str('imageUrl')) || null;
+  const mobileImageUrl = normalizeImageUrl(str('mobileImageUrl')) || null;
   const heightPreset = resolveHeightPreset(s);
   const heightCustom = bool('heightCustomEnabled', false) || heightPreset === 'custom';
   const overlayPreset = (str('overlayPreset', 'none') || 'none') as HeroOverlayPreset;
@@ -67,6 +68,10 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
     if (url.trim()) {
       patch({ imageUrl: url, backgroundType: 'image', imageTone: 'original', overlayPreset: 'none', overlayEnabled: false });
     } else patch({ imageUrl: url });
+  };
+
+  const setMobileImageUrl = (url: string) => {
+    patch({ mobileImageUrl: url });
   };
 
   const setPrimaryText = (v: string) => patch({ primaryButtonText: v, buttonText: v });
@@ -240,13 +245,24 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
 
   const visualTab = (
     <div className="space-y-3">
-      <SettingCard title="Hero görseli" hint="Yükleme sonrası görsel orijinal tonunda başlar.">
+      <SettingCard title="Desktop banner görseli" hint="Masaüstü ve tablet ekranlarda kullanılır.">
         <BuilderImageField
           value={str('imageUrl')}
           onChange={setImageUrl}
-          recommendedSize="1920×700 px · 1920×800 px WEBP"
-          helperText="Tam genişlik hero için yüksek çözünürlüklü WEBP kullanın."
-          usageHint="Mobilde odak noktasını merkezde tutmanız önerilir."
+          recommendedSize="1920×700 px · 1920×800 px · WEBP, JPG, PNG"
+          helperText="Yatay banner için yüksek çözünürlüklü görsel yükleyin veya URL girin."
+          usageHint="Tam genişlik hero için WEBP tercih edilir."
+          folder="banners"
+        />
+      </SettingCard>
+
+      <SettingCard title="Mobil banner görseli" hint="Mobil viewport’ta öncelikli kullanılır.">
+        <BuilderImageField
+          value={str('mobileImageUrl')}
+          onChange={setMobileImageUrl}
+          recommendedSize="1080×1350 px · 750×1000 px · WEBP, JPG, PNG"
+          helperText="Mobilde dikey görsel kullanmanız önerilir. Mobil görsel yüklenmezse desktop görseli kullanılacaktır."
+          usageHint="Dikey kompozisyon (1080×1600) mobilde en iyi sonucu verir."
           folder="banners"
         />
       </SettingCard>
@@ -465,7 +481,14 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
 
   const previewTab = (
     <SettingCard title="Hero önizleme" hint="Vitrin ile aynı render helper kullanılır.">
-      <HeroBlockView settings={s} imageUrl={imageUrl} themePrimary={null} preview className="rounded-lg overflow-hidden border border-slate-200" />
+      <HeroBlockView
+        settings={s}
+        imageUrl={imageUrl}
+        mobileImageUrl={mobileImageUrl}
+        themePrimary={null}
+        preview
+        className="rounded-lg overflow-hidden border border-slate-200"
+      />
     </SettingCard>
   );
 

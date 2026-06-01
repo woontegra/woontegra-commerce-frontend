@@ -24,6 +24,11 @@ import {
   statusLabel,
 } from './storefrontBuilderHelpers';
 import {
+  extractAnnouncementBarFromTheme,
+  GLOBAL_ANNOUNCEMENT_BAR_ID,
+  type AnnouncementBarSettings,
+} from '../utils/announcementBarHelpers';
+import {
   fetchHomeDraft,
   publishHomeLayout,
   saveHomeDraft,
@@ -48,6 +53,7 @@ export default function StorefrontBuilder() {
     hasPublished: false,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [globalSelection, setGlobalSelection] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -55,6 +61,11 @@ export default function StorefrontBuilder() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const savedFingerprint = useRef('');
+
+  const announcementBar = useMemo(
+    () => extractAnnouncementBarFromTheme(layout.theme),
+    [layout.theme],
+  );
 
   const selectedSection = useMemo(
     () => layout.sections.find(s => s.id === selectedId) ?? null,
@@ -95,8 +106,32 @@ export default function StorefrontBuilder() {
   const handleAddBlock = (type: string) => {
     const section = createSection(type);
     setLayout(prev => ({ ...prev, sections: [...prev.sections, section] }));
+    setGlobalSelection(null);
     setSelectedId(section.id);
   };
+
+  const handleSelectSection = (id: string) => {
+    setGlobalSelection(null);
+    setSelectedId(id);
+  };
+
+  const handleSelectGlobal = (id: typeof GLOBAL_ANNOUNCEMENT_BAR_ID) => {
+    setGlobalSelection(id);
+    setSelectedId(null);
+  };
+
+  const handleAnnouncementBarChange = useCallback((patch: Partial<AnnouncementBarSettings>) => {
+    setLayout(prev => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        announcementBar: {
+          ...extractAnnouncementBarFromTheme(prev.theme),
+          ...patch,
+        },
+      },
+    }));
+  }, []);
 
   const handleDelete = (id: string) => {
     const section = layout.sections.find(s => s.id === id);
@@ -308,7 +343,11 @@ export default function StorefrontBuilder() {
       {/* 3-column workspace */}
       <div className="flex-1 min-h-0 flex flex-col xl:flex-row overflow-hidden">
         <aside className="shrink-0 xl:w-[280px] border-b xl:border-b-0 xl:border-r border-slate-200 bg-white max-h-[240px] xl:max-h-none xl:h-full overflow-hidden">
-          <BlockLibraryPanel onAddBlock={handleAddBlock} />
+          <BlockLibraryPanel
+            onAddBlock={handleAddBlock}
+            onSelectGlobal={handleSelectGlobal}
+            selectedGlobalId={globalSelection}
+          />
         </aside>
 
         <main className="flex-1 min-w-0 min-h-0 order-3 xl:order-none h-[50vh] xl:h-full border-b xl:border-b-0 xl:border-r border-slate-200">
@@ -316,18 +355,24 @@ export default function StorefrontBuilder() {
             layout={layout}
             selectedId={selectedId}
             selectedSection={selectedSection}
-            onSelect={setSelectedId}
-            onEdit={setSelectedId}
+            onSelect={handleSelectSection}
+            onEdit={handleSelectSection}
             onDelete={handleDelete}
             onToggleEnabled={handleToggleEnabled}
             onDragEnd={handleDragEnd}
+            tenantSlug={storefrontSlug}
+            announcementBar={announcementBar}
+            globalSelection={globalSelection}
           />
         </main>
 
         <aside className="shrink-0 w-full xl:w-[480px] min-h-[280px] xl:min-h-0 xl:h-full overflow-hidden bg-white order-2 xl:order-none">
           <BuilderSettingsSidebar
             section={selectedSection}
+            globalSelection={globalSelection}
+            announcementBar={announcementBar}
             onChange={patch => selectedSection && handleSettingsChange(selectedSection.id, patch)}
+            onAnnouncementBarChange={handleAnnouncementBarChange}
             onDelete={() => selectedSection && handleDelete(selectedSection.id)}
             onToggleEnabled={enabled => selectedSection && handleToggleEnabled(selectedSection.id, enabled)}
           />

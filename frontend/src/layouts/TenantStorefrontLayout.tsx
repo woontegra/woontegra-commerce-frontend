@@ -4,6 +4,7 @@ import { StorefrontCartProvider } from '../storefront/hooks/StorefrontCartProvid
 import { StorefrontAuthProvider } from '../storefront/hooks/StorefrontAuthProvider';
 import { StorefrontFavoritesProvider } from '../storefront/hooks/StorefrontFavoritesProvider';
 import { resolveTheme } from '../themes/registry';
+import { StorefrontGlobalThemeProvider } from '../storefront/hooks/StorefrontGlobalThemeProvider';
 
 function Shell() {
   const { loading, error, tenant, storeLink } = useStorefrontTenant();
@@ -42,9 +43,11 @@ function Shell() {
 
   const Theme = resolveTheme(tenant.theme);
   return (
-    <Theme.Layout tenant={tenant} storeLink={storeLink}>
-      <Outlet />
-    </Theme.Layout>
+    <StorefrontGlobalThemeProvider>
+      <Theme.Layout tenant={tenant} storeLink={storeLink}>
+        <Outlet />
+      </Theme.Layout>
+    </StorefrontGlobalThemeProvider>
   );
 }
 

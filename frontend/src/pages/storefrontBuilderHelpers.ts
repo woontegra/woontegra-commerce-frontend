@@ -1,5 +1,7 @@
 import type { StorefrontBlockType, StorefrontLayout, StorefrontSection } from '../types/storefrontBuilder.types';
 import { mergeHeroSettings } from '../utils/heroBlockHelpers';
+import { mergeFeaturedProductsSettings } from '../utils/featuredProductsBlockHelpers';
+import { mergeAnnouncementBarSettings } from '../utils/announcementBarHelpers';
 import { buildHeroLayerProps } from '../utils/storefrontImageLayout';
 
 export const SUPPORTED_BLOCK_TYPES: StorefrontBlockType[] = [
@@ -123,12 +125,22 @@ export function defaultSettingsForType(type: string): Record<string, unknown> {
         title: 'Öne Çıkan Ürünler',
         limit: 8,
         columns: 4,
+        columnsDesktop: 4,
+        columnsTablet: 2,
+        columnsMobile: 2,
         source: 'featured',
+        sourceType: 'featured',
+        categoryId: '',
+        categorySlug: '',
+        categoryName: '',
         displayMode: 'grid',
         widthMode: 'container',
         cardStyle: 'standard',
         showPrice: true,
         showAddToCart: true,
+        showTitle: true,
+        showViewAll: true,
+        viewAllLabel: 'Tümünü gör',
       };
     case 'campaignBanner':
       return {
@@ -172,6 +184,9 @@ export function mergeSectionSettings(type: string, raw: Record<string, unknown>)
   const merged = { ...defaultSettingsForType(type), ...raw };
   if (type === 'hero') {
     mergeHeroSettings(raw, merged);
+  }
+  if (type === 'featuredProducts') {
+    mergeFeaturedProductsSettings(raw, merged);
   }
   return merged;
 }
@@ -235,10 +250,14 @@ export function normalizeSection(raw: unknown, index: number): StorefrontSection
 export function normalizeLayout(raw: unknown): StorefrontLayout {
   const root = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const version = typeof root.version === 'number' ? root.version : 1;
-  const theme =
+  const rawTheme =
     root.theme && typeof root.theme === 'object' && !Array.isArray(root.theme)
       ? (root.theme as Record<string, unknown>)
       : {};
+  const theme = {
+    ...rawTheme,
+    announcementBar: mergeAnnouncementBarSettings(rawTheme.announcementBar),
+  };
   const sections = Array.isArray(root.sections)
     ? root.sections.map((s, i) => normalizeSection(s, i))
     : [];
@@ -246,7 +265,10 @@ export function normalizeLayout(raw: unknown): StorefrontLayout {
 }
 
 export function layoutFingerprint(layout: StorefrontLayout): string {
-  return JSON.stringify(layout.sections);
+  return JSON.stringify({
+    sections: layout.sections,
+    announcementBar: mergeAnnouncementBarSettings(layout.theme?.announcementBar),
+  });
 }
 
 export function formatBuilderDate(value: string | null | undefined): string {

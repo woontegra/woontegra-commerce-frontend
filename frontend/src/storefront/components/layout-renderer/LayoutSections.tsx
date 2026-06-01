@@ -1,21 +1,24 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useStorefrontTenant } from '../../hooks/useStorefrontTenant';
-import { fetchStorefrontProducts, normalizeStoreImageUrl } from '../../services/storefrontApi';
-import { ProductCard } from '../ProductCard';
+import { normalizeStoreImageUrl } from '../../services/storefrontApi';
 import { CategoryCard } from '../CategoryCard';
 import type { StorefrontProductSummary } from '../../types/storefront.types';
 import type { StorefrontSection } from '../../../types/storefrontBuilder.types';
 import HeroBlockView from '../../../components/storefront-builder/HeroBlockView';
+import FeaturedProductsBlockView from '../../../components/storefront-builder/FeaturedProductsBlockView';
+import {
+  featuredViewAllHref,
+  loadFeaturedBlockProducts,
+  type FeaturedProductsEmptyReason,
+} from '../../../utils/featuredProductsBlockHelpers';
 import {
   buildBannerImageLayerProps,
   bannerHeightClass,
-  featuredGridColumnsClass,
   gridColumnsClass,
   layoutBool,
   layoutNum,
   layoutStr,
-  mapProductCardVariant,
   objectFitClass,
   parseTrustBadges,
   resolveStorePath,
@@ -31,12 +34,14 @@ type SectionProps = {
 export function HeroSection({ section, primaryColor, storeLink }: SectionProps) {
   const s = section.settings;
   const imageUrl = normalizeStoreImageUrl(layoutStr(s, 'imageUrl'));
+  const mobileImageUrl = normalizeStoreImageUrl(layoutStr(s, 'mobileImageUrl'));
 
   return (
     <section>
       <HeroBlockView
         settings={s}
         imageUrl={imageUrl}
+        mobileImageUrl={mobileImageUrl || null}
         themePrimary={primaryColor}
         resolveHref={path => resolveStorePath(path, storeLink)}
       />
@@ -105,71 +110,50 @@ export function CategoryGridSection({ section, storeLink }: SectionProps) {
 export function FeaturedProductsSection({ section, storeLink }: SectionProps) {
   const { tenant } = useStorefrontTenant();
   const s = section.settings;
-  const title = layoutStr(s, 'title', 'Öne Çıkan Ürünler');
-  const limit = layoutNum(s, 'limit', 8);
-  const columns = layoutNum(s, 'columns', 4);
-  const source = layoutStr(s, 'source', 'featured');
-  const cardStyle = layoutStr(s, 'cardStyle', 'standard');
   const widthMode = layoutStr(s, 'widthMode', 'container');
-  const showPrice = layoutBool(s, 'showPrice', true);
-  const showAddToCart = layoutBool(s, 'showAddToCart', true);
   const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [emptyReason, setEmptyReason] = useState<FeaturedProductsEmptyReason>('none');
+
+  const settingsKey = useMemo(
+    () =>
+      JSON.stringify({
+        sourceType: s.sourceType ?? s.source,
+        categoryId: s.categoryId,
+        limit: s.limit,
+      }),
+    [s.sourceType, s.source, s.categoryId, s.limit],
+  );
 
   useEffect(() => {
     if (!tenant?.slug) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      try {
-        const result = await fetchStorefrontProducts(tenant.slug, {
-          limit,
-          page: source === 'latest' ? 1 : 1,
-        });
-        if (!cancelled) setProducts(result.items.slice(0, limit));
-      } catch {
-        if (!cancelled) setProducts([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+      const result = await loadFeaturedBlockProducts(tenant.slug, s);
+      if (!cancelled) {
+        setProducts(result.products);
+        setEmptyReason(result.emptyReason);
+        setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [tenant?.slug, limit, source]);
+  }, [tenant?.slug, settingsKey, s]);
 
-  const cardVariant = mapProductCardVariant(cardStyle);
+  const viewAllHref = featuredViewAllHref(s, storeLink);
 
   return (
     <section className={`${sectionWidthClass(widthMode)} pb-16`}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-        <Link to={storeLink('/store/urunler')} className="text-sm font-medium text-indigo-600 hover:underline">
-          Tümünü gör
-        </Link>
-      </div>
-      {loading ? (
-        <div className={`grid ${featuredGridColumnsClass(columns)} gap-4`}>
-          {Array.from({ length: Math.min(columns, 4) }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-white border border-slate-200 h-52 animate-pulse" />
-          ))}
-        </div>
-      ) : products.length === 0 ? (
-        <p className="text-slate-500 text-sm">Gösterilecek ürün yok.</p>
-      ) : (
-        <div className={`grid ${featuredGridColumnsClass(columns)} gap-4`}>
-          {products.map(p => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              productUrl={storeLink(`/store/urun/${encodeURIComponent(p.slug)}`)}
-              variant={cardVariant}
-              hidePrice={!showPrice}
-              hideAddToCart={!showAddToCart}
-            />
-          ))}
-        </div>
-      )}
+      <FeaturedProductsBlockView
+        settings={s}
+        products={products}
+        loading={loading}
+        emptyReason={emptyReason}
+        storeLink={storeLink}
+        viewAllHref={viewAllHref}
+      />
     </section>
   );
 }

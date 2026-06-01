@@ -1,22 +1,45 @@
 import { Trash2 } from 'lucide-react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import { blockLabel } from '../../pages/storefrontBuilderHelpers';
+import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
+import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 import HeroSettingsPanel from './HeroSettingsPanel';
 import SectionSettingsPanel from './SectionSettingsPanel';
+import AnnouncementBarSettingsPanel from './AnnouncementBarSettingsPanel';
 
 type BuilderSettingsSidebarProps = {
   section: StorefrontSection | null;
+  globalSelection: string | null;
+  announcementBar: AnnouncementBarSettings;
   onChange: (patch: Record<string, unknown>) => void;
+  onAnnouncementBarChange: (patch: Partial<AnnouncementBarSettings>) => void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
 };
 
 export default function BuilderSettingsSidebar({
   section,
+  globalSelection,
+  announcementBar,
   onChange,
+  onAnnouncementBarChange,
   onDelete,
   onToggleEnabled,
 }: BuilderSettingsSidebarProps) {
+  if (globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-white">
+          <h2 className="text-[13px] font-semibold text-slate-800">Üst Duyuru Barı</h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">Tüm vitrin sayfalarında header üstünde görünür</p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+          <AnnouncementBarSettingsPanel settings={announcementBar} onChange={onAnnouncementBarChange} />
+        </div>
+      </div>
+    );
+  }
+
   if (!section) {
     return (
       <div className="flex flex-col h-full min-h-0">
@@ -26,7 +49,9 @@ export default function BuilderSettingsSidebar({
         <div className="flex-1 flex items-center justify-center p-6 text-center">
           <div>
             <p className="text-[13px] font-medium text-slate-600">Blok seçilmedi</p>
-            <p className="text-[12px] text-slate-400 mt-1">Düzenlemek için sayfa akışından bir blok seçin.</p>
+            <p className="text-[12px] text-slate-400 mt-1">
+              Düzenlemek için sayfa akışından bir blok veya sol panelden global alan seçin.
+            </p>
           </div>
         </div>
       </div>

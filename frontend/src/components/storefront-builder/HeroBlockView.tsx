@@ -4,13 +4,15 @@ import {
   buildHeroBlockModel,
   heroButtonClassName,
   heroButtonInlineStyle,
+  normalizeHeroImageUrl,
   type HeroButtonStyle,
 } from '../../utils/heroBlockHelpers';
 import type { HeroPreviewViewport } from '../../utils/heroBuilderConstants';
 
 type HeroBlockViewProps = {
   settings: Record<string, unknown>;
-  imageUrl: string | null;
+  imageUrl?: string | null;
+  mobileImageUrl?: string | null;
   themePrimary?: string | null;
   resolveHref?: (path: string) => string;
   preview?: boolean;
@@ -36,33 +38,59 @@ function HeroButton({ btn, preview }: { btn: HeroButtonStyle; preview?: boolean 
   );
 }
 
+function str(settings: Record<string, unknown>, key: string): string {
+  return String(settings[key] ?? '').trim();
+}
+
 export default function HeroBlockView({
   settings,
-  imageUrl,
+  imageUrl: imageUrlProp,
+  mobileImageUrl: mobileImageUrlProp,
   themePrimary = null,
   resolveHref = p => p,
   preview = false,
   previewViewport,
   className = '',
 }: HeroBlockViewProps) {
+  const desktopImageUrl = normalizeHeroImageUrl(imageUrlProp ?? (str(settings, 'imageUrl') || null));
+  const mobileImageUrl = normalizeHeroImageUrl(mobileImageUrlProp ?? (str(settings, 'mobileImageUrl') || null));
+
   const model = buildHeroBlockModel({
     settings,
-    imageUrl,
+    desktopImageUrl,
+    mobileImageUrl,
     themePrimary,
     resolveHref,
     previewViewport,
   });
   const { content, visual, height } = model;
 
+  const renderImageLayers = () => {
+    if (previewViewport || !visual.useResponsiveImages) {
+      const layer = visual.desktopImageLayerStyle;
+      if (!layer) return null;
+      return <div className="absolute inset-0" style={layer} aria-hidden />;
+    }
+    return (
+      <>
+        {visual.desktopImageLayerStyle && (
+          <div className="absolute inset-0 hidden md:block" style={visual.desktopImageLayerStyle} aria-hidden />
+        )}
+        {visual.mobileImageLayerStyle ? (
+          <div className="absolute inset-0 md:hidden" style={visual.mobileImageLayerStyle} aria-hidden />
+        ) : (
+          visual.desktopImageLayerStyle && (
+            <div className="absolute inset-0 md:hidden" style={visual.desktopImageLayerStyle} aria-hidden />
+          )
+        )}
+      </>
+    );
+  };
+
   return (
-    <div
-      className={`${model.sectionShell} ${height.className} ${className}`}
-      style={height.style}
-    >
+    <div className={`${model.sectionShell} ${height.className} ${className}`} style={height.style}>
       {visual.baseStyle && <div className="absolute inset-0" style={visual.baseStyle} aria-hidden />}
-      {visual.imageLayerStyle && (
-        <div className="absolute inset-0" style={visual.imageLayerStyle} aria-hidden />
-      )}
+      {renderImageLayers()}
       {visual.showOverlay && visual.overlayStyle && (
         <div className="absolute inset-0 pointer-events-none" style={visual.overlayStyle} aria-hidden />
       )}

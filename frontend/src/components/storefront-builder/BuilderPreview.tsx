@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import type { StorefrontSection } from '../../types/storefrontBuilder.types';
 import {
   blockLabel,
@@ -7,8 +8,15 @@ import {
   parseTrustBadges,
 } from '../../pages/storefrontBuilderHelpers';
 import HeroBlockView from './HeroBlockView';
+import FeaturedProductsBlockView from './FeaturedProductsBlockView';
 import { normalizeImageUrl } from '../../utils/imageUtils';
 import type { HeroPreviewViewport } from '../../utils/heroBuilderConstants';
+import {
+  featuredViewAllHref,
+  loadFeaturedBlockProducts,
+  type FeaturedProductsEmptyReason,
+} from '../../utils/featuredProductsBlockHelpers';
+import type { StorefrontProductSummary } from '../../storefront/types/storefront.types';
 
 function str(settings: Record<string, unknown>, key: string, fallback = '') {
   const v = settings[key];
@@ -58,9 +66,83 @@ interface BuilderPreviewProps {
   section: StorefrontSection | null;
   variant?: 'compact' | 'workspace';
   previewViewport?: HeroPreviewViewport;
+  tenantSlug?: string | null;
 }
 
-export default function BuilderPreview({ section, variant = 'compact', previewViewport }: BuilderPreviewProps) {
+function FeaturedProductsPreview({
+  section,
+  tenantSlug,
+  isWorkspace,
+}: {
+  section: StorefrontSection;
+  tenantSlug?: string | null;
+  isWorkspace: boolean;
+}) {
+  const s = section.settings;
+  const [products, setProducts] = useState<StorefrontProductSummary[]>([]);
+  const [loading, setLoading] = useState(Boolean(tenantSlug));
+  const [emptyReason, setEmptyReason] = useState<FeaturedProductsEmptyReason>('none');
+
+  const settingsKey = useMemo(
+    () =>
+      JSON.stringify({
+        sourceType: s.sourceType ?? s.source,
+        categoryId: s.categoryId,
+        limit: s.limit,
+        displayMode: s.displayMode,
+      }),
+    [s.sourceType, s.source, s.categoryId, s.limit, s.displayMode],
+  );
+
+  useEffect(() => {
+    if (!tenantSlug) {
+      setProducts([]);
+      setEmptyReason('no_products');
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const result = await loadFeaturedBlockProducts(tenantSlug, s);
+      if (!cancelled) {
+        setProducts(result.products);
+        setEmptyReason(result.emptyReason);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantSlug, settingsKey, s]);
+
+  const storeLink = (path: string) => path;
+  const viewAllHref = featuredViewAllHref(s, storeLink);
+  const shellCls = isWorkspace
+    ? 'p-4 sm:p-6 bg-white'
+    : 'rounded-xl border border-slate-200 p-4 bg-white';
+
+  return (
+    <div className={shellCls}>
+      <FeaturedProductsBlockView
+        settings={s}
+        products={products}
+        loading={loading}
+        emptyReason={tenantSlug ? emptyReason : 'no_products'}
+        storeLink={storeLink}
+        viewAllHref={viewAllHref}
+        preview
+      />
+    </div>
+  );
+}
+
+export default function BuilderPreview({
+  section,
+  variant = 'compact',
+  previewViewport,
+  tenantSlug = null,
+}: BuilderPreviewProps) {
   const isWorkspace = variant === 'workspace';
   const emptyCls = isWorkspace
     ? 'px-6 py-16 text-center bg-slate-50'
@@ -87,10 +169,12 @@ export default function BuilderPreview({ section, variant = 'compact', previewVi
   switch (section.type) {
     case 'hero': {
       const rawUrl = imageSrc(s, 'imageUrl') || null;
+      const rawMobileUrl = imageSrc(s, 'mobileImageUrl') || null;
       return (
         <HeroBlockView
           settings={s}
           imageUrl={rawUrl}
+          mobileImageUrl={rawMobileUrl}
           themePrimary={null}
           preview
           previewViewport={previewViewport}
@@ -123,35 +207,8 @@ export default function BuilderPreview({ section, variant = 'compact', previewVi
       );
     }
 
-    case 'featuredProducts': {
-      const cardStyle = str(s, 'cardStyle', 'card');
-      const showPrice = bool(s, 'showPrice', true);
-      const showCart = bool(s, 'showAddToCart', true);
-      return (
-        <div className="rounded-xl border border-slate-200 p-4 bg-white">
-          <p className="text-[13px] font-semibold text-slate-800 mb-3">{str(s, 'title', 'Ürünler')}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[1, 2].map(i => (
-              <div
-                key={i}
-                className={`rounded-lg overflow-hidden ${cardStyle === 'card' ? 'border border-slate-200 shadow-sm' : 'border border-transparent'}`}
-              >
-                <div className="aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200" />
-                <div className="p-2 space-y-1.5">
-                  <div className="h-2 w-3/4 bg-slate-200 rounded" />
-                  {showPrice && <div className="h-2 w-1/2 bg-indigo-100 rounded" />}
-                  {showCart && (
-                    <div className="h-6 rounded-md bg-indigo-600/90 flex items-center justify-center text-[9px] text-white font-medium">
-                      Sepete Ekle
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
+    case 'featuredProducts':
+      return <FeaturedProductsPreview section={section} tenantSlug={tenantSlug} isWorkspace={isWorkspace} />;
 
     case 'campaignBanner': {
       const bg = str(s, 'backgroundColor', '#fffbeb');

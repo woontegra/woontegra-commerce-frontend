@@ -20,6 +20,9 @@ import type { HeroPreviewViewport } from '../../utils/heroBuilderConstants';
 import { PREVIEW_VIEWPORT_WIDTH } from '../../utils/heroBuilderConstants';
 import SortableSectionRow from './SortableSectionRow';
 import BuilderPreview from './BuilderPreview';
+import { AnnouncementBar } from '../../storefront/components/AnnouncementBar';
+import type { AnnouncementBarSettings } from '../../utils/announcementBarHelpers';
+import { GLOBAL_ANNOUNCEMENT_BAR_ID } from '../../utils/announcementBarHelpers';
 
 type BuilderCenterWorkspaceProps = {
   layout: StorefrontLayout;
@@ -30,6 +33,9 @@ type BuilderCenterWorkspaceProps = {
   onDelete: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  tenantSlug?: string | null;
+  announcementBar: AnnouncementBarSettings;
+  globalSelection: string | null;
 };
 
 const VIEWPORTS: { id: HeroPreviewViewport; label: string; icon: typeof Monitor }[] = [
@@ -47,6 +53,9 @@ export default function BuilderCenterWorkspace({
   onDelete,
   onToggleEnabled,
   onDragEnd,
+  tenantSlug = null,
+  announcementBar,
+  globalSelection,
 }: BuilderCenterWorkspaceProps) {
   const [previewViewport, setPreviewViewport] = useState<HeroPreviewViewport>('desktop');
   const sensors = useSensors(
@@ -54,7 +63,11 @@ export default function BuilderCenterWorkspace({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const showViewportSwitcher = selectedSection?.type === 'hero';
+  const showViewportSwitcher =
+    selectedSection?.type === 'hero' || globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID;
+
+  const previewViewportForBar: 'desktop' | 'mobile' | undefined =
+    previewViewport === 'mobile' ? 'mobile' : previewViewport ? 'desktop' : undefined;
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-slate-50/50">
@@ -101,7 +114,11 @@ export default function BuilderCenterWorkspace({
           <div>
             <h2 className="text-[13px] font-semibold text-slate-800">Vitrin Önizleme</h2>
             <p className="text-[11px] text-slate-500">
-              {selectedSection ? blockLabel(selectedSection.type) : 'Blok seçin'}
+              {globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID
+                ? 'Üst Duyuru Barı'
+                : selectedSection
+                  ? blockLabel(selectedSection.type)
+                  : 'Blok seçin'}
             </p>
           </div>
           {showViewportSwitcher && (
@@ -143,11 +160,25 @@ export default function BuilderCenterWorkspace({
                 </span>
               </div>
               <div className="bg-white min-h-[200px]">
-                <BuilderPreview
-                  section={selectedSection}
-                  variant="workspace"
-                  previewViewport={showViewportSwitcher ? previewViewport : undefined}
-                />
+                {(announcementBar.enabled || globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID) && (
+                  <AnnouncementBar
+                    settings={announcementBar}
+                    preview
+                    previewViewport={previewViewportForBar}
+                  />
+                )}
+                {globalSelection === GLOBAL_ANNOUNCEMENT_BAR_ID ? (
+                  <div className="px-4 py-8 text-center text-[12px] text-slate-400 border-t border-dashed border-slate-100">
+                    Duyuru barı tüm vitrin sayfalarında header üstünde görünür.
+                  </div>
+                ) : (
+                  <BuilderPreview
+                    section={selectedSection}
+                    variant="workspace"
+                    previewViewport={showViewportSwitcher ? previewViewport : undefined}
+                    tenantSlug={tenantSlug}
+                  />
+                )}
               </div>
             </div>
           </div>

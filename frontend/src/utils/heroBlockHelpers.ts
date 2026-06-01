@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { normalizeImageUrl } from './imageUtils';
 import {
   buildHeroLayerProps,
   hexToRgba,
@@ -35,6 +35,22 @@ function num(settings: Record<string, unknown>, key: string, fallback: number): 
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
+}
+
+function buildImageLayerStyle(
+  settings: Record<string, unknown>,
+  imageUrl: string | null,
+  themePrimary: string | null,
+): Record<string, string> | undefined {
+  if (!imageUrl?.trim() || !shouldRenderHeroImage(settings, imageUrl)) return undefined;
+  const focal = str(settings, 'imageFocalPoint') || str(settings, 'imagePosition', 'center');
+  const layers = buildHeroLayerProps(
+    { ...settings, imagePosition: focal },
+    themePrimary,
+    imageUrl,
+  );
+  if (!layers.imageLayerStyle) return undefined;
+  return { ...layers.imageLayerStyle, backgroundPosition: focalPointToCss(focal) };
 }
 
 export function normalizeFocalPoint(raw: string): HeroFocalPoint {
@@ -139,8 +155,7 @@ export function resolveHeightPreset(settings: Record<string, unknown>): HeroHeig
   const preset = str(settings, 'heightPreset', '');
   if (preset === 'fullscreen') return 'fullscreen';
   if (preset && preset in HERO_HEIGHT_PRESETS) return preset as HeroHeightPreset;
-  const legacy = normalizeLegacyHeightPreset(str(settings, 'heightMode', str(settings, 'height', 'wide')));
-  return legacy;
+  return normalizeLegacyHeightPreset(str(settings, 'heightMode', str(settings, 'height', 'wide')));
 }
 
 function normalizeLegacyHeightPreset(mode: string): HeroHeightPreset {
@@ -193,7 +208,7 @@ export function resolveHeroHeights(settings: Record<string, unknown>): {
 export function heroHeightStyle(
   settings: Record<string, unknown>,
   previewViewport?: HeroPreviewViewport,
-): { className: string; style: CSSProperties } {
+): { className: string; style: import('react').CSSProperties } {
   const heights = resolveHeroHeights(settings);
   if (heights.fullscreen) {
     if (previewViewport) {
@@ -221,6 +236,23 @@ export function heroHeightStyle(
       ['--hero-h-desktop' as string]: `${heights.desktop}px`,
     },
   };
+}
+
+export function resolveHeroImageUrls(
+  _settings: Record<string, unknown>,
+  desktopUrl: string | null,
+  mobileUrl: string | null,
+  previewViewport?: HeroPreviewViewport,
+): { desktop: string | null; mobile: string | null; preview: string | null } {
+  const desktop = desktopUrl?.trim() || null;
+  const mobile = mobileUrl?.trim() || null;
+  if (previewViewport === 'mobile') {
+    return { desktop, mobile, preview: mobile || desktop };
+  }
+  if (previewViewport) {
+    return { desktop, mobile, preview: desktop };
+  }
+  return { desktop, mobile, preview: null };
 }
 
 export function contentPlacementClasses(placement: HeroContentPlacement): {
@@ -251,7 +283,7 @@ export function contentPlacementClasses(placement: HeroContentPlacement): {
 
 export function resolveContentMaxWidth(settings: Record<string, unknown>): {
   className: string;
-  style?: CSSProperties;
+  style?: import('react').CSSProperties;
 } {
   const preset = str(settings, 'contentWidthPreset', str(settings, 'contentWidth', 'medium'));
   const customPx = clamp(num(settings, 'contentMaxWidthPx', 720), 280, 1400);
@@ -318,7 +350,7 @@ export function resolveHeroOverlay(settings: Record<string, unknown>, themePrima
   return { show: true, style: { backgroundColor: hexToRgba(color, opacity) } };
 }
 
-export function heroTitleStyle(settings: Record<string, unknown>): CSSProperties {
+export function heroTitleStyle(settings: Record<string, unknown>): import('react').CSSProperties {
   const preset = str(settings, 'titleSizePreset', str(settings, 'titleSize', 'md'));
   const sizes: Record<string, string> = {
     sm: '1.75rem',
@@ -326,7 +358,7 @@ export function heroTitleStyle(settings: Record<string, unknown>): CSSProperties
     lg: '3rem',
     hero: '3.75rem',
   };
-  const style: CSSProperties = {
+  const style: import('react').CSSProperties = {
     color: str(settings, 'titleColor', str(settings, 'textColor', '#ffffff')),
   };
   if (preset === 'custom') {
@@ -341,10 +373,10 @@ export function heroTitleStyle(settings: Record<string, unknown>): CSSProperties
   return style;
 }
 
-export function heroSubtitleStyle(settings: Record<string, unknown>): CSSProperties {
+export function heroSubtitleStyle(settings: Record<string, unknown>): import('react').CSSProperties {
   const preset = str(settings, 'subtitleSizePreset', str(settings, 'subtitleSize', 'md'));
   const sizes: Record<string, string> = { sm: '0.875rem', md: '1rem', lg: '1.125rem' };
-  const style: CSSProperties = {
+  const style: import('react').CSSProperties = {
     color: str(settings, 'subtitleColor', str(settings, 'textColor', '#ffffff')),
   };
   if (preset === 'custom') {
@@ -389,8 +421,8 @@ export type HeroContentProps = {
   subtitle: string;
   titleWeightClass: string;
   subtitleClass: string;
-  titleStyle: CSSProperties;
-  subtitleStyle: CSSProperties;
+  titleStyle: import('react').CSSProperties;
+  subtitleStyle: import('react').CSSProperties;
   placement: ReturnType<typeof contentPlacementClasses>;
   contentWidth: ReturnType<typeof resolveContentMaxWidth>;
   contentBoxClass: string;
@@ -498,38 +530,54 @@ export function heroButtonInlineStyle(btn: HeroButtonStyle): Record<string, stri
 export function buildHeroVisualLayers(
   settings: Record<string, unknown>,
   themePrimary: string | null,
-  imageUrl: string | null,
+  desktopImageUrl: string | null,
+  mobileImageUrl: string | null,
+  previewViewport?: HeroPreviewViewport,
 ) {
+  const urls = resolveHeroImageUrls(settings, desktopImageUrl, mobileImageUrl, previewViewport);
   const merged = { ...settings };
   const focal = str(settings, 'imageFocalPoint') || str(settings, 'imagePosition', 'center');
   merged.imagePosition = focal;
-  const layers = buildHeroLayerProps(merged, themePrimary, imageUrl);
+
+  const previewSingle = previewViewport ? urls.preview : null;
+  const desktopLayer = previewSingle
+    ? buildImageLayerStyle(settings, previewSingle, themePrimary)
+    : buildImageLayerStyle(settings, urls.desktop, themePrimary);
+  const mobileLayer =
+    !previewViewport && urls.mobile
+      ? buildImageLayerStyle(settings, urls.mobile, themePrimary)
+      : undefined;
+
+  const baseLayers = buildHeroLayerProps(merged, themePrimary, previewSingle || urls.desktop || urls.mobile);
   const overlay = resolveHeroOverlay(settings, themePrimary);
-  const focalCss = focalPointToCss(focal);
-  let imageLayerStyle = layers.imageLayerStyle;
-  if (imageLayerStyle) {
-    imageLayerStyle = { ...imageLayerStyle, backgroundPosition: focalCss };
-  }
+
   return {
-    baseStyle: layers.baseStyle,
-    imageLayerStyle,
+    baseStyle: baseLayers.baseStyle,
+    desktopImageLayerStyle: desktopLayer,
+    mobileImageLayerStyle: mobileLayer,
+    useResponsiveImages: !previewViewport && !!urls.desktop,
     showOverlay: overlay.show,
     overlayStyle: overlay.style,
-    widthClass: layers.widthClass,
+    widthClass: baseLayers.widthClass,
   };
 }
 
-export function buildHeroBlockModel(
-  props: {
-    settings: Record<string, unknown>;
-    imageUrl: string | null;
-    themePrimary: string | null;
-    resolveHref: (path: string) => string;
-    previewViewport?: HeroPreviewViewport;
-  },
-) {
-  const { settings, imageUrl, themePrimary, resolveHref, previewViewport } = props;
-  const visual = buildHeroVisualLayers(settings, themePrimary, imageUrl);
+export function buildHeroBlockModel(props: {
+  settings: Record<string, unknown>;
+  desktopImageUrl: string | null;
+  mobileImageUrl: string | null;
+  themePrimary: string | null;
+  resolveHref: (path: string) => string;
+  previewViewport?: HeroPreviewViewport;
+}) {
+  const { settings, desktopImageUrl, mobileImageUrl, themePrimary, resolveHref, previewViewport } = props;
+  const visual = buildHeroVisualLayers(
+    settings,
+    themePrimary,
+    desktopImageUrl,
+    mobileImageUrl,
+    previewViewport,
+  );
   const content = buildHeroContentProps(settings, resolveHref);
   const height = heroHeightStyle(settings, previewViewport);
   const widthMode = str(settings, 'widthMode', 'full');
@@ -569,6 +617,7 @@ export function mergeHeroSettings(raw: Record<string, unknown>, merged: Record<s
     merged.overlayPreset = 'none';
   }
   if (raw.overlayColor === undefined) merged.overlayColor = '#000000';
+  if (raw.mobileImageUrl === undefined) merged.mobileImageUrl = '';
 
   if (!raw.heightPreset && !raw.heightCustomEnabled) {
     merged.heightPreset = normalizeLegacyHeightPreset(str(merged, 'heightMode', str(merged, 'height', 'wide')));
@@ -606,4 +655,8 @@ export function mergeHeroSettings(raw: Record<string, unknown>, merged: Record<s
   return merged;
 }
 
-export { shouldRenderHeroImage, focalPointToCss as cssBackgroundPosition };
+export function normalizeHeroImageUrl(url: string | null | undefined): string | null {
+  return normalizeImageUrl(url ?? '') ?? null;
+}
+
+export { shouldRenderHeroImage };

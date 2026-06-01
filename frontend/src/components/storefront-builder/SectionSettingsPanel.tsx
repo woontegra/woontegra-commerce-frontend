@@ -8,6 +8,7 @@ import {
 } from '../../pages/storefrontBuilderHelpers';
 import { ColorField, inputCls } from './builderSettingsUi';
 import HeroSettingsPanel from './HeroSettingsPanel';
+import FeaturedProductsSettings from './FeaturedProductsSettings';
 import BuilderImageField from './BuilderImageField';
 
 const labelCls = 'block text-[12px] font-medium text-slate-600 mb-1';
@@ -397,49 +398,7 @@ export default function SectionSettingsPanel({ section, onChange }: SectionSetti
       return (
         <div className="space-y-3">
           <BlockHint type="featuredProducts" />
-          <Field label="Başlık"><TextInput value={str('title')} onChange={v => set('title', v)} /></Field>
-          <Field label="Görünüm tipi">
-            <select className={inputCls} value={str('displayMode', 'grid')} onChange={e => set('displayMode', e.target.value)}>
-              <option value="grid">Grid</option>
-              <NextPhaseOption label="Carousel" />
-            </select>
-          </Field>
-          <Field label="Kolon sayısı">
-            <select className={inputCls} value={String(num('columns', 4))} onChange={e => set('columns', Number(e.target.value))}>
-              <option value="2">2 kolon</option>
-              <option value="3">3 kolon</option>
-              <option value="4">4 kolon</option>
-              <option value="5">5 kolon</option>
-            </select>
-          </Field>
-          <Field label="Ürün sayısı">
-            <select className={inputCls} value={String(num('limit', 8))} onChange={e => set('limit', Number(e.target.value))}>
-              <option value="4">4 ürün</option>
-              <option value="8">8 ürün</option>
-              <option value="12">12 ürün</option>
-            </select>
-          </Field>
-          <Field label="Genişlik tipi">
-            <select className={inputCls} value={str('widthMode', 'container')} onChange={e => set('widthMode', e.target.value)}>
-              <option value="container">Container</option>
-              <option value="full">Tam genişlik</option>
-            </select>
-          </Field>
-          <Field label="Kaynak">
-            <select className={inputCls} value={str('source', 'featured')} onChange={e => set('source', e.target.value)}>
-              <option value="featured">Öne çıkan ürünler</option>
-              <option value="latest">Yeni ürünler</option>
-            </select>
-          </Field>
-          <Field label="Kart görünümü">
-            <select className={inputCls} value={str('cardStyle', 'standard')} onChange={e => set('cardStyle', e.target.value)}>
-              <option value="standard">Standart</option>
-              <option value="compact">Kompakt</option>
-              <option value="imageFocus">Büyük görsel</option>
-            </select>
-          </Field>
-          <CheckboxField label="Fiyat göster" checked={bool('showPrice', true)} onChange={v => set('showPrice', v)} />
-          <CheckboxField label="Sepete ekle butonu göster" checked={bool('showAddToCart', true)} onChange={v => set('showAddToCart', v)} />
+          <FeaturedProductsSettings section={section} onChange={onChange} />
         </div>
       );
 
