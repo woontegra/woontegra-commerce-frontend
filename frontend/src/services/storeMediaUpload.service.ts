@@ -1,5 +1,6 @@
 import { api, extractErrorMessage } from './apiClient';
-import { productService } from './product.service';
+import { mediaAssetUrl, uploadMediaAsset } from './media.service';
+import type { MediaFolderSlug } from '../constants/mediaFolders';
 
 const LOGO_MAX_BYTES    = 2 * 1024 * 1024;
 const FAVICON_MAX_BYTES = 1024 * 1024;
@@ -33,7 +34,7 @@ function extOf(name: string): string {
 }
 
 export function isBuilderImageUploadAvailable(): boolean {
-  return typeof productService.uploadImage === 'function';
+  return true;
 }
 
 export function validateBuilderImageFile(file: File, maxSizeMb = 5): string | null {
@@ -46,14 +47,18 @@ export function validateBuilderImageFile(file: File, maxSizeMb = 5): string | nu
   return null;
 }
 
-export async function uploadBuilderImage(file: File): Promise<string> {
+export async function uploadBuilderImage(
+  file: File,
+  folder: MediaFolderSlug = 'builder',
+): Promise<string> {
   const err = validateBuilderImageFile(file);
   if (err) throw new Error(err);
   if (!isBuilderImageUploadAvailable()) {
     throw new Error('Bilgisayardan yükleme için medya altyapısı gerekli.');
   }
   try {
-    return await productService.uploadImage(file);
+    const asset = await uploadMediaAsset(file, folder);
+    return mediaAssetUrl(asset);
   } catch (e: unknown) {
     throw new Error(extractErrorMessage(e, 'Görsel yüklenemedi.'));
   }

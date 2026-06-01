@@ -7,6 +7,7 @@ import {
   uploadBuilderImage,
   validateBuilderImageFile,
 } from '../../services/storeMediaUpload.service';
+import type { MediaFolderSlug } from '../../constants/mediaFolders';
 
 type BuilderImageFieldProps = {
   label?: string;
@@ -16,6 +17,7 @@ type BuilderImageFieldProps = {
   recommendedSize?: string;
   accept?: string;
   maxSizeMb?: number;
+  folder?: MediaFolderSlug;
 };
 
 export default function BuilderImageField({
@@ -26,6 +28,7 @@ export default function BuilderImageField({
   recommendedSize,
   accept = 'image/jpeg,image/png,image/webp,image/svg+xml,.jpg,.jpeg,.png,.webp,.svg',
   maxSizeMb = 5,
+  folder = 'builder',
 }: BuilderImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -47,7 +50,7 @@ export default function BuilderImageField({
     }
     setUploading(true);
     try {
-      const url = await uploadBuilderImage(file);
+      const url = await uploadBuilderImage(file, folder);
       onChange(url);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Görsel yüklenemedi.');

@@ -1,4 +1,5 @@
 import api, { extractErrorMessage } from './apiClient';
+import type { MediaFolderSlug, MediaSortValue } from '../constants/mediaFolders';
 
 export type MediaAsset = {
   id: string;
@@ -13,8 +14,16 @@ export type MediaAsset = {
   width: number | null;
   height: number | null;
   type: string;
+  folder: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MediaListParams = {
+  limit?: number;
+  folder?: string;
+  search?: string;
+  sort?: MediaSortValue;
 };
 
 type MediaListResponse = {
@@ -30,10 +39,17 @@ type MediaUploadResponse = {
   message?: string;
 };
 
-export async function fetchMediaAssets(limit = 200): Promise<{ assets: MediaAsset[]; total: number }> {
+export async function fetchMediaAssets(
+  params: MediaListParams = {},
+): Promise<{ assets: MediaAsset[]; total: number }> {
   try {
     const r = await api.get<MediaListResponse>('/media', {
-      params: { limit },
+      params: {
+        limit: params.limit ?? 500,
+        ...(params.folder && params.folder !== 'all' ? { folder: params.folder } : {}),
+        ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+        ...(params.sort ? { sort: params.sort } : {}),
+      },
       skipErrorToast: true,
     });
     const root = r.data ?? {};
@@ -46,16 +62,24 @@ export async function fetchMediaAssets(limit = 200): Promise<{ assets: MediaAsse
   }
 }
 
-export async function uploadMediaAsset(file: File): Promise<MediaAsset> {
+export async function uploadMediaAsset(
+  file: File,
+  folder: MediaFolderSlug = 'general',
+): Promise<MediaAsset> {
   const form = new FormData();
   form.append('file', file);
+  form.append('folder', folder);
   try {
     const r = await api.post<MediaUploadResponse>('/media/upload', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       skipErrorToast: true,
     });
     const asset = r.data?.asset;
-    if (!asset?.url) {
+    const url = asset?.url ?? asset?.secureUrl ?? r.data?.url;
+    if (!url) {
+      throw new Error('Sunucu geçerli bir medya kaydı döndürmedi.');
+    }
+    if (!asset) {
       throw new Error('Sunucu geçerli bir medya kaydı döndürmedi.');
     }
     return asset;
@@ -86,4 +110,8 @@ export function validateMediaFile(file: File, maxSizeMb = 5): string | null {
   if (!okMime && !(file.type === '' && okExt)) return 'Bu görsel formatı desteklenmiyor.';
   if (file.size > maxSizeMb * 1024 * 1024) return 'Görsel dosyası en fazla 5 MB olabilir.';
   return null;
+}
+
+export function mediaAssetUrl(asset: MediaAsset): string {
+  return asset.secureUrl ?? asset.url;
 }
