@@ -1,11 +1,14 @@
 
 frontend/build-errors*.txt
 frontend/build-bulk*.txt
+frontend/build-current.txt
 frontend/dist/
-backend/dist/
+backend/
 frontend/node_modules/
-backend/node_modules/
 .env
 .env.*
+*.code-workspace
+test-backend.ps1
+railway-migration.sql
 
 .tmp.driveupload/
