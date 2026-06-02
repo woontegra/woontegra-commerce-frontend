@@ -99,12 +99,14 @@ function ProductCarousel({
   const ref = useRef<HTMLDivElement>(null);
   const [activePage, setActivePage] = useState(0);
 
+  const carouselGap = 11;
+
   const updateActivePage = useCallback(() => {
     const el = ref.current;
     if (!el || products.length === 0) return;
     const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
     if (!first) return;
-    const itemWidth = first.offsetWidth + 16;
+    const itemWidth = first.offsetWidth + carouselGap;
     if (itemWidth <= 0) return;
     const page = Math.round(el.scrollLeft / itemWidth);
     setActivePage(Math.min(Math.max(0, page), products.length - 1));
@@ -121,7 +123,7 @@ function ProductCarousel({
     const el = ref.current;
     if (!el) return;
     const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
-    const step = first ? first.offsetWidth + 16 : 280;
+    const step = first ? first.offsetWidth + carouselGap : 280;
     el.scrollBy({ left: dir * step, behavior: 'smooth' });
   };
 
@@ -129,7 +131,7 @@ function ProductCarousel({
     const el = ref.current;
     if (!el) return;
     const first = el.querySelector<HTMLElement>('.store-product-carousel-item');
-    const step = first ? first.offsetWidth + 16 : 280;
+    const step = first ? first.offsetWidth + carouselGap : 280;
     el.scrollTo({ left: index * step, behavior: 'smooth' });
   };
 
