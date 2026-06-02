@@ -5,11 +5,11 @@ import { StorefrontHeader } from '../components/StorefrontHeader';
 import { StorefrontFooter } from '../components/StorefrontFooter';
 import { AnnouncementBar } from '../components/AnnouncementBar';
 import { StorefrontThemeRoot } from '../components/StorefrontThemeRoot';
+import { StorefrontMobileBottomNav } from '../components/StorefrontMobileBottomNav';
 import { useStorefrontGlobalTheme } from '../hooks/StorefrontGlobalThemeProvider';
 
 /**
  * Default Storefront Theme — ana layout
- * İleride tenant.themeSettings JSON ile beslenecek.
  */
 export default function StorefrontLayout({ children, tenant, storeLink }: ThemeLayoutProps) {
   const { announcementBar, headerSettings, footerSettings, themeSettings } = useStorefrontGlobalTheme();
@@ -19,16 +19,17 @@ export default function StorefrontLayout({ children, tenant, storeLink }: ThemeL
   );
 
   return (
-    <StorefrontThemeRoot themeSettings={themeSettings}>
+    <StorefrontThemeRoot themeSettings={themeSettings} className="storefront-has-mobile-nav">
       <AnnouncementBar settings={announcementBar} resolveHref={storeLink} />
       <StorefrontHeader tenant={tenant} storeLink={storeLink} settings={headerSettings} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 store-storefront-main min-w-0">{children}</main>
       <StorefrontFooter
         tenant={tenant}
         settings={settings}
         footerSettings={footerSettings}
         storeLink={storeLink}
       />
+      <StorefrontMobileBottomNav storeLink={storeLink} headerSettings={headerSettings} />
     </StorefrontThemeRoot>
   );
 }

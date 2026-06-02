@@ -120,3 +120,7 @@ export function useStorefrontTenant(): Ctx {
   if (!c) throw new Error('useStorefrontTenant: provider eksik');
   return c;
 }
+
+export function useStorefrontTenantOptional(): Ctx | null {
+  return useContext(StorefrontTenantContext);
+}

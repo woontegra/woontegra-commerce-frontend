@@ -1,5 +1,7 @@
 import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import '../../styles/storefrontTheme.css';
+import '../../styles/storefrontHeaderMobile.css';
+import '../../styles/storefrontMobileBottomNav.css';
 import '../../styles/heroBlock.css';
 import { DEFAULT_THEME_PRESET_ID, resolveThemePreset } from '../theme/registry';
 import { resolveStorefrontThemeStyle } from '../theme/resolveThemeStyle';
