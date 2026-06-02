@@ -12,10 +12,9 @@ import {
   PLACEMENT_GRID_POINTS,
   type HeroContentPlacement,
   type HeroFocalPoint,
-  type HeroHeightPreset,
   type HeroOverlayPreset,
 } from '../../utils/heroBuilderConstants';
-import { placementToLegacyAlign, resolveHeightPreset } from '../../utils/heroBlockHelpers';
+import { placementToLegacyAlign, resolveHeroHeights } from '../../utils/heroBlockHelpers';
 import {
   getSlidesForEditor,
   heroSlidesToJson,
@@ -72,14 +71,8 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   const primaryUrl = str('primaryButtonUrl') || str('buttonUrl', '/store/urunler');
   const imageUrl = normalizeImageUrl(str('imageUrl')) || null;
   const mobileImageUrl = normalizeImageUrl(str('mobileImageUrl')) || null;
-  const heightPreset = resolveHeightPreset(s);
-  const heightSegmentValue: HeroHeightPreset | 'fullscreen' =
-    heightPreset === 'fullscreen'
-      ? 'fullscreen'
-      : bool('heightCustomEnabled', false) || heightPreset === 'custom'
-        ? 'custom'
-        : (heightPreset as HeroHeightPreset);
-  const heightCustom = heightSegmentValue === 'custom';
+  const heroHeights = useMemo(() => resolveHeroHeights(s), [s]);
+  const isFullscreenHeight = heroHeights.fullscreen;
   const overlayPreset = (str('overlayPreset', 'none') || 'none') as HeroOverlayPreset;
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
 
@@ -105,16 +98,10 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   const setPrimaryText = (v: string) => patch({ primaryButtonText: v, buttonText: v });
   const setPrimaryUrl = (v: string) => patch({ primaryButtonUrl: v, buttonUrl: v });
 
-  const applyHeightPreset = (preset: HeroHeightPreset | 'fullscreen' | 'custom') => {
-    if (preset === 'custom') {
-      patch({ heightPreset: 'custom', heightCustomEnabled: true });
-      return;
-    }
-    if (preset === 'fullscreen') {
-      patch({ heightPreset: 'fullscreen', heightCustomEnabled: false, heightMode: 'fullscreen', height: 'fullscreen' });
-      return;
-    }
-    const p = HERO_HEIGHT_PRESETS[preset as keyof typeof HERO_HEIGHT_PRESETS];
+  const HERO_HEIGHT_QUICK_PICKS = ['compact', 'standard', 'large'] as const;
+
+  const applyQuickHeight = (preset: (typeof HERO_HEIGHT_QUICK_PICKS)[number]) => {
+    const p = HERO_HEIGHT_PRESETS[preset];
     patch({
       heightPreset: preset,
       heightCustomEnabled: false,
@@ -125,6 +112,36 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
       heightMode: preset,
       height: preset,
     });
+  };
+
+  const setFullscreenHeight = (enabled: boolean) => {
+    if (enabled) {
+      patch({ heightPreset: 'fullscreen', heightCustomEnabled: false, heightMode: 'fullscreen', height: 'fullscreen' });
+      return;
+    }
+    patch({
+      heightPreset: 'custom',
+      heightCustomEnabled: true,
+      heightMode: 'custom',
+      height: 'custom',
+      heightDesktopPx: heroHeights.desktop || 700,
+      heightTabletPx: heroHeights.tablet || 560,
+      heightMobilePx: heroHeights.mobile || 460,
+      heightPx: heroHeights.desktop || 700,
+    });
+  };
+
+  const clampHeroHeight = (
+    key: 'heightDesktopPx' | 'heightTabletPx' | 'heightMobilePx',
+    value: number,
+  ) => {
+    const limits = {
+      heightDesktopPx: [320, 1000],
+      heightTabletPx: [280, 800],
+      heightMobilePx: [260, 600],
+    } as const;
+    const [min, max] = limits[key];
+    return Math.min(max, Math.max(min, value));
   };
 
   const setPlacement = (placement: HeroContentPlacement) => {
@@ -168,11 +185,14 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
   };
 
   const setCustomHeight = (key: 'heightDesktopPx' | 'heightTabletPx' | 'heightMobilePx', value: number) => {
+    const clamped = clampHeroHeight(key, value);
     patch({
-      [key]: value,
+      [key]: clamped,
       heightPreset: 'custom',
       heightCustomEnabled: true,
-      ...(key === 'heightDesktopPx' ? { heightPx: value } : {}),
+      heightMode: 'custom',
+      height: 'custom',
+      ...(key === 'heightDesktopPx' ? { heightPx: clamped } : {}),
     });
   };
 
@@ -182,29 +202,62 @@ export default function HeroSettingsPanel({ section, onChange, tabbed = false }:
         title="Hero yüksekliği"
         hint="Tam genişlik hero için 1920×700 veya 1920×800 WEBP önerilir."
       >
-        <SegmentControl<HeroHeightPreset | 'fullscreen' | 'custom'>
-          value={heightSegmentValue}
-          options={[
-            ...Object.entries(HERO_HEIGHT_PRESETS).map(([id, p]) => ({
-              id: id as HeroHeightPreset,
-              label: `${p.label} · ${p.desktop}px`,
-            })),
-            { id: 'fullscreen' as const, label: 'Tam ekran' },
-            { id: 'custom' as const, label: 'Özel px' },
-          ]}
-          onChange={v => applyHeightPreset(v)}
-          columns={2}
+        <ToggleSwitch
+          label="Tam ekran kullan"
+          checked={isFullscreenHeight}
+          onChange={setFullscreenHeight}
         />
-        {heightCustom && heightPreset !== 'fullscreen' && (
-          <>
-            <SliderField label="Desktop" value={num('heightDesktopPx', 700)} onChange={v => setCustomHeight('heightDesktopPx', v)} min={320} max={1000} step={10} />
-            <SliderField label="Tablet" value={num('heightTabletPx', 560)} onChange={v => setCustomHeight('heightTabletPx', v)} min={320} max={1000} step={10} />
-            <SliderField label="Mobil" value={num('heightMobilePx', 460)} onChange={v => setCustomHeight('heightMobilePx', v)} min={320} max={1000} step={10} />
-            <FieldHint>Mobilde çok yüksek hero kullanıcıyı ürünlerden uzaklaştırabilir.</FieldHint>
-          </>
+        <div className="space-y-3 pt-1">
+          <SliderField
+            label="Desktop yüksekliği"
+            value={heroHeights.desktop}
+            onChange={v => setCustomHeight('heightDesktopPx', v)}
+            min={320}
+            max={1000}
+            step={10}
+            disabled={isFullscreenHeight}
+          />
+          <SliderField
+            label="Tablet yüksekliği"
+            value={heroHeights.tablet}
+            onChange={v => setCustomHeight('heightTabletPx', v)}
+            min={280}
+            max={800}
+            step={10}
+            disabled={isFullscreenHeight}
+          />
+          <SliderField
+            label="Mobil yüksekliği"
+            value={heroHeights.mobile}
+            onChange={v => setCustomHeight('heightMobilePx', v)}
+            min={260}
+            max={600}
+            step={10}
+            disabled={isFullscreenHeight}
+          />
+        </div>
+        {!isFullscreenHeight && (
+          <div>
+            <p className="text-[11px] font-medium text-slate-600 mb-1.5">Hızlı seçim</p>
+            <div className="flex flex-wrap gap-1.5">
+              {HERO_HEIGHT_QUICK_PICKS.map(id => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => applyQuickHeight(id)}
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50/50 transition-colors"
+                >
+                  {id === 'large' ? 'Büyük' : HERO_HEIGHT_PRESETS[id].label}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-        {num('heightDesktopPx', 700) > 800 && (
+        {!isFullscreenHeight && heroHeights.desktop > 800 && (
           <FieldHint>800px üzeri yükseklikte ana ürünler aşağıda kalabilir.</FieldHint>
+        )}
+        {!isFullscreenHeight && (
+          <FieldHint>Mobilde çok yüksek hero kullanıcıyı ürünlerden uzaklaştırabilir.</FieldHint>
         )}
       </SettingCard>
 

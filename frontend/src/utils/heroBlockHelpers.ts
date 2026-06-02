@@ -191,8 +191,8 @@ export function resolveHeroHeights(settings: Record<string, unknown>): {
     return {
       preset,
       desktop: clamp(num(settings, 'heightDesktopPx', num(settings, 'heightPx', 700)), 320, 1000),
-      tablet: clamp(num(settings, 'heightTabletPx', 560), 320, 1000),
-      mobile: clamp(num(settings, 'heightMobilePx', 460), 320, 1000),
+      tablet: clamp(num(settings, 'heightTabletPx', 560), 280, 800),
+      mobile: clamp(num(settings, 'heightMobilePx', 460), 260, 600),
       fullscreen: false,
     };
   }

@@ -133,6 +133,7 @@ export function SliderField({
   max,
   step,
   unit = 'px',
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -141,9 +142,10 @@ export function SliderField({
   max: number;
   step: number;
   unit?: string;
+  disabled?: boolean;
 }) {
   return (
-    <div>
+    <div className={disabled ? 'opacity-50 pointer-events-none' : undefined}>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[11px] font-medium text-slate-600">{label}</label>
         <div className="flex items-center gap-1">
@@ -153,8 +155,9 @@ export function SliderField({
             max={max}
             step={step}
             value={value}
+            disabled={disabled}
             onChange={e => onChange(Number(e.target.value) || min)}
-            className="w-16 text-[11px] text-right border border-slate-200 rounded-md px-1.5 py-0.5 tabular-nums"
+            className="w-16 text-[11px] text-right border border-slate-200 rounded-md px-1.5 py-0.5 tabular-nums disabled:bg-slate-50"
           />
           <span className="text-[10px] text-slate-400">{unit}</span>
         </div>
@@ -165,8 +168,9 @@ export function SliderField({
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={e => onChange(Number(e.target.value))}
-        className="w-full accent-indigo-600"
+        className="w-full accent-indigo-600 disabled:cursor-not-allowed"
       />
     </div>
   );
