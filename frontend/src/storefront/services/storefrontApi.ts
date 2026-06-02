@@ -9,6 +9,18 @@ import type { StorefrontTenantInfo } from '../../contexts/StorefrontTenantContex
 
 import { normalizeImageUrl } from '../../utils/imageUtils';
 
+const INVALID_STORE_LOGO_VALUES = new Set(['null', 'undefined', 'none', '#', 'about:blank']);
+
+/** Logo URL for header/footer — empty, invalid, or unnormalizable values become null. */
+export function resolveStoreLogoUrl(url: string | null | undefined): string | null {
+  if (url == null) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed || INVALID_STORE_LOGO_VALUES.has(trimmed.toLowerCase())) return null;
+  const normalized = normalizeImageUrl(trimmed);
+  if (!normalized?.trim()) return null;
+  return normalized;
+}
+
 export function normalizeStoreImageUrl(url: string | null | undefined): string | null {
   return normalizeImageUrl(url);
 }

@@ -14,7 +14,7 @@ import {
   type FooterLink,
   type FooterSettings,
 } from '../../utils/footerSettingsHelpers';
-import { normalizeStoreImageUrl } from '../services/storefrontApi';
+import { useStoreLogo } from '../hooks/useStoreLogo';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -35,7 +35,7 @@ function LegacyStorefrontFooter({
 }) {
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
-  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const { logoSrc, onLogoError } = useStoreLogo(tenant.logoUrl);
   const home = storeLink ? storeLink('/store') : '/store';
   const products = storeLink ? storeLink('/store/urunler') : '/store/urunler';
   const cart = storeLink ? storeLink('/store/sepet') : '/store/sepet';
@@ -66,17 +66,16 @@ function LegacyStorefrontFooter({
           <div className="lg:col-span-4 store-footer-brand-block">
             {logoSrc ? (
               <Link to={home} className="inline-flex max-w-full shrink-0">
-                <img src={logoSrc} alt={displayName} className="store-footer-logo-img" />
+                <img
+                  src={logoSrc}
+                  alt={displayName}
+                  className="store-footer-logo-img"
+                  onError={onLogoError}
+                />
               </Link>
             ) : (
               <div className="store-footer-brand-row">
-                <span className="store-header-logo-fallback">
-                  {displayName.slice(0, 1).toUpperCase()}
-                </span>
-                <div>
-                  <p className="store-footer-brand">{displayName}</p>
-                  <p className="store-section-eyebrow mt-1 mb-0">Premium e-ticaret</p>
-                </div>
+                <p className="store-footer-brand">{displayName}</p>
               </div>
             )}
             <p className="store-footer-muted text-sm leading-relaxed max-w-md">
@@ -224,7 +223,8 @@ function ConfiguredStorefrontFooter({
 }) {
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
-  const logoUrl = normalizeStoreImageUrl(resolveFooterLogoUrl(settings, tenant.logoUrl));
+  const rawLogoUrl = resolveFooterLogoUrl(settings, tenant.logoUrl);
+  const { logoSrc: logoUrl, onLogoError } = useStoreLogo(rawLogoUrl);
   const logoStyle = footerLogoImageStyle(settings);
   const waHref = whatsappHref(settings.whatsappNumber);
   const legalLinks = settings.legalLinksEnabled ? DEFAULT_LEGAL_LINKS : [];
@@ -250,6 +250,7 @@ function ConfiguredStorefrontFooter({
             alt={displayName}
             className="store-footer-logo-img--configured mb-3"
             style={logoStyle}
+            onError={onLogoError}
           />
         ) : (
           <Link to={storeLink ? storeLink('/store') : '/store'} className="inline-flex max-w-full">
@@ -258,18 +259,14 @@ function ConfiguredStorefrontFooter({
               alt={displayName}
               className="store-footer-logo-img--configured mb-3"
               style={logoStyle}
+              onError={onLogoError}
             />
           </Link>
         )
       ) : (
-        <>
-          <span className="store-header-logo-fallback mb-3">
-            {displayName.slice(0, 1).toUpperCase()}
-          </span>
-          <p className="text-base font-semibold mb-2" style={{ color: settings.headingColor }}>
-            {displayName}
-          </p>
-        </>
+        <p className="text-base font-semibold mb-2" style={{ color: settings.headingColor }}>
+          {displayName}
+        </p>
       )}
       {settings.description.trim() && (
         <p className="text-sm leading-relaxed opacity-90 max-w-md">{settings.description.trim()}</p>

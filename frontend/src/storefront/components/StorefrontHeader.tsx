@@ -10,7 +10,11 @@ import {
   mergeHeaderSettings,
   type HeaderSettings,
 } from '../../utils/headerSettingsHelpers';
-import { normalizeStoreImageUrl } from '../services/storefrontApi';
+import { useStoreLogo } from '../hooks/useStoreLogo';
+import {
+  StorefrontHeaderMobile,
+  type StorefrontHeaderMobileOptions,
+} from './StorefrontHeaderMobile';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -18,6 +22,18 @@ type Props = {
   settings?: HeaderSettings | Record<string, unknown>;
   preview?: boolean;
 };
+
+function mobileOptionsFromSettings(settings: HeaderSettings): StorefrontHeaderMobileOptions {
+  return {
+    showSearch: settings.showSearch,
+    showCart: settings.showCart,
+    showAccount: settings.showAccount,
+    showFavorites: settings.showFavorites,
+    activeColor: settings.activeColor,
+    logoWidthPx: settings.logoWidthPx,
+    logoMaxHeightPx: settings.logoMaxHeightPx,
+  };
+}
 
 function LegacyStorefrontHeader({
   tenant,
@@ -47,12 +63,17 @@ function LegacyStorefrontHeader({
   };
 
   const displayName = displayStorefrontName(tenant.name);
-  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const { logoSrc, onLogoError } = useStoreLogo(tenant.logoUrl);
   const logoStyle = headerLogoImageStyle(logoSettings);
 
   return (
     <header className="store-header sticky top-0 z-40">
-      <div className="store-header-inner">
+      <StorefrontHeaderMobile
+        tenant={tenant}
+        storeLink={storeLink}
+        options={mobileOptionsFromSettings(logoSettings)}
+      />
+      <div className="store-header-inner hidden lg:block">
         <div className="store-header-row">
           <Link
             to={home}
@@ -65,6 +86,7 @@ function LegacyStorefrontHeader({
                 alt={displayName}
                 className="store-header-logo-img store-header-logo-img--configured"
                 style={logoStyle}
+                onError={onLogoError}
               />
             ) : (
               <>
@@ -122,19 +144,6 @@ function LegacyStorefrontHeader({
             </Link>
           </div>
         </div>
-
-        <form onSubmit={onSearch} className="md:hidden pb-3">
-          <div className="store-header-search flex items-center">
-            <Search className="ml-4 h-4 w-4 text-stone-400 shrink-0 pointer-events-none" />
-            <input
-              type="search"
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Ürün ara…"
-              className="w-full px-3 py-2.5 text-sm bg-transparent focus:outline-none"
-            />
-          </div>
-        </form>
       </div>
     </header>
   );
@@ -155,7 +164,7 @@ function LogoBlock({
 }) {
   const displayName = displayStorefrontName(tenant.name);
   const logoStyle = headerLogoImageStyle({ logoWidthPx, logoMaxHeightPx });
-  const logoSrc = normalizeStoreImageUrl(tenant.logoUrl);
+  const { logoSrc, onLogoError } = useStoreLogo(tenant.logoUrl);
   const fallbackSize = Math.min(logoMaxHeightPx, 48);
 
   const inner = logoSrc ? (
@@ -164,6 +173,7 @@ function LogoBlock({
       alt={displayName}
       className="store-header-logo-img--configured shrink-0"
       style={logoStyle}
+      onError={onLogoError}
     />
   ) : (
     <>
@@ -349,13 +359,12 @@ function ConfiguredStorefrontHeader({
     </>
   );
 
-  const iconBtnCls =
-    'relative inline-flex items-center justify-center p-2 rounded-lg border border-slate-200/70 hover:bg-black/5 transition-colors';
+  const iconBtnCls = 'store-header-icon-btn';
 
   const iconsRow = (
-    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-      {settings.showFavorites && (
-        preview ? (
+    <div className="store-header-actions">
+      {settings.showFavorites &&
+        (preview ? (
           <span className={iconBtnCls} aria-hidden>
             <Heart className="w-4 h-4" />
           </span>
@@ -363,71 +372,54 @@ function ConfiguredStorefrontHeader({
           <Link to={favorites} className={iconBtnCls} aria-label="Favoriler">
             <Heart className="w-4 h-4" />
           </Link>
-        )
-      )}
-      {settings.showCart && (
-        preview ? (
-          <span className={iconBtnCls}>
+        ))}
+      {settings.showCart &&
+        (preview ? (
+          <span className={`${iconBtnCls} store-header-icon-btn--cart`}>
             <ShoppingCart className="w-4 h-4" />
             {itemCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 min-w-[1.1rem] h-4 px-0.5 rounded-full text-[10px] flex items-center justify-center text-white"
-                style={{ backgroundColor: settings.activeColor }}
-              >
+              <span className="store-header-cart-badge" style={{ backgroundColor: settings.activeColor }}>
                 {itemCount}
               </span>
             )}
           </span>
         ) : (
-          <Link to={cartUrl} className={iconBtnCls} aria-label="Sepet">
+          <Link to={cartUrl} className={`${iconBtnCls} store-header-icon-btn--cart`} aria-label="Sepet">
             <ShoppingCart className="w-4 h-4" />
             {itemCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 min-w-[1.1rem] h-4 px-0.5 rounded-full text-[10px] flex items-center justify-center text-white"
-                style={{ backgroundColor: settings.activeColor }}
-              >
+              <span className="store-header-cart-badge" style={{ backgroundColor: settings.activeColor }}>
                 {itemCount}
               </span>
             )}
           </Link>
-        )
-      )}
-      {settings.showAccount && settings.mobileLayout === 'minimal' && (
-        preview ? (
-          <span className={iconBtnCls}>
+        ))}
+      {settings.showAccount &&
+        (preview ? (
+          <span className={iconBtnCls} aria-hidden>
             <User className="w-4 h-4" />
           </span>
         ) : (
-          <Link to={isAuthenticated ? account : login} className={iconBtnCls} aria-label="Hesap">
+          <Link
+            to={isAuthenticated ? account : login}
+            className={iconBtnCls}
+            aria-label={isAuthenticated ? 'Hesabım' : 'Giriş'}
+          >
             <User className="w-4 h-4" />
           </Link>
-        )
-      )}
+        ))}
       {accountLinks}
     </div>
   );
 
   const desktopSearch =
     settings.showSearch &&
-    !isMinimal &&
-    settings.mobileLayout !== 'compact' && (
+    !isMinimal && (
       <SearchField
         q={q}
         setQ={setQ}
         onSearch={onSearch}
-        className="hidden md:flex flex-1 max-w-md mx-2 lg:mx-4 min-w-0"
+        className="store-header-search-col flex-1 max-w-md mx-2 lg:mx-4 min-w-0"
       />
-    );
-
-  const mobileSearchStacked =
-    settings.showSearch &&
-    settings.mobileLayout === 'stacked' && (
-      <SearchField q={q} setQ={setQ} onSearch={onSearch} className="md:hidden pb-3" />
-    );
-
-  const mobileSearchCompact =
-    settings.showSearch && settings.mobileLayout === 'compact' && (
-      <SearchField q={q} setQ={setQ} onSearch={onSearch} className="md:hidden" compact />
     );
 
   const menuJustify =
@@ -437,14 +429,24 @@ function ConfiguredStorefrontHeader({
         ? 'justify-end'
         : 'justify-center';
 
-  const rowHeight = { minHeight: settings.heightPx };
+  const rowHeight = { minHeight: `${settings.heightPx}px` };
+  const headerCssVars = {
+    ['--store-header-row-min' as string]: `${settings.heightPx}px`,
+  };
 
   return (
     <header
-      className={`${settings.sticky ? 'sticky top-0 z-40' : 'relative z-40'} ${settings.backgroundColor.includes('rgba') || settings.backgroundColor.length > 7 ? 'backdrop-blur-sm' : ''}`}
-      style={headerStyle}
+      className={`store-header store-header--configured ${settings.sticky ? 'sticky top-0 z-40' : 'relative z-40'} ${settings.backgroundColor.includes('rgba') || settings.backgroundColor.length > 7 ? 'backdrop-blur-sm' : ''}`}
+      style={{ ...headerStyle, ...headerCssVars }}
     >
-      <div className="max-w-6xl mx-auto px-4">
+      <StorefrontHeaderMobile
+        tenant={tenant}
+        storeLink={storeLink}
+        preview={preview}
+        options={mobileOptionsFromSettings(settings)}
+        style={headerStyle}
+      />
+      <div className="store-header-inner hidden lg:block">
         {isLogoCenterBelow ? (
           <>
             <div className="flex items-center justify-center py-2" style={rowHeight}>
@@ -458,7 +460,7 @@ function ConfiguredStorefrontHeader({
             </div>
             <div className="flex items-center gap-3 pb-2" style={{ minHeight: Math.max(40, settings.heightPx - 24) }}>
               <nav
-                className={`hidden md:flex flex-1 items-center gap-3 sm:gap-4 ${menuJustify}`}
+                className={`store-header-nav flex-1 items-center gap-3 sm:gap-4 ${menuJustify}`}
                 style={navStyle}
               >
                 {menuLinks}
@@ -499,7 +501,7 @@ function ConfiguredStorefrontHeader({
             )}
 
             {!isMinimal && settings.menuPosition === 'center' && (
-              <nav className="hidden md:flex flex-1 items-center justify-center gap-3 sm:gap-4 min-w-0" style={navStyle}>
+              <nav className="store-header-nav flex-1 items-center justify-center gap-3 sm:gap-4 min-w-0" style={navStyle}>
                 {menuLinks}
               </nav>
             )}
@@ -508,24 +510,22 @@ function ConfiguredStorefrontHeader({
 
             {!isMinimal && settings.menuPosition !== 'center' && (
               <nav
-                className={`hidden md:flex flex-1 items-center gap-3 sm:gap-4 ${menuJustify}`}
+                className={`store-header-nav flex-1 items-center gap-3 sm:gap-4 ${menuJustify}`}
                 style={navStyle}
               >
                 {menuLinks}
               </nav>
             )}
 
-            <div className="flex items-center gap-1.5 ml-auto shrink-0">
+            <div className="ml-auto shrink-0">
               {settings.showSearch && isMinimal && (
-                <SearchField q={q} setQ={setQ} onSearch={onSearch} className="hidden sm:flex w-40" />
+                <SearchField q={q} setQ={setQ} onSearch={onSearch} className="inline-flex w-48 xl:w-56 mr-2" />
               )}
-              {mobileSearchCompact}
               {iconsRow}
             </div>
           </div>
         )}
 
-        {mobileSearchStacked}
       </div>
     </header>
   );
