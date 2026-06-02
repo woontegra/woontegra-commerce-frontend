@@ -1,3 +1,6 @@
+import { DEFAULT_THEME_PRESET_ID } from '../storefront/theme/registry';
+import { resolveStorefrontThemeStyle, resolveThemePrimaryFromPreset } from '../storefront/theme/resolveThemeStyle';
+
 export type ThemeProductCardStyle = 'standard' | 'plain' | 'compact';
 
 export type ThemeSettings = {
@@ -86,22 +89,11 @@ export function extractThemeSettingsFromTheme(theme: Record<string, unknown> | u
   return mergeThemeSettings(theme.themeSettings);
 }
 
-export function storefrontThemeCssVariables(settings: ThemeSettings): Record<string, string> {
-  if (!settings.enabled) return {};
-  const vars: Record<string, string> = {
-    '--store-primary': settings.primaryColor,
-    '--store-secondary': settings.secondaryColor,
-    '--store-bg': settings.backgroundColor,
-    '--store-text': settings.textColor,
-    '--store-button-radius': `${settings.buttonRadius}px`,
-    '--store-card-radius': `${settings.cardRadius}px`,
-    '--store-container-max': `${settings.containerMaxWidthPx}px`,
-    '--store-section-spacing': `${settings.sectionSpacingPx}px`,
-  };
-  if (settings.fontFamily && settings.fontFamily !== 'system') {
-    vars['--store-font-family'] = settings.fontFamily;
-  }
-  return vars;
+export function storefrontThemeCssVariables(
+  settings: ThemeSettings,
+  presetId: string = DEFAULT_THEME_PRESET_ID,
+): Record<string, string> {
+  return resolveStorefrontThemeStyle(presetId, settings);
 }
 
 export function resolveBlockProductCardStyle(
@@ -116,9 +108,11 @@ export function resolveBlockProductCardStyle(
 
 export function resolveThemePrimaryColor(theme: Record<string, unknown> | undefined): string | null {
   const ts = extractThemeSettingsFromTheme(theme);
-  if (ts.enabled && ts.primaryColor.trim()) return ts.primaryColor.trim();
   const legacy = theme?.primaryColor;
-  return typeof legacy === 'string' && legacy.trim() ? legacy.trim() : null;
+  if (typeof legacy === 'string' && legacy.trim() && !ts.enabled) {
+    return legacy.trim();
+  }
+  return resolveThemePrimaryFromPreset(DEFAULT_THEME_PRESET_ID, ts);
 }
 
 export function mapThemeProductCardVariant(style: ThemeProductCardStyle | string): 'card' | 'plain' {

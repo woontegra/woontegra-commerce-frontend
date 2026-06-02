@@ -1,6 +1,6 @@
 /**
- * Default Theme v1 — Premium Commerce (rev. 2)
- * Butik / takı / kozmetik vitrin dili — mevcut builder ayarları korunur.
+ * Theme Engine v1 — Premium Commerce preset
+ * CSS fallbacks; runtime tokenlar StorefrontThemeRoot inline --store-* değişkenleriyle gelir.
  */
 
 .storefront-theme-root {
@@ -16,6 +16,13 @@
   --store-section-spacing: 4rem;
   --store-card-radius: 1rem;
   --store-button-radius: 9999px;
+  --store-product-card-aspect: 3 / 4;
+  --store-product-card-mobile-max-h: 9.25rem;
+  --store-header-height: 4rem;
+  --store-header-mobile-height: 3.25rem;
+  --store-mobile-section-spacing: 2.5rem;
+  --store-mobile-card-radius: 0.75rem;
+  --store-mobile-product-grid-gap: 0.5rem;
   --store-hero-gradient: linear-gradient(145deg, #141312 0%, #1c1917 38%, #292524 72%, #44403c 100%);
   --store-hero-gradient-soft: linear-gradient(160deg, #faf9f7 0%, #f5f5f4 45%, #eceae7 100%);
 
