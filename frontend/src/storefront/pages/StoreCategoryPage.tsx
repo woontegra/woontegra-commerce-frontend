@@ -69,7 +69,7 @@ export default function StoreCategoryPage() {
       ) : items.length === 0 ? (
         <p className="text-slate-500">Bu listede ürün bulunamadı.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="store-products-grid store-product-list-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {items.map(p => (
             <ProductCard
               key={p.id}

@@ -6,7 +6,9 @@ import { useStorefrontQuickViewOptional } from '../hooks/StorefrontQuickViewProv
 import { effectivePrice, formatTry } from '../utils/format';
 import { ProductFavoriteButton } from './ProductFavoriteButton';
 import { ProductCompareButton } from './ProductCompareButton';
-import { ProductQuickViewButton } from './ProductQuickViewButton';type Props = {
+import { ProductQuickViewButton } from './ProductQuickViewButton';
+
+type Props = {
   product: StorefrontProductSummary;
   productUrl: string;
   hideAddToCart?: boolean;
@@ -64,8 +66,9 @@ export function ProductCard({
           {product.id && !preview && (
             <div className="store-product-card-actions">
               <ProductFavoriteButton productId={product.id} />
-              <ProductCompareButton product={product} />
+              <ProductCompareButton product={product} className="store-product-card-action-btn--compare" />
               <ProductQuickViewButton
+                className="store-product-card-action-btn--quickview"
                 onClick={() => quickView?.openQuickView(product, productUrl)}
               />
             </div>
@@ -99,7 +102,7 @@ export function ProductCard({
         {categoryName && <p className="store-product-card-meta truncate">{categoryName}</p>}
         <Link
           to={productUrl}
-          className="store-product-card-title store-text-body text-sm sm:text-[0.9375rem] hover:opacity-75 transition-opacity"
+          className="store-product-card-title store-text-body hover:opacity-75 transition-opacity"
         >
           {product.name || 'Ürün'}
         </Link>
