@@ -71,6 +71,8 @@ export type StorefrontCheckoutForm = {
   shippingMethodId: string;
   paymentMethodId: string;
   couponCode: string;
+  kvkkConsent: boolean;
+  marketingConsent: boolean;
 };
 
 export type CreateStoreOrderPayload = {
@@ -104,6 +106,10 @@ export type CreateStoreOrderPayload = {
   };
   notes: string;
   paymentProvider?: 'PAYTR' | 'IYZICO' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
+  consents?: {
+    kvkkConsent:      boolean;
+    marketingConsent: boolean;
+  };
 };
 
 export type CreateStoreOrderResponse = {

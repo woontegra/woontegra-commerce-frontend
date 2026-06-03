@@ -36,6 +36,8 @@ const emptyForm: StorefrontCheckoutForm = {
   shippingMethodId: '',
   paymentMethodId: '',
   couponCode: '',
+  kvkkConsent: false,
+  marketingConsent: false,
 };
 
 export default function StoreCheckoutPage() {
@@ -223,6 +225,11 @@ export default function StoreCheckoutPage() {
       return;
     }
 
+    if (!isAuthenticated && !form.kvkkConsent) {
+      setError('Devam etmek için KVKK aydınlatma metnini kabul etmelisiniz.');
+      return;
+    }
+
     setSubmitting(true);
     await maybeSaveAddressToBook();
     const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
@@ -264,6 +271,14 @@ export default function StoreCheckoutPage() {
         },
         notes: '',
         paymentProvider: provider,
+        ...((!isAuthenticated || form.marketingConsent)
+          ? {
+              consents: {
+                kvkkConsent:      isAuthenticated ? true : form.kvkkConsent,
+                marketingConsent: form.marketingConsent,
+              },
+            }
+          : {}),
       });
 
       if (!res.success || !res.order) {
@@ -600,6 +615,38 @@ export default function StoreCheckoutPage() {
                 </label>
               ))}
             </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+            <h2 className="font-semibold text-slate-900">İzinler</h2>
+            {!isAuthenticated && (
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  required
+                  checked={form.kvkkConsent}
+                  onChange={e => update({ kvkkConsent: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">
+                    KVKK Aydınlatma Metni
+                  </a>
+                  {' '}ni okudum ve kabul ediyorum. *
+                </span>
+              </label>
+            )}
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.marketingConsent}
+                onChange={e => update({ marketingConsent: e.target.checked })}
+                className="mt-0.5"
+              />
+              <span>
+                Kampanya, indirim ve duyurular hakkında e-posta / SMS almak istiyorum. (İsteğe bağlı)
+              </span>
+            </label>
           </section>
 
           <button

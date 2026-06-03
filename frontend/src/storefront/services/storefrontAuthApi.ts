@@ -27,6 +27,8 @@ export async function registerCustomer(
     email: string;
     phone: string;
     password: string;
+    kvkkConsent: boolean;
+    marketingConsent?: boolean;
   },
 ): Promise<AuthResponse> {
   const r = await storePublicClient.post<AuthResponse>('/store/auth/register', body, {

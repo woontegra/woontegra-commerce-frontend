@@ -70,6 +70,17 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatConsentLabel(granted: boolean | undefined, at: string | null | undefined): string {
+  if (!at && !granted) return 'Kayıt yok';
+  if (granted) return 'Evet';
+  return 'Hayır';
+}
+
+function formatConsentDate(at: string | null | undefined): string {
+  if (!at) return '—';
+  return fmtDateTime(at);
+}
+
 export default function CustomerDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const { data: customer, isLoading, isError, error } = useCustomer(id);
@@ -176,6 +187,36 @@ export default function CustomerDetail() {
               <dd className="font-medium text-gray-900 mt-0.5">{fmtDateTime(customer.createdAt)}</dd>
             </div>
           </dl>
+
+          <div className="pt-4 border-t border-gray-100">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">İzin kayıtları</h3>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-gray-500">KVKK izni</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatConsentLabel(customer.kvkkConsent, customer.kvkkConsentAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">KVKK izin tarihi</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatConsentDate(customer.kvkkConsentAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Pazarlama izni</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatConsentLabel(customer.marketingConsent, customer.marketingConsentAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Pazarlama izin tarihi</dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
+                  {formatConsentDate(customer.marketingConsentAt)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </Card>
 
         <Card className="lg:col-span-2 overflow-hidden p-0">

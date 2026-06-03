@@ -13,6 +13,10 @@ export interface Customer {
   city?:       string;
   country?:    string;
   zipCode?:    string;
+  kvkkConsent?:         boolean;
+  kvkkConsentAt?:       string | null;
+  marketingConsent?:    boolean;
+  marketingConsentAt?:  string | null;
   createdAt:   string;
   updatedAt:   string;
   orderCount:  number;

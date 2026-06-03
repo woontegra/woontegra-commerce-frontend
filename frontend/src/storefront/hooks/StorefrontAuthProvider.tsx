@@ -33,6 +33,8 @@ type Ctx = {
     email: string;
     phone: string;
     password: string;
+    kvkkConsent: boolean;
+    marketingConsent?: boolean;
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -121,10 +123,16 @@ export function StorefrontAuthProvider({ children }: { children: ReactNode }) {
       email: string;
       phone: string;
       password: string;
+      kvkkConsent: boolean;
+      marketingConsent?: boolean;
     }) => {
       if (!tenant?.slug) throw new Error('Mağaza yüklenmedi.');
       try {
-        const res = await registerCustomer(tenant.slug, data);
+        const res = await registerCustomer(tenant.slug, {
+          ...data,
+          kvkkConsent:      data.kvkkConsent,
+          marketingConsent: data.marketingConsent ?? false,
+        });
         if (!res.success || !res.token || !res.customer) {
           throw new Error(res.error || 'Kayıt olunamadı.');
         }

@@ -12,12 +12,20 @@ export default function StoreRegisterPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [kvkkConsent, setKvkkConsent] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!kvkkConsent) {
+      setError('Devam etmek için KVKK aydınlatma metnini kabul etmelisiniz.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await register({
@@ -26,6 +34,8 @@ export default function StoreRegisterPage() {
         email: email.trim(),
         phone: phone.trim(),
         password,
+        kvkkConsent: true,
+        marketingConsent,
       });
       navigate(storeLink('/store/hesabim'));
     } catch (err: unknown) {
@@ -90,6 +100,36 @@ export default function StoreRegisterPage() {
           onChange={e => setPassword(e.target.value)}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
         />
+
+        <div className="space-y-3 pt-1">
+          <label className="flex items-start gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              required
+              checked={kvkkConsent}
+              onChange={e => setKvkkConsent(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">
+                KVKK Aydınlatma Metni
+              </a>
+              {' '}ni okudum ve kabul ediyorum. *
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={marketingConsent}
+              onChange={e => setMarketingConsent(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Kampanya, indirim ve duyurular hakkında e-posta / SMS almak istiyorum. (İsteğe bağlı)
+            </span>
+          </label>
+        </div>
+
         <button
           type="submit"
           disabled={submitting}
