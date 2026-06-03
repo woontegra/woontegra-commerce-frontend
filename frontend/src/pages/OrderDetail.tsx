@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useOrder, useUpdateOrderStatus, useUpdateOrderShipping, useCancelOrder } from '../hooks/useOrders';
-import type { UpdateOrderShippingDto, OrderStatus, OrderItem } from '../services/order.service';
+import { useOrder, useUpdateOrderStatus, useUpdateOrderShipping, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
+import type { UpdateOrderShippingDto, OrderStatus, OrderItem, Order } from '../services/order.service';
 import {
   fetchReturnRequestsByOrder,
   type ReturnRequest,
@@ -79,6 +79,14 @@ function fmtDate(iso: string) {
 
 function shippingLocked(status: OrderStatus): boolean {
   return status === 'DELIVERED' || status === 'CANCELLED';
+}
+
+function canConfirmBankTransferPayment(order: Order): boolean {
+  const provider = String(order.paymentProvider ?? order.payment?.provider ?? '').toUpperCase();
+  if (provider !== 'BANK_TRANSFER') return false;
+  if (order.status === 'CANCELLED') return false;
+  const ps = String(order.paymentStatus ?? order.payment?.status ?? '').toUpperCase();
+  return ps === 'PENDING' || ps === 'WAITING_BANK_TRANSFER';
 }
 
 const RAW_PAYMENT_LABELS: Record<string, string> = {
@@ -362,6 +370,7 @@ export default function OrderDetail() {
   const updateStatus   = useUpdateOrderStatus();
   const updateShipping = useUpdateOrderShipping();
   const cancelOrder    = useCancelOrder();
+  const confirmPayment = useConfirmOrderPayment();
 
   const [statusDraft, setStatusDraft]               = useState<OrderStatus | ''>('');
   const [shippingCarrier, setShippingCarrier]       = useState('');
@@ -483,8 +492,9 @@ export default function OrderDetail() {
     );
   };
 
-  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending;
+  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending || confirmPayment.isPending;
   const shippingLocked_ = shippingLocked(order.status);
+  const showConfirmPayment = canConfirmBankTransferPayment(order);
   const paymentLabel   = admin?.payment.statusLabel ?? '—';
   const methodLabel    = admin?.payment.methodLabel ?? '—';
 
@@ -856,6 +866,19 @@ export default function OrderDetail() {
               Durum değiştiğinde stok ve bildirim süreçleri mevcut kurallara göre çalışır.
               İptal edildiğinde stok iadesi yapılır; diğer geçişlerde stok tekrar düşülmez.
             </p>
+            {showConfirmPayment && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm('Havale/EFT ödemesini onaylamak istediğinize emin misiniz?')) return;
+                  confirmPayment.mutate(order.id);
+                }}
+                disabled={busy}
+                className="btn btn-primary w-full mb-3"
+              >
+                {confirmPayment.isPending ? 'Onaylanıyor…' : 'Ödemeyi Onayla'}
+              </button>
+            )}
             <select
               value={statusDraft || order.status}
               onChange={e => setStatusDraft(e.target.value as OrderStatus)}

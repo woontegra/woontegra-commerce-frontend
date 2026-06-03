@@ -14,7 +14,7 @@ import { FeatureProvider }     from './context/FeatureContext';
 import { PermissionProvider }  from './context/PermissionContext';
 import PlanLimitModal from './components/billing/PlanLimitModal';
 import { StorefrontThemedHome } from './pages/store/StorefrontThemedPages';
-import StoreTenantListRedirect from './components/StoreTenantListRedirect';
+import StoreTenantLegacyRedirect from './components/StoreTenantListRedirect';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
@@ -50,18 +50,14 @@ const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const TrendyolOrderDetail = lazy(() => import('./pages/TrendyolOrderDetail'));
 const Returns = lazy(() => import('./pages/Returns'));
 const ReturnDetail = lazy(() => import('./pages/ReturnDetail'));
-const Checkout = lazy(() => import('./pages/Checkout'));
 const Marketing = lazy(() => import('./pages/Marketing'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const PageBuilder = lazy(() => import('./pages/PageBuilder'));
 const StorefrontBuilder = lazy(() => import('./pages/StorefrontBuilder'));
 const BlogManagement = lazy(() => import('./pages/BlogManagement'));
 const MediaLibrary = lazy(() => import('./pages/MediaLibrary'));
-const CartManagement = lazy(() => import('./pages/CartManagement'));
-const ProductVariants = lazy(() => import('./pages/ProductVariants'));
 const AbandonedCarts = lazy(() => import('./pages/AbandonedCarts'));
 const DiscountRules = lazy(() => import('./pages/DiscountRules'));
-const B2BCustomers = lazy(() => import('./pages/B2BCustomers'));
 const TrendyolIntegration  = lazy(() => import('./pages/TrendyolIntegrationPage'));
 const TrendyolOrders       = lazy(() => import('./pages/TrendyolOrders'));
 const MarketplaceQuestions = lazy(() => import('./pages/MarketplaceQuestions'));
@@ -101,11 +97,9 @@ const SystemHealthDashboard = lazy(() => import('./pages/SystemHealthDashboard')
 const KvkkPage = lazy(() => import('./pages/KvkkPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
-
-// SEO Store pages
-const StorePage = lazy(() => import('./pages/store/StorePage'));
-const CategoryPage = lazy(() => import('./pages/store/CategoryPage'));
-const ProductPage = lazy(() => import('./pages/store/ProductPage'));
+const MesafeliSatisPage = lazy(() => import('./pages/MesafeliSatisPage'));
+const IadeVeIptalPage = lazy(() => import('./pages/IadeVeIptalPage'));
+const CerezPolitikasiPage = lazy(() => import('./pages/CerezPolitikasiPage'));
 
 // Marketplace pages
 const MarketplacePage  = lazy(() => import('./pages/marketplace/MarketplacePage'));
@@ -177,7 +171,6 @@ function App() {
                       <OnboardingWizard />
                     </ProtectedRoute>
                   } />
-                  <Route path="/support" element={<Support />} />
                   <Route path="/plans" element={<PlanSelection />} />
                   <Route path="/plan-status" element={<PlanStatus />} />
                   <Route path="/plan-upgrade" element={<PlanUpgrade />} />
@@ -187,6 +180,9 @@ function App() {
                   <Route path="/kvkk" element={<KvkkPage />} />
                   <Route path="/gizlilik" element={<PrivacyPage />} />
                   <Route path="/kullanim-sartlari" element={<TermsPage />} />
+                  <Route path="/mesafeli-satis-sozlesmesi" element={<MesafeliSatisPage />} />
+                  <Route path="/iade-ve-iptal-kosullari" element={<IadeVeIptalPage />} />
+                  <Route path="/cerez-politikasi" element={<CerezPolitikasiPage />} />
                   <Route
                     path="/panel/*"
                     element={
@@ -196,7 +192,8 @@ function App() {
                     }
                   />
                   <Route path="/demo" element={<DemoDashboard />} />
-                  <Route path="/support" element={<CustomerSupport />} />
+                  <Route path="/customer-support" element={<CustomerSupport />} />
+                  <Route path="/support" element={<Navigate to="/customer-support" replace />} />
                   <Route path="/admin-support" element={<AdminSupportPanel />} />
                   <Route path="/system-health" element={<SystemHealthDashboard />} />
                   {/* Convenience route (legacy / requested): redirect to dashboard page */}
@@ -253,12 +250,14 @@ function App() {
                     <Route index element={<StoreProductDetailPage />} />
                   </Route>
 
-                  {/* SEO Store Routes - Public */}
-                  <Route path="/store/:tenantSlug/urunler" element={<StoreTenantListRedirect />} />
-                  <Route path="/store/:tenantSlug/products" element={<StoreTenantListRedirect />} />
-                  <Route path="/store/:tenantSlug" element={<StorePage />} />
-                  <Route path="/store/:tenantSlug/category/:categorySlug" element={<CategoryPage />} />
-                  <Route path="/store/:tenantSlug/product/:productSlug" element={<ProductPage />} />
+                  {/* Legacy /store/:tenantSlug/* → yeni vitrin (?tenant=) */}
+                  <Route path="/store/:tenantSlug/urunler" element={<StoreTenantLegacyRedirect target="list" />} />
+                  <Route path="/store/:tenantSlug/products" element={<StoreTenantLegacyRedirect target="list" />} />
+                  <Route path="/store/:tenantSlug/category/:categorySlug" element={<StoreTenantLegacyRedirect target="category" />} />
+                  <Route path="/store/:tenantSlug/kategori/:categorySlug" element={<StoreTenantLegacyRedirect target="category" />} />
+                  <Route path="/store/:tenantSlug/product/:productSlug" element={<StoreTenantLegacyRedirect target="product" />} />
+                  <Route path="/store/:tenantSlug/urun/:productSlug" element={<StoreTenantLegacyRedirect target="product" />} />
+                  <Route path="/store/:tenantSlug" element={<StoreTenantLegacyRedirect target="home" />} />
 
                   {/* Dashboard routes */}
                   <Route
@@ -292,17 +291,17 @@ function App() {
           <Route path="orders/:orderId" element={<OrderDetail />} />
                     <Route path="returns" element={<Returns />} />
                     <Route path="returns/:id" element={<ReturnDetail />} />
-          <Route path="checkout" element={<Checkout />} />
+          <Route path="checkout" element={<Navigate to="/dashboard/orders" replace />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="page-builder" element={<PageBuilder />} />
           <Route path="storefront-builder" element={<StorefrontBuilder />} />
           <Route path="blog-management" element={<BlogManagement />} />
           <Route path="media" element={<MediaLibrary />} />
-          <Route path="cart-management" element={<CartManagement />} />
-          <Route path="product-variants" element={<ProductVariants />} />
+          <Route path="cart-management" element={<Navigate to="/dashboard/abandoned-carts" replace />} />
+          <Route path="product-variants" element={<Navigate to="/dashboard/products" replace />} />
           <Route path="abandoned-carts" element={<AbandonedCarts />} />
           <Route path="discount-rules" element={<DiscountRules />} />
-          <Route path="b2b-customers" element={<B2BCustomers />} />
+          <Route path="b2b-customers" element={<Navigate to="/dashboard/customers" replace />} />
           <Route path="trendyol-integration" element={<TrendyolIntegration />} />
           <Route path="trendyol-orders"      element={<TrendyolOrders />} />
           <Route path="marketplace-questions" element={<MarketplaceQuestions />} />
@@ -321,7 +320,7 @@ function App() {
           <Route path="invoices" element={<Invoices />} />
           <Route path="domain" element={<DomainSettings />} />
           <Route path="integrations" element={<Integrations />} />
-          <Route path="api-tokens" element={<div>API Tokens Page</div>} />
+          <Route path="api-tokens" element={<Navigate to="/dashboard/developer" replace />} />
           <Route path="reports"     element={<Reports />} />
           <Route path="observability" element={<Observability />} />
           <Route 

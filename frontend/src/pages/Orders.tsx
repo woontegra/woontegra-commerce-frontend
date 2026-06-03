@@ -17,6 +17,7 @@ import type {
 } from '../services/order.service';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/EmptyState';
+import CreateManualOrderModal from '../components/orders/CreateManualOrderModal';
 import { TableSkeleton } from '../components/Skeleton';
 import {
   ORDER_PAYMENT_PROVIDER_LABELS,
@@ -315,6 +316,7 @@ export default function Orders() {
   }, [needsReplace, urlState, setSearchParams]);
 
   const [searchInput, setSearchInput] = useState(urlState.search);
+  const [manualOrderOpen, setManualOrderOpen] = useState(false);
 
   useEffect(() => {
     setSearchInput(urlState.search);
@@ -397,30 +399,43 @@ export default function Orders() {
           <h1 className="text-2xl font-semibold text-gray-900">Siparişler</h1>
           <p className="text-sm text-gray-500 mt-0.5">Woontegra ve Trendyol siparişlerinizi tek listeden yönetin</p>
         </div>
-        <button
-          type="button"
-          onClick={() => syncTrendyolOrders.mutate()}
-          disabled={syncTrendyolOrders.isPending}
-          title="Trendyol'dan siparişleri şimdi senkronize eder"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600
-                     disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg
-                     transition-colors shrink-0"
-        >
-          <svg
-            className={`w-4 h-4 ${syncTrendyolOrders.isPending ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setManualOrderOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700
+                       text-white text-sm font-semibold rounded-lg transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          {syncTrendyolOrders.isPending ? 'Çekiliyor...' : 'Trendyol Siparişlerini Çek'}
-        </button>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Manuel Sipariş Oluştur
+          </button>
+          <button
+            type="button"
+            onClick={() => syncTrendyolOrders.mutate()}
+            disabled={syncTrendyolOrders.isPending}
+            title="Trendyol'dan siparişleri şimdi senkronize eder"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600
+                       disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg
+                       transition-colors"
+          >
+            <svg
+              className={`w-4 h-4 ${syncTrendyolOrders.isPending ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {syncTrendyolOrders.isPending ? 'Çekiliyor...' : 'Trendyol Siparişlerini Çek'}
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -694,6 +709,11 @@ export default function Orders() {
           </div>
         </Card>
       )}
+
+      <CreateManualOrderModal
+        isOpen={manualOrderOpen}
+        onClose={() => setManualOrderOpen(false)}
+      />
     </div>
   );
 }

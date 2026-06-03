@@ -83,6 +83,22 @@ export function useUpdateOrderStatus() {
   });
 }
 
+export function useConfirmOrderPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => orderService.confirmPayment(id),
+    onSuccess: (order) => {
+      qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.stats() });
+      toast.success('Havale/EFT ödemesi onaylandı.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error ?? 'Ödeme onaylanamadı.');
+    },
+  });
+}
+
 export function useUpdateOrderShipping() {
   const qc = useQueryClient();
   return useMutation({

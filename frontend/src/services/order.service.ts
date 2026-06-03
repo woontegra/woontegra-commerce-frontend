@@ -183,10 +183,14 @@ export interface CreateOrderItemDto {
 }
 
 export interface CreateOrderDto {
-  customerId: string;
-  items:      CreateOrderItemDto[];
-  notes?:     string;
-  currency?:  string;
+  customerId:      string;
+  items:           CreateOrderItemDto[];
+  notes?:          string;
+  currency?:       string;
+  paymentProvider?: OrderPaymentProviderFilter;
+  paymentStatus?:   OrderPaymentStatusFilter;
+  shippingPrice?:  number;
+  extraFees?:      number;
 }
 
 export type OrderPaymentProviderFilter =
@@ -244,6 +248,11 @@ class OrderService {
 
   async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const res = await apiClient.patch<{ data: Order }>(`${this.base}/${id}/status`, { status });
+    return res.data.data;
+  }
+
+  async confirmPayment(id: string): Promise<Order> {
+    const res = await apiClient.patch<{ data: Order }>(`${this.base}/${id}/confirm-payment`);
     return res.data.data;
   }
 

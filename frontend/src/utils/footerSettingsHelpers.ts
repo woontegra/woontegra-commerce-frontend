@@ -44,6 +44,9 @@ export const DEFAULT_LEGAL_LINKS: FooterLink[] = [
   { id: 'legal-kvkk', label: 'KVKK Aydınlatma Metni', url: '/kvkk' },
   { id: 'legal-privacy', label: 'Gizlilik Politikası', url: '/gizlilik' },
   { id: 'legal-terms', label: 'Kullanım Şartları', url: '/kullanim-sartlari' },
+  { id: 'legal-distance-sales', label: 'Mesafeli Satış Sözleşmesi', url: '/mesafeli-satis-sozlesmesi' },
+  { id: 'legal-returns', label: 'İade ve İptal Koşulları', url: '/iade-ve-iptal-kosullari' },
+  { id: 'legal-cookies', label: 'Çerez Politikası', url: '/cerez-politikasi' },
 ];
 
 export function newFooterLink(label = '', url = ''): FooterLink {

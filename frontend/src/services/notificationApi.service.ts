@@ -18,14 +18,17 @@ export type NotificationLoadResult =
 
 function normalizeList(body: unknown): { items: ApiNotification[]; total: number; unread: number } {
   const root = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-  const data = root.data && typeof root.data === 'object'
-    ? (root.data as Record<string, unknown>)
-    : root;
-  const items = Array.isArray(data.items) ? data.items as ApiNotification[] : [];
+  const nested = root.data;
+  const data =
+    nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? (nested as Record<string, unknown>)
+      : root;
+  const items = Array.isArray(data.items) ? (data.items as ApiNotification[]) : [];
   const total = typeof data.total === 'number' ? data.total : items.length;
-  const unread = typeof data.unread === 'number'
-    ? data.unread
-    : items.filter(n => !n.isRead).length;
+  const unread =
+    typeof data.unread === 'number'
+      ? data.unread
+      : items.filter(n => !n.isRead).length;
   return { items, total, unread };
 }
 
@@ -46,7 +49,7 @@ function loadFailure(err: unknown): NotificationLoadResult {
     return {
       ok: false,
       reason: 'network',
-      message: 'Sunucuya ulaşılamıyor veya bildirim endpoint\'i aktif değil.',
+      message: 'Sunucuya ulaşılamıyor. İnternet bağlantınızı kontrol edin.',
     };
   }
 

@@ -1,21 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import api from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
-
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  data?: any;
-  isRead: boolean;
-  createdAt: string;
-}
+import type { ApiNotification } from '../services/notificationApi.service';
+import {
+  fetchNotifications,
+  fetchUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../services/notificationApi.service';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,7 +24,7 @@ export default function NotificationDropdown() {
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications();
+      void fetchNotificationList();
     }
   }, [isOpen]);
 
@@ -44,61 +40,51 @@ export default function NotificationDropdown() {
   }, []);
 
   const fetchUnreadCount = async () => {
-    try {
-      const response = await api.get('/notifications/unread-count');
-      setUnreadCount(response.data.count);
-    } catch (error) {
-      // Silently fail if endpoint doesn't exist yet
-      setUnreadCount(0);
+    const count = await fetchUnreadNotificationCount();
+    if (count !== null) {
+      setUnreadCount(count);
     }
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotificationList = async () => {
     setLoading(true);
-    try {
-      const response = await api.get('/notifications?limit=10');
-      // Backend returns { items, total, unread }
-      const payload = response.data;
-      setNotifications(payload.items ?? payload.data ?? []);
-      setUnreadCount(payload.unread ?? payload.unreadCount ?? 0);
-    } catch (error) {
+    const result = await fetchNotifications(1, 10);
+    if (result.ok) {
+      setNotifications(result.items);
+      const count = await fetchUnreadNotificationCount();
+      if (count !== null) {
+        setUnreadCount(count);
+      }
+    } else {
       setNotifications([]);
-      setUnreadCount(0);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleMarkAsRead = async (id: string) => {
-    try {
-      await api.patch(`/notifications/${id}/read`);
+    const result = await markNotificationRead(id);
+    if (result.ok) {
       setNotifications(prev =>
         prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
+    } else {
+      console.error('Failed to mark as read:', result.message);
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    try {
-      await api.patch('/notifications/read-all');
+    const result = await markAllNotificationsRead();
+    if (result.ok) {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
+    } else {
+      console.error('Failed to mark all as read:', result.message);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await api.delete(`/notifications/${id}`);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      fetchUnreadCount();
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-    }
+  const handleDelete = (id: string) => {
+    console.warn('Notification delete is not supported by the API.', id);
   };
 
   const getNotificationIcon = (type: string) => {

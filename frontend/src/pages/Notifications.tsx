@@ -73,7 +73,7 @@ export default function Notifications() {
     if (listResult.ok) {
       setNotifications(listResult.items);
       setTotal(listResult.total);
-      setUnreadCount(unread ?? listResult.unread);
+      setUnreadCount(unread !== null ? unread : listResult.unread);
       setTodayCount(listResult.items.filter(n => isToday(n.createdAt)).length);
       setModuleState('available');
       setLoadError(null);
@@ -296,19 +296,26 @@ export default function Notifications() {
                         Bildirimler yükleniyor…
                       </td>
                     </tr>
-                  ) : !apiAvailable ? (
+                  ) : loadError ? (
                     <tr>
                       <td colSpan={5} className="py-10 text-center">
-                        <p className="text-slate-700 font-medium">Bildirim listesi sonraki fazda aktif edilecek.</p>
+                        <p className="text-slate-700 font-medium">Bildirimler yüklenemedi.</p>
+                        <p className="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">{loadError}</p>
+                      </td>
+                    </tr>
+                  ) : moduleState === 'unavailable' ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center">
+                        <p className="text-slate-700 font-medium">Panel bildirim API&apos;si bu ortamda aktif değil.</p>
                         <p className="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">
-                          Yeni sipariş, ödeme, stok ve destek olayları oluştuğunda burada listelenecektir.
+                          Bildirim endpoint&apos;i (404) bulunamadı. Backend deploy durumunu kontrol edin.
                         </p>
                       </td>
                     </tr>
                   ) : notifications.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-10 text-center">
-                        <p className="text-slate-700 font-medium">Henüz bildirim bulunmuyor.</p>
+                        <p className="text-slate-700 font-medium">Henüz bildiriminiz yok.</p>
                         <p className="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">
                           Yeni sipariş, ödeme, stok ve destek olayları oluştuğunda burada listelenecektir.
                         </p>
@@ -466,7 +473,11 @@ export default function Notifications() {
             <ul className="space-y-2 text-[12px] text-slate-600 leading-relaxed list-disc pl-4">
               <li>E-posta bildirimleri sipariş ve ödeme süreçlerinde kullanılır.</li>
               <li>Panel içi bildirimler olay oluştuğunda backend üzerinden kaydedilir.</li>
-              <li>Panel içi bildirimler sonraki fazda olay bazlı tercihlerle genişletilecektir.</li>
+              <li>
+                {apiAvailable
+                  ? 'Panel içi bildirimler aktif; olay bazlı tercihler ileride genişletilecektir.'
+                  : 'Panel içi bildirimler sonraki fazda olay bazlı tercihlerle genişletilecektir.'}
+              </li>
               <li>Realtime bildirimler için ek altyapı gereklidir.</li>
             </ul>
           </Panel>

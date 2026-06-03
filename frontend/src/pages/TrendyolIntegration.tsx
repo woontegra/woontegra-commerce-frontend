@@ -211,6 +211,18 @@ interface PriceStockUpdateResult {
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
+const TRENDYOL_CREDENTIAL_SAVE_BLOCKED_MESSAGE =
+  'Trendyol API bilgileri güvenli şekilde saklanamıyor. Lütfen sistem yöneticisi ile iletişime geçin.';
+
+function extractTrendyolSaveError(error: unknown): string {
+  const err = error as { response?: { data?: { error?: string } }; message?: string };
+  return err.response?.data?.error ?? err.message ?? 'Kayıt başarısız.';
+}
+
+function isTrendyolCredentialSaveBlocked(error: unknown): boolean {
+  return extractTrendyolSaveError(error) === TRENDYOL_CREDENTIAL_SAVE_BLOCKED_MESSAGE;
+}
+
 // NOTE: apiClient interceptor already unwraps response.data.data → response.data
 // so all .then(r => r.data) below refers to the actual payload, NOT a nested .data
 export const trendyolApi = {
@@ -479,6 +491,7 @@ export function SetupTab({
     supplierId: '', apiKey: '', apiSecret: '', token: '', integrationCode: '',
   });
   const [testing, setTesting] = React.useState(false);
+  const [credentialSaveError, setCredentialSaveError] = React.useState<string | null>(null);
 
   // Load existing credentials (shown as '***')
   const { data: integration } = useQuery({
@@ -505,11 +518,18 @@ export function SetupTab({
   const saveMut = useMutation({
     mutationFn: () => trendyolApi.saveIntegration(form),
     onSuccess:  () => {
+      setCredentialSaveError(null);
       toast.success('API bilgileri kaydedildi.');
       qc.invalidateQueries({ queryKey: ['trendyol-stats'] });
       qc.invalidateQueries({ queryKey: ['trendyol-integration'] });
     },
-    onError: (e: any) => toast.error(e.response?.data?.error ?? e.message),
+    onError: (e: unknown) => {
+      const message = extractTrendyolSaveError(e);
+      if (isTrendyolCredentialSaveBlocked(e)) {
+        setCredentialSaveError(message);
+      }
+      toast.error(message);
+    },
   });
 
   const testConn = async () => {
@@ -522,11 +542,16 @@ export function SetupTab({
       // If fields have been changed (not '***'), save first then test
       const hasChanges = [form.apiKey, form.apiSecret, form.token].some(v => v && v !== '***');
       if (hasChanges) await trendyolApi.saveIntegration(form);
+      setCredentialSaveError(null);
       const res = await trendyolApi.testConnection();
       if (res.success) toast.success(res.message ?? 'Bağlantı başarılı!');
       else toast.error(res.message ?? 'Bağlantı başarısız.');
-    } catch (e: any) {
-      toast.error(e.response?.data?.error ?? e.message ?? 'Test başarısız.');
+    } catch (e: unknown) {
+      const message = extractTrendyolSaveError(e);
+      if (isTrendyolCredentialSaveBlocked(e)) {
+        setCredentialSaveError(message);
+      }
+      toast.error(message || 'Test başarısız.');
     } finally { setTesting(false); }
   };
 
@@ -547,6 +572,13 @@ export function SetupTab({
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="font-semibold text-gray-900 mb-1">Trendyol API Bilgileri</h3>
         <p className="text-xs text-gray-500 mb-5">Trendyol Satıcı Paneli → Hesabım → Mağaza Bilgileri bölümünden alabilirsiniz.</p>
+
+        {credentialSaveError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <p className="font-semibold">API bilgileri kaydedilemedi</p>
+            <p className="mt-1">{credentialSaveError}</p>
+          </div>
+        )}
 
         {/* Row 1: Core credentials */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
