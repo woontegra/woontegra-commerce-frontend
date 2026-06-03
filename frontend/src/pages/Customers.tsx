@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -552,9 +553,12 @@ function CustomerRow({
             {initials(customer)}
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-900">
+            <Link
+              to={`/dashboard/customers/${customer.id}`}
+              className="text-sm font-medium text-gray-900 hover:text-indigo-700"
+            >
               {customer.firstName} {customer.lastName}
-            </div>
+            </Link>
           </div>
         </div>
       </td>
@@ -600,6 +604,13 @@ function CustomerRow({
       {/* İşlem */}
       <td className="px-5 py-4 text-right">
         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Link
+            to={`/dashboard/customers/${customer.id}`}
+            className="px-2.5 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-800
+                       border border-indigo-100 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            Detay
+          </Link>
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useOrder, useUpdateOrderStatus, useUpdateOrderShipping, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
-import type { UpdateOrderShippingDto, OrderStatus, OrderItem, Order } from '../services/order.service';
+import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
+import type { UpdateOrderShippingDto, OrderStatus, OrderItem, Order, OrderHistoryEntry } from '../services/order.service';
+import { ORDER_PAYMENT_STATUS_LABELS } from '../utils/orderPaymentLabels';
 import {
   fetchReturnRequestsByOrder,
   type ReturnRequest,
@@ -320,6 +321,100 @@ function NoteRow({ label, value }: { label: string; value: string }) {
       <span className="text-[12px] font-medium text-slate-500 shrink-0">{label}</span>
       <span className="text-[13px] text-slate-800 sm:text-right">{value}</span>
     </div>
+  );
+}
+
+function paymentStatusLabel(code: string | null): string | null {
+  if (!code) return null;
+  return ORDER_PAYMENT_STATUS_LABELS[code as keyof typeof ORDER_PAYMENT_STATUS_LABELS] ?? code;
+}
+
+function statusTransitionLabel(prev: string | null, next: string | null): string | null {
+  if (prev && next && prev !== next) {
+    const from = STATUS_LABELS[prev as OrderStatus] ?? prev;
+    const to   = STATUS_LABELS[next as OrderStatus] ?? next;
+    return `${from} → ${to}`;
+  }
+  if (next) return STATUS_LABELS[next as OrderStatus] ?? next;
+  return null;
+}
+
+function OrderStatusTimeline({ orderId }: { orderId: string }) {
+  const { data: history = [], isLoading } = useOrderHistory(orderId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        {[1, 2, 3].map((k) => (
+          <div key={k} className="flex gap-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-slate-200 mt-1 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 bg-slate-100 rounded w-2/5" />
+              <div className="h-3 bg-slate-100 rounded w-3/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <p className="text-[13px] text-slate-500 py-2">
+        Henüz durum geçmişi yok. Durum değişiklikleri ve ödeme onayları burada listelenir.
+      </p>
+    );
+  }
+
+  return (
+    <ol className="relative space-y-0">
+      {history.map((entry: OrderHistoryEntry, index: number) => {
+        const transition = statusTransitionLabel(entry.previousStatus, entry.newStatus);
+        const payNote    = entry.note
+          ?? (entry.previousPaymentStatus || entry.newPaymentStatus
+            ? [
+                entry.previousPaymentStatus ? paymentStatusLabel(entry.previousPaymentStatus) : null,
+                entry.newPaymentStatus ? paymentStatusLabel(entry.newPaymentStatus) : null,
+              ].filter(Boolean).join(' → ')
+            : null);
+
+        return (
+          <li key={entry.id} className="relative pl-6 pb-6 last:pb-0">
+            {index < history.length - 1 && (
+              <span
+                className="absolute left-[5px] top-2.5 bottom-0 w-px bg-slate-200"
+                aria-hidden
+              />
+            )}
+            <span
+              className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-white"
+              aria-hidden
+            />
+            <div className="min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
+                <p className="text-[13px] font-medium text-slate-900">{entry.actionLabel}</p>
+                <time className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                  {fmtDate(entry.occurredAt)}
+                </time>
+              </div>
+              {transition && (
+                <p className="text-[12px] text-slate-600 mt-1">
+                  Durum: <span className="font-medium text-slate-800">{transition}</span>
+                </p>
+              )}
+              {payNote && (
+                <p className="text-[12px] text-slate-500 mt-0.5">{payNote}</p>
+              )}
+              {entry.actorEmail && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  İşlem yapan: {entry.actorEmail}
+                </p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -856,6 +951,18 @@ export default function OrderDetail() {
               )}
             </Panel>
           )}
+
+          <Panel
+            title="Durum geçmişi"
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          >
+            <OrderStatusTimeline orderId={order.id} />
+          </Panel>
         </div>
 
         {/* Right — operations */}

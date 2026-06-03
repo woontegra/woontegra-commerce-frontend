@@ -36,6 +36,7 @@ const XmlSources         = lazy(() => import('./pages/XmlSources'));
 const Developer          = lazy(() => import('./pages/Developer'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Customers = lazy(() => import('./pages/Customers'));
+const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
 const DomainSettings = lazy(() => import('./pages/DomainSettings'));
 const Reports = lazy(() => import('./pages/Reports'));
@@ -282,6 +283,7 @@ function App() {
           <Route path="attributes" element={<Attributes />} />
           <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
+          <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="campaigns" element={<Campaigns />} />
           <Route path="campaign-management" element={<CampaignManagement />} />
           <Route path="coupons"           element={<Coupons />} />

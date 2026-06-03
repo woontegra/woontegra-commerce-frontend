@@ -218,6 +218,19 @@ export interface GetOrdersQuery {
   source?:          OrderSourceFilter | '';
 }
 
+export interface OrderHistoryEntry {
+  id:                    string;
+  occurredAt:            string;
+  actionType:            string;
+  actionLabel:           string;
+  previousStatus:        string | null;
+  newStatus:             string | null;
+  previousPaymentStatus: string | null;
+  newPaymentStatus:      string | null;
+  actorEmail:            string | null;
+  note:                  string | null;
+}
+
 // ── Service ────────────────────────────────────────────────────────────────
 
 class OrderService {
@@ -233,6 +246,11 @@ class OrderService {
 
   async getById(id: string): Promise<Order> {
     const res = await apiClient.get<{ data: Order }>(`${this.base}/${id}`);
+    return res.data.data;
+  }
+
+  async getHistory(id: string): Promise<OrderHistoryEntry[]> {
+    const res = await apiClient.get<{ data: OrderHistoryEntry[] }>(`${this.base}/${id}/history`);
     return res.data.data;
   }
 

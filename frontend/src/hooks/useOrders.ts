@@ -15,6 +15,7 @@ export const orderKeys = {
   list:     (q?: GetOrdersQuery) => [...orderKeys.lists(), q]    as const,
   details:  ()                   => [...orderKeys.all, 'detail'] as const,
   detail:   (id: string)         => [...orderKeys.details(), id] as const,
+  history:  (id: string)        => [...orderKeys.all, 'history', id] as const,
   stats:    ()                   => [...orderKeys.all, 'stats']  as const,
   customer: (cid: string)        => [...orderKeys.all, 'customer', cid] as const,
 };
@@ -39,6 +40,14 @@ export function useOrder(id: string) {
   return useQuery({
     queryKey: orderKeys.detail(id),
     queryFn:  () => orderService.getById(id),
+    enabled:  !!id,
+  });
+}
+
+export function useOrderHistory(id: string) {
+  return useQuery({
+    queryKey: orderKeys.history(id),
+    queryFn:  () => orderService.getHistory(id),
     enabled:  !!id,
   });
 }
@@ -74,6 +83,7 @@ export function useUpdateOrderStatus() {
     onSuccess: (order) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
       qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
       qc.invalidateQueries({ queryKey: orderKeys.stats() });
       toast.success('Sipariş durumu güncellendi');
     },
@@ -90,6 +100,7 @@ export function useConfirmOrderPayment() {
     onSuccess: (order) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
       qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
       qc.invalidateQueries({ queryKey: orderKeys.stats() });
       toast.success('Havale/EFT ödemesi onaylandı.');
     },
@@ -107,6 +118,7 @@ export function useUpdateOrderShipping() {
     onSuccess: (order) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
       qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
       qc.invalidateQueries({ queryKey: orderKeys.stats() });
     },
     onError: (err: any) => {
@@ -122,6 +134,7 @@ export function useCancelOrder() {
     onSuccess: (order) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
       qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
       qc.invalidateQueries({ queryKey: orderKeys.stats() });
       toast.success('Sipariş iptal edildi');
     },
