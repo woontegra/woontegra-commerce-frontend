@@ -7,6 +7,7 @@ import {
   type CreateOrderDto,
   type GetOrdersQuery,
   type UpdateOrderShippingDto,
+  type UpdateOrderInvoiceDto,
 } from '../services/order.service';
 
 export const orderKeys = {
@@ -123,6 +124,23 @@ export function useUpdateOrderShipping() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error ?? 'Kargo bilgileri kaydedilemedi.');
+    },
+  });
+}
+
+export function useUpdateOrderInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateOrderInvoiceDto }) =>
+      orderService.updateInvoice(id, data),
+    onSuccess: (order) => {
+      qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
+      toast.success('Fatura bilgileri kaydedildi.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error ?? 'Fatura bilgileri kaydedilemedi.');
     },
   });
 }

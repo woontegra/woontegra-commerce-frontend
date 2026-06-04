@@ -132,6 +132,9 @@ export interface Order {
   shippingTrackingUrl?:    string | null;
   shippedAt?:              string | null;
   shippingNotificationSentAt?: string | null;
+  invoiceNumber?:     string | null;
+  invoiceUrl?:        string | null;
+  invoiceUploadedAt?: string | null;
   admin?:           AdminOrderMeta;
   /** Unified list (storefront + Trendyol merge) */
   source?:               OrderSource;
@@ -154,6 +157,11 @@ export interface UpdateOrderShippingDto {
   shippingTrackingNumber?: string;
   shippingTrackingUrl?:    string;
   markAsShipped?:          boolean;
+}
+
+export interface UpdateOrderInvoiceDto {
+  invoiceNumber?: string | null;
+  invoiceUrl?:    string | null;
 }
 
 export interface OrderStats {
@@ -276,6 +284,11 @@ class OrderService {
 
   async updateShipping(id: string, data: UpdateOrderShippingDto): Promise<Order> {
     const res = await apiClient.patch<{ data: Order }>(`${this.base}/${id}/shipping`, data);
+    return res.data.data;
+  }
+
+  async updateInvoice(id: string, data: UpdateOrderInvoiceDto): Promise<Order> {
+    const res = await apiClient.patch<{ data: Order }>(`${this.base}/${id}/invoice`, data);
     return res.data.data;
   }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
+import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useUpdateOrderInvoice, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
 import type { UpdateOrderShippingDto, OrderStatus, OrderItem, Order, OrderHistoryEntry } from '../services/order.service';
 import { ORDER_PAYMENT_STATUS_LABELS } from '../utils/orderPaymentLabels';
 import {
@@ -464,6 +464,7 @@ export default function OrderDetail() {
   const { data: order, isLoading, error } = useOrder(orderId ?? '');
   const updateStatus   = useUpdateOrderStatus();
   const updateShipping = useUpdateOrderShipping();
+  const updateInvoice  = useUpdateOrderInvoice();
   const cancelOrder    = useCancelOrder();
   const confirmPayment = useConfirmOrderPayment();
 
@@ -472,6 +473,9 @@ export default function OrderDetail() {
   const [shippingTrackingNumber, setShippingTrackingNumber] = useState('');
   const [shippingTrackingUrl, setShippingTrackingUrl] = useState('');
   const [shippingUrlWarning, setShippingUrlWarning] = useState('');
+  const [invoiceNumber, setInvoiceNumber]           = useState('');
+  const [invoiceUrl, setInvoiceUrl]                 = useState('');
+  const [invoiceUrlWarning, setInvoiceUrlWarning]   = useState('');
   const [returnRequests, setReturnRequests]         = useState<ReturnRequest[]>([]);
 
   useEffect(() => {
@@ -481,6 +485,13 @@ export default function OrderDetail() {
     setShippingTrackingUrl(order.shippingTrackingUrl ?? '');
     setStatusDraft(order.status);
   }, [order?.id, order?.shippingCarrier, order?.shippingTrackingNumber, order?.shippingTrackingUrl, order?.status]);
+
+  useEffect(() => {
+    if (!order) return;
+    setInvoiceNumber(order.invoiceNumber ?? '');
+    setInvoiceUrl(order.invoiceUrl ?? '');
+    setInvoiceUrlWarning('');
+  }, [order?.id, order?.invoiceNumber, order?.invoiceUrl]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -539,6 +550,31 @@ export default function OrderDetail() {
     updateStatus.mutate({ id: order.id, status: statusDraft });
   };
 
+  const validateInvoiceUrl = (url: string): boolean => {
+    const t = url.trim();
+    if (!t) {
+      setInvoiceUrlWarning('');
+      return true;
+    }
+    if (!/^https?:\/\//i.test(t)) {
+      setInvoiceUrlWarning('Fatura linki http:// veya https:// ile başlamalıdır.');
+      return false;
+    }
+    setInvoiceUrlWarning('');
+    return true;
+  };
+
+  const handleSaveInvoice = () => {
+    if (!validateInvoiceUrl(invoiceUrl)) return;
+    updateInvoice.mutate({
+      id: order.id,
+      data: {
+        invoiceNumber: invoiceNumber.trim() || null,
+        invoiceUrl:    invoiceUrl.trim() || null,
+      },
+    });
+  };
+
   const validateTrackingUrl = (url: string): boolean => {
     const t = url.trim();
     if (!t) {
@@ -587,7 +623,7 @@ export default function OrderDetail() {
     );
   };
 
-  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending || confirmPayment.isPending;
+  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending || updateInvoice.isPending || confirmPayment.isPending;
   const shippingLocked_ = shippingLocked(order.status);
   const showConfirmPayment = canConfirmBankTransferPayment(order);
   const paymentLabel   = admin?.payment.statusLabel ?? '—';
@@ -1098,6 +1134,68 @@ export default function OrderDetail() {
                 className="btn btn-primary w-full"
               >
                 {updateShipping.isPending ? 'İşleniyor…' : 'Kaydet ve kargoya verildi yap'}
+              </button>
+            </div>
+          </Panel>
+
+          <Panel title="Fatura bilgileri">
+            <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">
+              Mağaza siparişi için kesilen faturanın numarasını ve PDF veya paylaşım linkini kaydedin.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="wn-label">Fatura numarası</label>
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={e => setInvoiceNumber(e.target.value)}
+                  maxLength={64}
+                  placeholder="Örn. ABC2026000123"
+                  disabled={busy}
+                  className="wn-input font-mono text-[13px]"
+                />
+              </div>
+              <div>
+                <label className="wn-label">Fatura PDF / link</label>
+                <input
+                  type="url"
+                  value={invoiceUrl}
+                  onChange={e => {
+                    setInvoiceUrl(e.target.value);
+                    if (e.target.value.trim()) validateInvoiceUrl(e.target.value);
+                    else setInvoiceUrlWarning('');
+                  }}
+                  maxLength={2048}
+                  placeholder="https://..."
+                  disabled={busy}
+                  className="wn-input"
+                />
+                {invoiceUrlWarning && (
+                  <p className="text-[11px] text-amber-700 mt-1">{invoiceUrlWarning}</p>
+                )}
+                {invoiceUrl.trim() && /^https?:\/\//i.test(invoiceUrl.trim()) && (
+                  <a
+                    href={invoiceUrl.trim()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 mt-1.5"
+                  >
+                    Faturayı aç →
+                  </a>
+                )}
+              </div>
+              {order.invoiceUploadedAt && (
+                <p className="text-[12px] text-slate-500">
+                  Link kaydedildi: {fmtDate(order.invoiceUploadedAt)}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveInvoice}
+                disabled={busy}
+                className="btn btn-secondary w-full"
+              >
+                {updateInvoice.isPending ? 'Kaydediliyor…' : 'Fatura bilgilerini kaydet'}
               </button>
             </div>
           </Panel>
