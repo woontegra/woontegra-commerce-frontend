@@ -12,7 +12,7 @@ import { useCreateOrder } from '../../hooks/useOrders';
 
 type ManualPaymentMethod = 'BANK_TRANSFER' | 'CASH_ON_DELIVERY' | 'MANUAL_PAID';
 
-const BLOCKED_CUSTOMER_MANUAL_ORDER_MSG =
+export const BLOCKED_CUSTOMER_MANUAL_ORDER_MSG =
   'Bu müşteri engelli olduğu için manuel sipariş oluşturulamaz.';
 
 const PAYMENT_OPTIONS: { value: ManualPaymentMethod; label: string }[] = [
@@ -72,6 +72,7 @@ function buildOrderNotes(input: {
 }
 
 async function resolveCustomerId(input: {
+  knownCustomerId?: string;
   customerName: string;
   email: string;
   phone: string;
@@ -80,6 +81,20 @@ async function resolveCustomerId(input: {
   const email = input.email.trim().toLowerCase();
   const { firstName, lastName } = splitCustomerName(input.customerName);
   const address = input.shippingAddress.trim();
+
+  if (input.knownCustomerId) {
+    const existing = await customerService.getById(input.knownCustomerId);
+    if (existing.isBlocked) {
+      throw new Error(BLOCKED_CUSTOMER_MANUAL_ORDER_MSG);
+    }
+    await customerService.update(input.knownCustomerId, {
+      firstName,
+      lastName,
+      phone:   input.phone.trim(),
+      address: address || existing.address,
+    });
+    return input.knownCustomerId;
+  }
 
   const existing = await customerService.getAll({ search: email, limit: 5 });
   const match = existing.customers.find(
@@ -114,12 +129,25 @@ interface CreateManualOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: () => void;
+  initialCustomerId?: string;
+  initialCustomerName?: string;
+  initialCustomerEmail?: string;
+  initialCustomerPhone?: string;
+  initialCustomerIsBlocked?: boolean;
+  /** Tek metin teslimat adresi (CustomerDetail kayıtlı adresinden) */
+  initialShippingAddress?: string;
 }
 
 export default function CreateManualOrderModal({
   isOpen,
   onClose,
   onCreated,
+  initialCustomerId,
+  initialCustomerName,
+  initialCustomerEmail,
+  initialCustomerPhone,
+  initialCustomerIsBlocked,
+  initialShippingAddress,
 }: CreateManualOrderModalProps) {
   const navigate = useNavigate();
   const createOrder = useCreateOrder();
@@ -173,7 +201,47 @@ export default function CreateManualOrderModal({
     enabled: isOpen && debouncedEmail.length >= 3,
   });
 
-  const customerIsBlocked = customerByEmail?.isBlocked === true;
+  const customerIsBlocked =
+    initialCustomerIsBlocked === true || customerByEmail?.isBlocked === true;
+
+  const hasCustomerPrefill = Boolean(
+    initialCustomerId
+    || initialCustomerName
+    || initialCustomerEmail
+    || initialCustomerPhone,
+  );
+
+  const applyCustomerPrefill = useCallback(() => {
+    if (!hasCustomerPrefill) {
+      setCustomerName('');
+      setEmail('');
+      setPhone('');
+      return;
+    }
+    setCustomerName(initialCustomerName ?? '');
+    setEmail(initialCustomerEmail ?? '');
+    setPhone(initialCustomerPhone ?? '');
+  }, [
+    hasCustomerPrefill,
+    initialCustomerName,
+    initialCustomerEmail,
+    initialCustomerPhone,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    applyCustomerPrefill();
+    setFormError(null);
+    setProductSearch('');
+    setDebouncedSearch('');
+    setSelectedProduct(null);
+    setQuantity(1);
+    setPaymentMethod('BANK_TRANSFER');
+    setOrderNote('');
+    setShippingAddress(initialShippingAddress?.trim() ?? '');
+    setBillingSame(true);
+    setBillingAddress('');
+  }, [isOpen, applyCustomerPrefill, initialShippingAddress]);
 
   const lineTotal = useMemo(() => {
     if (!selectedProduct) return 0;
@@ -246,6 +314,7 @@ export default function CreateManualOrderModal({
 
     try {
       const customerId = await resolveCustomerId({
+        knownCustomerId: initialCustomerId,
         customerName: customerName.trim(),
         email:        email.trim(),
         phone:        phone.trim(),
