@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useBranding } from '../context/BrandingContext';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useUpdateOrderInvoice, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
@@ -365,7 +366,7 @@ function OrderDetailPrintSlip({
   if (order.shippedAt) shippingLines.push(`Kargoya verildi: ${fmtDate(order.shippedAt)}`);
 
   return (
-    <div className="order-detail-print-slip hidden print:block" aria-hidden="true">
+    <div className="order-detail-print-slip--order hidden" aria-hidden="true">
       <header style={{ marginBottom: '16px' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: '16pt', fontWeight: 700 }}>Sipariş çıktısı</h1>
         <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>Woontegra · Mağaza siparişi</p>
@@ -539,6 +540,82 @@ function OrderDetailPrintSlip({
       <p style={{ marginTop: '20px', fontSize: '9pt', color: '#666' }}>
         Yazdırma: {fmtDate(new Date().toISOString())}
       </p>
+    </div>
+  );
+}
+
+type OrderPrintMode = 'order' | 'label';
+
+function OrderDetailPackageLabelSlip({
+  order,
+  admin,
+  storeName,
+}: {
+  order:     Order;
+  admin:     AdminOrderMeta | undefined;
+  storeName: string;
+}) {
+  const recipientName = order.customer
+    ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
+    : '—';
+  const phone = order.customer?.phone?.trim() || '—';
+  const addr = admin?.shippingAddress;
+  const cityLine = addr
+    ? [addr.district, addr.city].filter(Boolean).join(' / ')
+    : '—';
+  const postal = addr?.postalCode?.trim() || '';
+  const carrier = order.shippingCarrier?.trim() || '—';
+  const tracking = order.shippingTrackingNumber?.trim() || '—';
+
+  const addressBlock = addr
+    ? [addr.addressLine, cityLine + (postal ? `\n${postal}` : '')].filter(Boolean).join('\n')
+    : 'Teslimat adresi kayıtlı değil';
+
+  return (
+    <div className="order-detail-print-slip--label hidden" aria-hidden="true">
+      <p className="package-label-sender">
+        Gönderici: <strong>{storeName}</strong>
+      </p>
+
+      <dl className="package-label-field">
+        <dt>Alıcı</dt>
+        <dd className="recipient">{recipientName}</dd>
+      </dl>
+
+      <dl className="package-label-field">
+        <dt>Telefon</dt>
+        <dd>{phone}</dd>
+      </dl>
+
+      <dl className="package-label-field">
+        <dt>Teslimat adresi</dt>
+        <dd className="address">{addressBlock}</dd>
+      </dl>
+
+      {addr && (
+        <dl className="package-label-field">
+          <dt>İl / ilçe{postal ? ' · Posta kodu' : ''}</dt>
+          <dd>
+            {cityLine}
+            {postal ? ` · ${postal}` : ''}
+          </dd>
+        </dl>
+      )}
+
+      <dl className="package-label-meta">
+        <div>
+          <dt>Sipariş no</dt>
+          <dd>{order.orderNumber}</dd>
+        </div>
+        <div>
+          <dt>Kargo firması</dt>
+          <dd>{carrier}</dd>
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <dt>Takip numarası</dt>
+          <dd>{tracking}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -789,7 +866,9 @@ function LoadingSkeleton() {
 
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
+  const { branding } = useBranding();
   const { data: order, isLoading, error } = useOrder(orderId ?? '');
+  const [printMode, setPrintMode] = useState<OrderPrintMode | null>(null);
   const updateStatus   = useUpdateOrderStatus();
   const updateShipping = useUpdateOrderShipping();
   const updateInvoice  = useUpdateOrderInvoice();
@@ -827,6 +906,30 @@ export default function OrderDetail() {
       .then(setReturnRequests)
       .catch(() => setReturnRequests([]));
   }, [orderId]);
+
+  useEffect(() => {
+    if (printMode) {
+      document.body.dataset.orderPrint = printMode;
+    } else {
+      delete document.body.dataset.orderPrint;
+    }
+  }, [printMode]);
+
+  useEffect(() => {
+    const onAfterPrint = () => setPrintMode(null);
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', onAfterPrint);
+      delete document.body.dataset.orderPrint;
+    };
+  }, []);
+
+  const triggerPrint = useCallback((mode: OrderPrintMode) => {
+    setPrintMode(mode);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
+  }, []);
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -973,6 +1076,11 @@ export default function OrderDetail() {
         paymentLabel={paymentLabel}
         customerNoteLines={printNoteLines}
       />
+      <OrderDetailPackageLabelSlip
+        order={order}
+        admin={admin}
+        storeName={branding.siteName?.trim() || 'Mağaza'}
+      />
 
     <div className="w-full space-y-6 pb-10 page-enter order-detail-screen">
 
@@ -1023,17 +1131,30 @@ export default function OrderDetail() {
             </div>
 
             <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-end gap-3 shrink-0 order-1 lg:order-2 lg:text-right lg:pl-6 lg:border-l lg:border-slate-200/60">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="btn btn-secondary text-[13px] px-4 py-2 print:hidden inline-flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-                    d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
-                </svg>
-                Yazdır
-              </button>
+              <div className="flex flex-col gap-2 w-full sm:w-auto print:hidden">
+                <button
+                  type="button"
+                  onClick={() => triggerPrint('order')}
+                  className="btn btn-secondary text-[13px] px-4 py-2 inline-flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                      d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
+                  </svg>
+                  Yazdır
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerPrint('label')}
+                  className="btn btn-ghost text-[13px] px-4 py-2 border border-slate-200 inline-flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Paket Etiketi Yazdır
+                </button>
+              </div>
               <div>
                 <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Genel toplam</p>
                 <p className="text-2xl font-semibold text-indigo-600 tabular-nums mt-0.5">
