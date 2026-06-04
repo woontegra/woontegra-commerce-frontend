@@ -72,12 +72,17 @@ export interface Post {
   title: string;
   slug: string;
   content: string;
-  excerpt?: string;
-  coverImage?: string;
+  excerpt?: string | null;
+  coverImage?: string | null;
+  category?: string | null;
+  tags?: string[];
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   isPublished: boolean;
-  publishedAt?: string;
+  publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  canonicalPath?: string;
   author: {
     id: string;
     firstName: string;
