@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useUpdateOrderInvoice, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
-import type { UpdateOrderShippingDto, OrderStatus, OrderItem, Order, OrderHistoryEntry } from '../services/order.service';
+import type {
+  UpdateOrderShippingDto,
+  OrderStatus,
+  OrderItem,
+  Order,
+  OrderHistoryEntry,
+  AdminOrderMeta,
+  AdminOrderTotals,
+} from '../services/order.service';
+import './OrderDetail.print.css';
 import { ORDER_PAYMENT_STATUS_LABELS } from '../utils/orderPaymentLabels';
 import {
   fetchReturnRequestsByOrder,
@@ -304,6 +313,236 @@ function AddressBlock({
   );
 }
 
+function AddressPrintText({
+  addr,
+}: {
+  addr: {
+    fullName: string;
+    phone: string;
+    addressLine: string;
+    district: string;
+    city: string;
+    postalCode: string;
+  };
+}) {
+  const lines = [
+    addr.fullName,
+    addr.phone || null,
+    addr.addressLine,
+    [addr.district, addr.city].filter(Boolean).join(' / ') + (addr.postalCode ? ` · ${addr.postalCode}` : ''),
+  ].filter(Boolean) as string[];
+  return (
+    <p style={{ margin: 0, whiteSpace: 'pre-line' }}>
+      {lines.join('\n')}
+    </p>
+  );
+}
+
+function OrderDetailPrintSlip({
+  order,
+  admin,
+  totals,
+  methodLabel,
+  paymentLabel,
+  customerNoteLines,
+}: {
+  order:            Order;
+  admin:            AdminOrderMeta | undefined;
+  totals:           AdminOrderTotals;
+  methodLabel:      string;
+  paymentLabel:     string;
+  customerNoteLines: string[];
+}) {
+  const customerName = order.customer
+    ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
+    : '—';
+
+  const shippingLines: string[] = [];
+  if (order.shippingCarrier) shippingLines.push(`Firma: ${order.shippingCarrier}`);
+  if (order.shippingTrackingNumber) shippingLines.push(`Takip no: ${order.shippingTrackingNumber}`);
+  if (order.shippingTrackingUrl) shippingLines.push(`Takip linki: ${order.shippingTrackingUrl}`);
+  shippingLines.push(`Durum: ${SHIPPING_STATUS_LABEL[order.status] ?? order.status}`);
+  if (order.shippedAt) shippingLines.push(`Kargoya verildi: ${fmtDate(order.shippedAt)}`);
+
+  return (
+    <div className="order-detail-print-slip hidden print:block" aria-hidden="true">
+      <header style={{ marginBottom: '16px' }}>
+        <h1 style={{ margin: '0 0 4px', fontSize: '16pt', fontWeight: 700 }}>Sipariş çıktısı</h1>
+        <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>Woontegra · Mağaza siparişi</p>
+      </header>
+
+      <dl className="order-print-meta">
+        <div>
+          <dt>Sipariş no</dt>
+          <dd>{order.orderNumber}</dd>
+        </div>
+        <div>
+          <dt>Sipariş tarihi</dt>
+          <dd>{fmtDate(order.createdAt)}</dd>
+        </div>
+        <div>
+          <dt>Sipariş durumu</dt>
+          <dd>{STATUS_LABELS[order.status] ?? order.status}</dd>
+        </div>
+        <div>
+          <dt>Genel toplam</dt>
+          <dd>{fmtCurrency(totals.grandTotal, order.currency)}</dd>
+        </div>
+      </dl>
+
+      <section className="order-print-section">
+        <h2>Müşteri</h2>
+        <p style={{ margin: 0 }}><strong>{customerName}</strong></p>
+        {order.customer?.phone && <p style={{ margin: '4px 0 0' }}>Tel: {order.customer.phone}</p>}
+        {order.customer?.email && <p style={{ margin: '4px 0 0' }}>E-posta: {order.customer.email}</p>}
+      </section>
+
+      <section className="order-print-section">
+        <h2>Teslimat adresi</h2>
+        {admin?.shippingAddress ? (
+          <AddressPrintText addr={admin.shippingAddress} />
+        ) : (
+          <p style={{ margin: 0 }}>—</p>
+        )}
+      </section>
+
+      <section className="order-print-section">
+        <h2>Fatura adresi</h2>
+        {admin?.billingAddress?.sameAsShipping ? (
+          <p style={{ margin: 0 }}>Teslimat adresi ile aynı.</p>
+        ) : admin?.billingAddress ? (
+          <div>
+            {admin.billingAddress.type === 'corporate' && (
+              <p style={{ margin: '0 0 6px', fontWeight: 600 }}>Kurumsal fatura</p>
+            )}
+            <AddressPrintText addr={admin.billingAddress} />
+            {admin.billingAddress.companyName && (
+              <p style={{ margin: '6px 0 0' }}>Firma: {admin.billingAddress.companyName}</p>
+            )}
+            {(admin.billingAddress.taxOffice || admin.billingAddress.taxNumber) && (
+              <p style={{ margin: '4px 0 0' }}>
+                {admin.billingAddress.taxOffice && `VD: ${admin.billingAddress.taxOffice}`}
+                {admin.billingAddress.taxNumber && ` · VKN: ${admin.billingAddress.taxNumber}`}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p style={{ margin: 0 }}>—</p>
+        )}
+      </section>
+
+      <section className="order-print-section">
+        <h2>Ürün kalemleri</h2>
+        {order.items.length === 0 ? (
+          <p style={{ margin: 0 }}>Ürün kalemi yok.</p>
+        ) : (
+          <table className="order-print-table">
+            <thead>
+              <tr>
+                <th>Ürün</th>
+                <th className="num">Adet</th>
+                <th className="num">Birim fiyat</th>
+                <th className="num">Satır toplamı</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map(item => (
+                <tr key={item.id}>
+                  <td>
+                    {item.product?.name ?? 'Ürün'}
+                    {item.variant?.name ? ` — ${item.variant.name}` : ''}
+                  </td>
+                  <td className="num">{item.quantity}</td>
+                  <td className="num">{fmtCurrency(item.price, order.currency)}</td>
+                  <td className="num">
+                    {fmtCurrency(item.lineTotal ?? item.price * item.quantity, order.currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="order-print-totals">
+          <div className="row">
+            <span>Ürün ara toplamı</span>
+            <span>{fmtCurrency(totals.itemsSubtotal, order.currency)}</span>
+          </div>
+          <div className="row">
+            <span>Kargo</span>
+            <span>
+              {totals.shippingPrice > 0
+                ? fmtCurrency(totals.shippingPrice, order.currency)
+                : '—'}
+            </span>
+          </div>
+          {totals.cashOnDeliveryFee > 0 && (
+            <div className="row">
+              <span>Kapıda ödeme</span>
+              <span>{fmtCurrency(totals.cashOnDeliveryFee, order.currency)}</span>
+            </div>
+          )}
+          {totals.couponDiscount > 0 && (
+            <div className="row">
+              <span>Kupon indirimi</span>
+              <span>−{fmtCurrency(totals.couponDiscount, order.currency)}</span>
+            </div>
+          )}
+          {totals.campaignDiscount > 0 && (
+            <div className="row">
+              <span>Kampanya indirimi</span>
+              <span>−{fmtCurrency(totals.campaignDiscount, order.currency)}</span>
+            </div>
+          )}
+          <div className="row grand">
+            <span>Genel toplam</span>
+            <span>{fmtCurrency(totals.grandTotal, order.currency)}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="order-print-section">
+        <h2>Ödeme</h2>
+        <p style={{ margin: 0 }}>Yöntem: {methodLabel}</p>
+        <p style={{ margin: '4px 0 0' }}>Durum: {paymentLabel}</p>
+      </section>
+
+      <section className="order-print-section">
+        <h2>Kargo</h2>
+        <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{shippingLines.join('\n')}</p>
+      </section>
+
+      {(customerNoteLines.length > 0 || order.invoiceNumber || order.invoiceUrl) && (
+        <section className="order-print-section">
+          {customerNoteLines.length > 0 && (
+            <>
+              <h2>Sipariş notu</h2>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{customerNoteLines.join('\n\n')}</p>
+            </>
+          )}
+          {(order.invoiceNumber || order.invoiceUrl) && (
+            <>
+              <h2 style={{ marginTop: customerNoteLines.length > 0 ? '12px' : 0 }}>Fatura bilgileri</h2>
+              {order.invoiceNumber && (
+                <p style={{ margin: '4px 0 0' }}>Fatura no: {order.invoiceNumber}</p>
+              )}
+              {order.invoiceUrl && (
+                <p style={{ margin: '4px 0 0' }}>
+                  Fatura linki:{' '}
+                  <a href={order.invoiceUrl}>{order.invoiceUrl}</a>
+                </p>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      <p style={{ marginTop: '20px', fontSize: '9pt', color: '#666' }}>
+        Yazdırma: {fmtDate(new Date().toISOString())}
+      </p>
+    </div>
+  );
+}
+
 function ProductPlaceholder() {
   return (
     <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0">
@@ -311,6 +550,95 @@ function ProductPlaceholder() {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
           d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
+    </div>
+  );
+}
+
+function isValidTrackingUrl(url: string | null | undefined): boolean {
+  const t = url?.trim() ?? '';
+  return t.length > 0 && /^https?:\/\//i.test(t);
+}
+
+function OrderShippingTrackingSummary({ order }: { order: Order }) {
+  const carrier    = order.shippingCarrier?.trim() || null;
+  const trackingNo = order.shippingTrackingNumber?.trim() || null;
+  const trackingUrl = isValidTrackingUrl(order.shippingTrackingUrl)
+    ? order.shippingTrackingUrl!.trim()
+    : null;
+  const hasTrackingData = Boolean(carrier || trackingNo || trackingUrl);
+  const statusLabel = SHIPPING_STATUS_LABEL[order.status];
+
+  return (
+    <div className="rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50/90 to-white overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Kargo durumu
+        </span>
+        <span className="text-[13px] font-semibold text-slate-900">{statusLabel}</span>
+      </div>
+
+      {!hasTrackingData ? (
+        <div className="px-4 py-5 text-center">
+          <p className="text-[13px] font-medium text-slate-600">
+            Henüz kargo firması veya takip bilgisi kaydedilmedi
+          </p>
+          <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed">
+            Kargo firması, takip numarası ve isteğe bağlı takip linkini aşağıdaki formdan girebilirsiniz.
+          </p>
+        </div>
+      ) : (
+        <dl className="px-4 py-3.5 space-y-3.5">
+          {carrier && (
+            <div>
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+                Kargo firması
+              </dt>
+              <dd className="text-[14px] font-medium text-slate-900">{carrier}</dd>
+            </div>
+          )}
+          {trackingNo && (
+            <div>
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+                Takip numarası
+              </dt>
+              <dd className="font-mono text-[14px] font-semibold text-slate-900 break-all tracking-tight">
+                {trackingNo}
+              </dd>
+            </div>
+          )}
+          {trackingUrl && (
+            <div className="pt-0.5">
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary text-[13px] px-4 py-2 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                    d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10m0 0a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V6a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 7h14" />
+                </svg>
+                Takip Et
+              </a>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {(order.shippedAt || order.shippingNotificationSentAt) && (
+        <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/70 space-y-1">
+          {order.shippedAt && (
+            <p className="text-[12px] text-slate-600">
+              Kargoya verildi: <span className="font-medium">{fmtDate(order.shippedAt)}</span>
+            </p>
+          )}
+          {order.shippingNotificationSentAt && (
+            <p className="text-[12px] text-emerald-700 font-medium">
+              Müşteriye kargo bildirimi gönderildi
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -629,8 +957,24 @@ export default function OrderDetail() {
   const paymentLabel   = admin?.payment.statusLabel ?? '—';
   const methodLabel    = admin?.payment.methodLabel ?? '—';
 
+  const printNoteLines: string[] = [];
+  if (admin?.customerNote?.trim()) printNoteLines.push(admin.customerNote.trim());
+  for (const row of parsedNotes.readable) {
+    printNoteLines.push(`${row.label}: ${row.value}`);
+  }
+
   return (
-    <div className="w-full space-y-6 pb-10 page-enter">
+    <>
+      <OrderDetailPrintSlip
+        order={order}
+        admin={admin}
+        totals={totals}
+        methodLabel={methodLabel}
+        paymentLabel={paymentLabel}
+        customerNoteLines={printNoteLines}
+      />
+
+    <div className="w-full space-y-6 pb-10 page-enter order-detail-screen">
 
       {/* ── Hero header ─────────────────────────────────────────────────── */}
       <div className="wn-card overflow-hidden border-indigo-100/80 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/40">
@@ -646,7 +990,7 @@ export default function OrderDetail() {
           </Link>
 
           <div className="mt-4 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 order-2 lg:order-1">
               <p className="text-[13px] font-medium text-slate-500 mb-2">Sipariş Detayı</p>
               <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight break-all mb-3">
                 {order.orderNumber}
@@ -678,41 +1022,28 @@ export default function OrderDetail() {
               </p>
             </div>
 
-            <div className="lg:text-right shrink-0 lg:pl-6 lg:border-l lg:border-slate-200/60">
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Genel toplam</p>
-              <p className="text-2xl font-semibold text-indigo-600 tabular-nums mt-0.5">
-                {fmtCurrency(totals.grandTotal, order.currency)}
-              </p>
+            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-end gap-3 shrink-0 order-1 lg:order-2 lg:text-right lg:pl-6 lg:border-l lg:border-slate-200/60">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary text-[13px] px-4 py-2 print:hidden inline-flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                    d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
+                </svg>
+                Yazdır
+              </button>
+              <div>
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Genel toplam</p>
+                <p className="text-2xl font-semibold text-indigo-600 tabular-nums mt-0.5">
+                  {fmtCurrency(totals.grandTotal, order.currency)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {(order.shippingTrackingNumber || order.shippingCarrier) && (
-          <div className="px-5 sm:px-6 py-2.5 bg-white/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
-            {order.shippingCarrier && (
-              <span>
-                <span className="text-slate-500">Kargo:</span>{' '}
-                <span className="font-medium text-slate-800">{order.shippingCarrier}</span>
-              </span>
-            )}
-            {order.shippingTrackingNumber && (
-              <span>
-                <span className="text-slate-500">Takip:</span>{' '}
-                <span className="font-mono font-medium text-slate-800">{order.shippingTrackingNumber}</span>
-              </span>
-            )}
-            {order.shippingTrackingUrl && (
-              <a
-                href={order.shippingTrackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 font-medium"
-              >
-                Takip linki →
-              </a>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Summary metrics ─────────────────────────────────────────────── */}
@@ -988,6 +1319,24 @@ export default function OrderDetail() {
             </Panel>
           )}
 
+          <div className="xl:hidden">
+            <Panel
+              title="Kargo takibi"
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              }
+            >
+              <OrderShippingTrackingSummary order={order} />
+              <p className="text-[12px] text-slate-500 mt-3">
+                Güncellemek için sayfanın altındaki{' '}
+                <span className="font-medium text-slate-700">Kargo bilgileri</span> formunu kullanın.
+              </p>
+            </Panel>
+          </div>
+
           <Panel
             title="Durum geçmişi"
             icon={
@@ -1043,9 +1392,13 @@ export default function OrderDetail() {
           </Panel>
 
           <Panel title="Kargo bilgileri">
-            <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">
-              Takip bilgilerini kaydedebilir veya kaydedip siparişi kargoya verildi olarak işaretleyebilirsiniz.
-            </p>
+            <OrderShippingTrackingSummary order={order} />
+            <div className="border-t border-slate-100 pt-4 mt-4">
+              <p className="text-[12px] font-medium text-slate-700 mb-1">Bilgileri güncelle</p>
+              <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">
+                Takip bilgilerini kaydedebilir veya kaydedip siparişi kargoya verildi olarak işaretlemek için kullanın.
+              </p>
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="wn-label">Kargo firması</label>
@@ -1089,28 +1442,8 @@ export default function OrderDetail() {
                 {shippingUrlWarning && (
                   <p className="text-[11px] text-amber-700 mt-1">{shippingUrlWarning}</p>
                 )}
-                {shippingTrackingUrl.trim() && /^https?:\/\//i.test(shippingTrackingUrl.trim()) && (
-                  <a
-                    href={shippingTrackingUrl.trim()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 mt-1.5"
-                  >
-                    Takip linkini aç →
-                  </a>
-                )}
               </div>
 
-              {order.shippedAt && (
-                <p className="text-[12px] text-slate-500">
-                  Kargoya verildi: {fmtDate(order.shippedAt)}
-                </p>
-              )}
-              {order.shippingNotificationSentAt && (
-                <p className="text-[12px] text-emerald-700">
-                  Müşteriye kargo bildirimi gönderildi.
-                </p>
-              )}
               {shippingLocked_ && (
                 <p className="text-[12px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
                   {order.status === 'CANCELLED'
@@ -1252,5 +1585,6 @@ export default function OrderDetail() {
         </div>
       </div>
     </div>
+    </>
   );
 }

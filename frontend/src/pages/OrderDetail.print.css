@@ -1,0 +1,111 @@
+/* Yalnızca OrderDetail yazdırma çıktısı — panel sidebar/header gizlenir */
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .order-detail-print-slip,
+  .order-detail-print-slip * {
+    visibility: visible;
+  }
+
+  .order-detail-print-slip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important;
+    background: #fff;
+    color: #000;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .order-detail-print-slip a {
+    color: #000;
+    text-decoration: underline;
+    word-break: break-all;
+  }
+
+  .order-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+
+  .order-print-table th,
+  .order-print-table td {
+    border: 1px solid #333;
+    padding: 6px 8px;
+    vertical-align: top;
+  }
+
+  .order-print-table th {
+    background: #eee;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .order-print-table .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .order-print-section {
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+  }
+
+  .order-print-section h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 0 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+  }
+
+  .order-print-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+  }
+
+  .order-print-meta dt {
+    font-size: 9pt;
+    color: #444;
+    margin: 0;
+  }
+
+  .order-print-meta dd {
+    margin: 2px 0 0;
+    font-weight: 600;
+  }
+
+  .order-print-totals {
+    max-width: 280px;
+    margin-left: auto;
+    margin-top: 10px;
+  }
+
+  .order-print-totals .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+  }
+
+  .order-print-totals .grand {
+    font-weight: 700;
+    font-size: 12pt;
+    border-top: 2px solid #000;
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+}
