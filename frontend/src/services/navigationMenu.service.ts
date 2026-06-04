@@ -5,8 +5,10 @@ import type {
   NavigationMenuItem,
   TenantNavigationMenu,
 } from '../types/navigationMenu';
+import { newMenuItemId } from '../utils/navigationMenuTree';
 
 export type MenuItemPayload = {
+  id?: string;
   label: string;
   linkType: string;
   targetId?: string | null;
@@ -48,6 +50,7 @@ export async function saveNavigationMenu(
 
 export function emptyMenuItem(sortOrder = 0): MenuItemPayload {
   return {
+    id: newMenuItemId(),
     label: '',
     linkType: 'custom',
     targetId: null,
@@ -61,6 +64,7 @@ export function emptyMenuItem(sortOrder = 0): MenuItemPayload {
 
 export function menuItemFromRecord(item: NavigationMenuItem): MenuItemPayload {
   return {
+    id: item.id,
     label: item.label,
     linkType: item.linkType,
     targetId: item.targetId,

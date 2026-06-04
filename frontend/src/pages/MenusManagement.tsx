@@ -18,6 +18,13 @@ import {
   saveNavigationMenu,
   type MenuItemPayload,
 } from '../services/navigationMenu.service';
+import {
+  buildMenuDisplayRows,
+  getMenuSiblings,
+  isMenuDescendant,
+  newMenuItemId,
+  normalizeParentId,
+} from '../utils/navigationMenuTree';
 import type {
   MenuLinkType,
   NavigationMenuItem,
@@ -137,7 +144,7 @@ export default function MenusManagement() {
   const [blogSearch, setBlogSearch] = useState('');
   const [customLabel, setCustomLabel] = useState('');
   const [customUrl, setCustomUrl] = useState('');
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const activeMenu = tab === 'HEADER' ? headerMenu : footerMenu;
   const tabLabel = tab === 'HEADER' ? 'Üst menü' : 'Footer menü';
@@ -194,7 +201,7 @@ export default function MenusManagement() {
     if (!menu) return;
     setMenuTitle(menu.title);
     setItems(sortItems(menu.items).map(menuItemFromRecord));
-    setExpandedIndex(null);
+    setExpandedId(null);
     setSelectedPages(new Set());
     setSelectedCategories(new Set());
     setSelectedPosts(new Set());
@@ -218,6 +225,8 @@ export default function MenusManagement() {
     return next;
   };
 
+  const displayRows = useMemo(() => buildMenuDisplayRows(items), [items]);
+
   const appendItems = (rows: MenuItemPayload[]) => {
     if (rows.length === 0) {
       toast.error('En az bir öğe seçin.');
@@ -227,7 +236,8 @@ export default function MenusManagement() {
       ...prev,
       ...rows.map((row, i) => ({
         ...row,
-        parentId: null,
+        id: row.id ?? newMenuItemId(),
+        parentId: normalizeParentId(row.parentId),
         sortOrder: prev.length + i,
         isActive: row.isActive !== false,
       })),
@@ -323,33 +333,51 @@ export default function MenusManagement() {
     setItems(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   };
 
-  const moveItem = (index: number, dir: -1 | 1) => {
+  const moveItem = (itemId: string, dir: -1 | 1) => {
     setItems(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next.map((row, i) => ({ ...row, sortOrder: i }));
-    });
-    setExpandedIndex(cur => {
-      if (cur === index) return index + dir;
-      if (cur === index + dir) return index;
-      return cur;
+      const siblings = getMenuSiblings(prev, itemId);
+      const idx = siblings.findIndex(s => s.id === itemId);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= siblings.length) return prev;
+      const a = siblings[idx];
+      const b = siblings[target];
+      const sortA = a.sortOrder ?? 0;
+      const sortB = b.sortOrder ?? 0;
+      return prev.map(row => {
+        if (row.id === a.id) return { ...row, sortOrder: sortB };
+        if (row.id === b.id) return { ...row, sortOrder: sortA };
+        return row;
+      });
     });
   };
 
-  const toggleExpand = (index: number) => {
-    setExpandedIndex(cur => (cur === index ? null : index));
+  const toggleExpand = (itemId: string) => {
+    setExpandedId(cur => (cur === itemId ? null : itemId));
+  };
+
+  const setItemParent = (itemId: string, parentId: string | null) => {
+    if (parentId && (parentId === itemId || isMenuDescendant(items, itemId, parentId))) {
+      toast.error('Alt öğe üst menü olarak seçilemez.');
+      return;
+    }
+    setItems(prev =>
+      prev.map(row => (row.id === itemId ? { ...row, parentId: normalizeParentId(parentId) } : row)),
+    );
   };
 
   const removeItem = (index: number) => {
-    setItems(prev => prev.filter((_, i) => i !== index).map((row, i) => ({ ...row, sortOrder: i })));
-    setExpandedIndex(cur => {
-      if (cur === null) return null;
-      if (cur === index) return null;
-      if (cur > index) return cur - 1;
-      return cur;
+    const removedId = items[index]?.id;
+    setItems(prev => {
+      const next = prev
+        .filter((_, i) => i !== index)
+        .map(row =>
+          removedId && normalizeParentId(row.parentId) === removedId
+            ? { ...row, parentId: null }
+            : row,
+        );
+      return next.map((row, i) => ({ ...row, sortOrder: i }));
     });
+    if (removedId && expandedId === removedId) setExpandedId(null);
   };
 
   const handleSave = async () => {
@@ -366,11 +394,14 @@ export default function MenusManagement() {
         title: menuTitle.trim() || tabLabel,
         items: items.map((row, i) => ({
           ...row,
-          sortOrder: i,
+          id: row.id ?? newMenuItemId(),
+          sortOrder: row.sortOrder ?? i,
           label: row.label.trim(),
-          parentId: null,
+          parentId: normalizeParentId(row.parentId),
         })),
       });
+      const nextItems = sortItems(saved.items).map(menuItemFromRecord);
+      setItems(nextItems);
       if (tab === 'HEADER') setHeaderMenu(saved);
       else setFooterMenu(saved);
       toast.success(`${tabLabel} kaydedildi.`);
@@ -614,26 +645,37 @@ export default function MenusManagement() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {items.map((item, index) => {
-                      const expanded = expandedIndex === index;
+                    {displayRows.map(({ item, index, depth }) => {
+                      const itemId = item.id ?? `row-${index}`;
+                      const expanded = expandedId === itemId;
                       const lt = item.linkType as MenuLinkType;
                       const active = item.isActive !== false;
+                      const siblings = item.id ? getMenuSiblings(items, item.id) : [];
+                      const siblingIdx = siblings.findIndex(s => s.id === item.id);
+                      const parentOptions = items.filter(
+                        other =>
+                          other.id &&
+                          item.id &&
+                          other.id !== item.id &&
+                          !isMenuDescendant(items, item.id, other.id),
+                      );
                       return (
                         <div
-                          key={`menu-item-${index}-${item.targetId ?? item.url ?? ''}`}
+                          key={itemId}
                           className={`border rounded-md bg-white shadow-sm overflow-hidden ${
                             expanded ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-slate-300'
                           } ${!active ? 'opacity-75' : ''}`}
+                          style={{ marginLeft: depth > 0 ? `${depth * 1.25}rem` : undefined }}
                         >
                           <div className="flex items-stretch min-h-[44px]">
                             <div
                               role="button"
                               tabIndex={0}
-                              onClick={() => toggleExpand(index)}
+                              onClick={() => toggleExpand(itemId)}
                               onKeyDown={e => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
-                                  toggleExpand(index);
+                                  toggleExpand(itemId);
                                 }
                               }}
                               className="flex-1 flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 min-w-0 cursor-pointer"
@@ -666,19 +708,19 @@ export default function MenusManagement() {
                             >
                               <button
                                 type="button"
-                                disabled={index === 0}
-                                onClick={() => moveItem(index, -1)}
+                                disabled={!item.id || siblingIdx <= 0}
+                                onClick={() => item.id && moveItem(item.id, -1)}
                                 className="p-2 hover:bg-slate-50 disabled:opacity-30"
-                                title="Yukarı"
+                                title="Yukarı (aynı seviye)"
                               >
                                 <ArrowUp className="w-4 h-4 text-slate-600" />
                               </button>
                               <button
                                 type="button"
-                                disabled={index === items.length - 1}
-                                onClick={() => moveItem(index, 1)}
+                                disabled={!item.id || siblingIdx < 0 || siblingIdx >= siblings.length - 1}
+                                onClick={() => item.id && moveItem(item.id, 1)}
                                 className="p-2 hover:bg-slate-50 disabled:opacity-30 border-l border-slate-200"
-                                title="Aşağı"
+                                title="Aşağı (aynı seviye)"
                               >
                                 <ArrowDown className="w-4 h-4 text-slate-600" />
                               </button>
@@ -687,6 +729,24 @@ export default function MenusManagement() {
 
                           {expanded && (
                             <div className="px-4 py-4 border-t border-slate-200 bg-[#f6f7f7] space-y-3">
+                              <ContentFormField label="Üst menü öğesi">
+                                <select
+                                  className={contentInputCls}
+                                  value={normalizeParentId(item.parentId) ?? ''}
+                                  onChange={e => {
+                                    const v = e.target.value.trim();
+                                    if (item.id) setItemParent(item.id, v || null);
+                                  }}
+                                >
+                                  <option value="">Yok (üst seviye)</option>
+                                  {parentOptions.map(other => (
+                                    <option key={other.id} value={other.id}>
+                                      {other.label || 'Başlıksız'}
+                                    </option>
+                                  ))}
+                                </select>
+                              </ContentFormField>
+
                               <ContentFormField label="Menüde görünen başlık">
                                 <input
                                   className={contentInputCls}
