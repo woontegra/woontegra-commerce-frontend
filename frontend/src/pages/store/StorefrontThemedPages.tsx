@@ -1,14 +1,16 @@
 import { useStorefrontTenant } from '../../contexts/StorefrontTenantContext';
 import { useStorefrontSeo } from '../../storefront/hooks/useStorefrontSeo';
+import { resolveStorefrontSiteDescription } from '../../storefront/utils/storefrontSiteDescription';
 import { resolveTheme } from '../../themes/registry';
 import { buildStorefrontHomeUrl } from '../../utils/storefrontUrl';
 
 export function StorefrontThemedHome() {
   const { tenant } = useStorefrontTenant();
 
-  const siteDesc =
-    tenant?.siteDescription?.trim() ||
-    (tenant ? `${tenant.name} — online mağaza` : '');
+  const siteDesc = resolveStorefrontSiteDescription(
+    tenant,
+    tenant ? `${tenant.name} — online mağaza` : '',
+  );
 
   useStorefrontSeo({
     title: tenant?.name ?? 'Mağaza',

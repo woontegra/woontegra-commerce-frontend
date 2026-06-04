@@ -10,23 +10,29 @@ import { useSearchParams } from 'react-router-dom';
 import { storePublicClient } from '../services/storePublicApi';
 
 export type StorefrontTenantInfo = {
-  id:         string;
-  name:       string;
-  slug:       string;
-  theme:      string;
-  logoUrl:    string | null;
-  faviconUrl: string | null;
+  id:               string;
+  name:             string;
+  slug:             string;
+  theme:            string;
+  logoUrl:          string | null;
+  faviconUrl:       string | null;
+  siteDescription?: string | null;
+  customDomain?:    string | null;
+  domainVerified?:  boolean;
 };
 
 export type StorefrontCategory = {
-  id:          string;
-  name:        string;
-  slug:        string;
-  description: string | null;
-  imageUrl:    string | null;
-  parentId:    string | null;
-  order:       number;
-  level:       number;
+  id:              string;
+  name:            string;
+  slug:            string;
+  description:     string | null;
+  imageUrl:        string | null;
+  parentId:        string | null;
+  order:           number;
+  level:           number;
+  metaTitle?:      string;
+  metaDescription?: string;
+  canonicalPath?:  string;
 };
 
 type Ctx = {

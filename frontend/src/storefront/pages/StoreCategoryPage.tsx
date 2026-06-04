@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStorefrontTenant } from '../hooks/useStorefrontTenant';
+import { resolveStorefrontSiteDescription } from '../utils/storefrontSiteDescription';
+import { useStorefrontSeo } from '../hooks/useStorefrontSeo';
 import { fetchStorefrontProducts } from '../services/storefrontApi';
 import { ProductCard } from '../components/ProductCard';
 import type { StorefrontProductSummary } from '../types/storefront.types';
+import {
+  buildStorefrontCategoryUrl,
+  buildStorefrontListUrl,
+} from '../../utils/storefrontUrl';
 
 export default function StoreCategoryPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -49,6 +55,50 @@ export default function StoreCategoryPage() {
   const title = searchTerm
     ? `"${searchTerm}" arama sonuçları`
     : category?.name ?? 'Tüm ürünler';
+
+  const seoMeta = useMemo(() => {
+    if (searchTerm) {
+      return {
+        pageTitle: `${title} · ${tenant.name}`,
+        description: resolveStorefrontSiteDescription(
+          tenant,
+          `${tenant.name} mağazasında "${searchTerm}" için arama sonuçları.`,
+        ),
+        canonicalPath: buildStorefrontListUrl(tenant.slug),
+      };
+    }
+    if (category) {
+      return {
+        pageTitle: `${category.metaTitle?.trim() || category.name} · ${tenant.name}`,
+        description:
+          category.metaDescription?.trim() ||
+          category.description?.trim() ||
+          resolveStorefrontSiteDescription(
+            tenant,
+            `${category.name} kategorisindeki ürünleri keşfedin.`,
+          ),
+        canonicalPath:
+          category.canonicalPath ?? buildStorefrontCategoryUrl(tenant.slug, category.slug),
+      };
+    }
+    return {
+      pageTitle: `Ürünler · ${tenant.name}`,
+      description: resolveStorefrontSiteDescription(
+        tenant,
+        `${tenant.name} — tüm ürünleri inceleyin.`,
+      ),
+      canonicalPath: buildStorefrontListUrl(tenant.slug),
+    };
+  }, [searchTerm, title, category, tenant]);
+
+  useStorefrontSeo({
+    title: seoMeta.pageTitle,
+    description: seoMeta.description,
+    canonicalPath: seoMeta.canonicalPath,
+    image: category?.imageUrl ?? tenant.logoUrl,
+    type: 'website',
+    tenant,
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">

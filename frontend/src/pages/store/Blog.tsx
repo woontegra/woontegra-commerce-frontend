@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStorefrontTenant } from '../../storefront/hooks/useStorefrontTenant';
 import { useStorefrontSeo } from '../../storefront/hooks/useStorefrontSeo';
+import { resolveStorefrontSiteDescription } from '../../storefront/utils/storefrontSiteDescription';
 import { storePublicClient } from '../../services/storePublicApi';
 import type { Post } from '../../types';
 
@@ -37,9 +38,10 @@ export default function Blog() {
     if (!tenant) return null;
     return {
       title: `Blog · ${tenant.name}`,
-      description:
-        tenant.siteDescription?.trim() ||
+      description: resolveStorefrontSiteDescription(
+        tenant,
         `${tenant.name} blog — haberler, ipuçları ve güncel içerikler.`,
+      ),
       canonicalPath: listCanonical ?? storeLink('/store/blog'),
     };
   }, [tenant, listCanonical, storeLink]);
