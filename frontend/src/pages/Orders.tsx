@@ -313,9 +313,10 @@ const VALID_QUICK_OPS = new Set<string>([
   'tracking_missing',
 ]);
 
-/** Client-side; TODO(server-side): invoice_missing ve tracking_missing ileride API query parametresi olmalı. */
-const CLIENT_SIDE_QUICK_OPS = new Set<QuickOpFilter>([
-  'payment_pending',
+/** Client-side yalnızca ödeme bekliyor (birleşik listede sunucu status filtresi yok). */
+const CLIENT_SIDE_QUICK_OPS = new Set<QuickOpFilter>(['payment_pending']);
+
+const SERVER_OPERATION_QUICK_OPS = new Set<QuickOpFilter>([
   'invoice_missing',
   'tracking_missing',
 ]);
@@ -571,11 +572,20 @@ export default function Orders() {
 
   const apiQuery: GetOrdersQuery = useMemo(() => {
     const q = orderListStateToApiQuery(urlState);
+    if (
+      activeOp &&
+      SERVER_OPERATION_QUICK_OPS.has(activeOp as QuickOpFilter)
+    ) {
+      return {
+        ...q,
+        operationFilter: activeOp as 'invoice_missing' | 'tracking_missing',
+      };
+    }
     if (needsClientQuickOp) {
       return { ...q, page: 1, limit: QUICK_OP_COUNT_CAP };
     }
     return q;
-  }, [urlState, needsClientQuickOp]);
+  }, [urlState, activeOp, needsClientQuickOp]);
 
   const { data: result, isLoading, isFetching } = useOrders(apiQuery);
   const { data: stats }                          = useOrderStats();
@@ -637,8 +647,8 @@ export default function Orders() {
       shipped:          countFromSnapshot('shipped'),
       delivered:        countFromSnapshot('delivered'),
       cancelled:        countFromSnapshot('cancelled'),
-      invoice_missing:  countFromSnapshot('invoice_missing'),
-      tracking_missing: countFromSnapshot('tracking_missing'),
+      invoice_missing:  '—',
+      tracking_missing: '—',
     } as Record<QuickOpFilter, string>;
   }, [countSnapshot, stats]);
 
@@ -968,8 +978,7 @@ export default function Orders() {
         </div>
         {needsClientQuickOp && (result?.total ?? 0) > QUICK_OP_COUNT_CAP && (
           <p className="text-[11px] text-amber-700 mt-2 leading-relaxed">
-            Fatura ve takip filtreleri son {QUICK_OP_COUNT_CAP} sipariş örneğine göre sayılır; tüm kayıtlar için detaylı arama kullanın.
-            {/* TODO(server-side): invoice_missing / tracking_missing API parametresi ile tüm kayıt kümesinde filtrelenmeli. */}
+            Ödeme bekliyor filtresi son {QUICK_OP_COUNT_CAP} sipariş örneğine göre sayılır.
           </p>
         )}
       </Card>

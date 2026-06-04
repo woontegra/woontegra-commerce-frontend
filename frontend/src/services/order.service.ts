@@ -224,14 +224,17 @@ export type OrderPaymentStatusFilter =
   | 'FAILED'
   | 'CANCELLED';
 
+export type OrderOperationFilter = 'invoice_missing' | 'tracking_missing';
+
 export interface GetOrdersQuery {
-  page?:            number;
-  limit?:           number;
-  status?:          OrderStatus | '';
-  search?:          string;
-  paymentProvider?: OrderPaymentProviderFilter | '';
-  paymentStatus?:   OrderPaymentStatusFilter | '';
-  source?:          OrderSourceFilter | '';
+  page?:             number;
+  limit?:            number;
+  status?:           OrderStatus | '';
+  search?:           string;
+  paymentProvider?:  OrderPaymentProviderFilter | '';
+  paymentStatus?:    OrderPaymentStatusFilter | '';
+  source?:           OrderSourceFilter | '';
+  operationFilter?:  OrderOperationFilter | '';
 }
 
 export interface OrderHistoryEntry {
