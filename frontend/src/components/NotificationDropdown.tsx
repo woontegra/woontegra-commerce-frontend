@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { ApiNotification } from '../services/notificationApi.service';
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
+  getNotificationDashboardLink,
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationApi.service';
 
 export default function NotificationDropdown() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -85,6 +88,17 @@ export default function NotificationDropdown() {
 
   const handleDelete = (id: string) => {
     console.warn('Notification delete is not supported by the API.', id);
+  };
+
+  const handleOpenNotification = async (notification: ApiNotification) => {
+    const link = getNotificationDashboardLink(notification.data);
+    if (!link) return;
+
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification.id);
+    }
+    setIsOpen(false);
+    navigate(link);
   };
 
   const getNotificationIcon = (type: string) => {
@@ -197,12 +211,27 @@ export default function NotificationDropdown() {
                 <p className="text-gray-500 dark:text-gray-400">Bildirim yok</p>
               </div>
             ) : (
-              notifications.map((notification) => (
+              notifications.map((notification) => {
+                const dashboardLink = getNotificationDashboardLink(notification.data);
+                return (
                 <div
                   key={notification.id}
+                  role={dashboardLink ? 'button' : undefined}
+                  tabIndex={dashboardLink ? 0 : undefined}
+                  onClick={dashboardLink ? () => void handleOpenNotification(notification) : undefined}
+                  onKeyDown={
+                    dashboardLink
+                      ? e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            void handleOpenNotification(notification);
+                          }
+                        }
+                      : undefined
+                  }
                   className={`p-4 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition ${
                     !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/10' : ''
-                  }`}
+                  }${dashboardLink ? ' cursor-pointer' : ''}`}
                 >
                   <div className="flex gap-3">
                     {getNotificationIcon(notification.type)}
@@ -212,7 +241,11 @@ export default function NotificationDropdown() {
                           {notification.title}
                         </p>
                         <button
-                          onClick={() => handleDelete(notification.id)}
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDelete(notification.id);
+                          }}
                           className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,7 +262,11 @@ export default function NotificationDropdown() {
                         </p>
                         {!notification.isRead && (
                           <button
-                            onClick={() => handleMarkAsRead(notification.id)}
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              void handleMarkAsRead(notification.id);
+                            }}
                             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                           >
                             Okundu işaretle
@@ -239,7 +276,8 @@ export default function NotificationDropdown() {
                     </div>
                   </div>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
 

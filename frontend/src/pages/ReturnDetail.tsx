@@ -232,7 +232,7 @@ export default function ReturnDetail() {
           )}
           <h2 className="font-semibold pt-2">Talep bilgisi</h2>
           <p><span className="text-slate-500">Sebep:</span> {item.reason}</p>
-          {item.customerNote && (
+          {item.type === 'CANCEL_REQUEST' && item.customerNote && (
             <p className="whitespace-pre-wrap">
               <span className="text-slate-500">Müşteri notu:</span> {item.customerNote}
             </p>
@@ -294,16 +294,18 @@ export default function ReturnDetail() {
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="text-xs text-slate-500">Admin notu</span>
-            <textarea
-              value={adminNote}
-              onChange={e => setAdminNote(e.target.value)}
-              rows={4}
-              className="mt-1 w-full border rounded-lg px-3 py-2"
-              placeholder="Müşteriye iletilecek iç not veya red gerekçesi"
-            />
-          </label>
+          {item.type === 'CANCEL_REQUEST' && (
+            <label className="block">
+              <span className="text-xs text-slate-500">Admin notu</span>
+              <textarea
+                value={adminNote}
+                onChange={e => setAdminNote(e.target.value)}
+                rows={4}
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                placeholder="Müşteriye iletilecek iç not veya red gerekçesi"
+              />
+            </label>
+          )}
           <button
             type="button"
             onClick={handleSave}
@@ -314,6 +316,51 @@ export default function ReturnDetail() {
           </button>
         </div>
       </div>
+
+      {item.type === 'RETURN_REQUEST' && (
+        <div className="rounded-xl border bg-white p-5 space-y-4 text-sm">
+          <h2 className="font-semibold">İade kargo bilgisi</h2>
+          <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            Kargo firması ve takip numarası için ayrı alan henüz tanımlı değil. Müşteri bu bilgileri talep
+            notunda paylaşmış olabilir; satıcı notunu aşağıdan güncelleyebilirsiniz.
+          </p>
+          <dl className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <dt className="text-slate-500 text-xs">İade kargo firması</dt>
+              <dd className="mt-0.5 font-medium text-slate-800">—</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500 text-xs">Takip numarası</dt>
+              <dd className="mt-0.5 font-medium text-slate-800">—</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500 text-xs">Takip linki</dt>
+              <dd className="mt-0.5 font-medium text-slate-800">—</dd>
+            </div>
+          </dl>
+          <div>
+            <p className="text-xs text-slate-500">Müşteri iade kargo notu</p>
+            {item.customerNote?.trim() ? (
+              <p className="mt-1 whitespace-pre-wrap text-slate-800">{item.customerNote.trim()}</p>
+            ) : (
+              <p className="mt-1 text-slate-400 italic">Müşteri kargo bilgisi paylaşmadı.</p>
+            )}
+          </div>
+          <label className="block">
+            <span className="text-xs text-slate-500">Satıcı iade kargo notu</span>
+            <textarea
+              value={adminNote}
+              onChange={e => setAdminNote(e.target.value)}
+              rows={3}
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+              placeholder="Örn. Müşteri Aras ile gönderdi, takip no: …"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Durum kaydı ile birlikte saklanır (Kaydet).
+            </p>
+          </label>
+        </div>
+      )}
 
       <div className="rounded-xl border bg-white p-5 space-y-4 text-sm">
         <h2 className="font-semibold text-base">Ödeme İadesi</h2>

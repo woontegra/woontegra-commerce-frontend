@@ -10,6 +10,17 @@ export interface ApiNotification {
   createdAt: string;
 }
 
+/** Panel içi yönlendirme — yalnızca /dashboard ile başlayan güvenli path'ler. */
+export function getNotificationDashboardLink(data: unknown): string | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const raw = (data as Record<string, unknown>).link;
+  if (typeof raw !== 'string') return null;
+  const path = raw.trim();
+  if (path.includes('://') || path.startsWith('//')) return null;
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) return path;
+  return null;
+}
+
 export type NotificationLoadReason = 'not_available' | 'network' | 'error';
 
 export type NotificationLoadResult =

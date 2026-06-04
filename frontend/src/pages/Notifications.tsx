@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   AlertCircle,
@@ -25,6 +26,7 @@ import type { ApiNotification } from '../services/notificationApi.service';
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
+  getNotificationDashboardLink,
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationApi.service';
@@ -51,6 +53,7 @@ function Panel({ title, desc, children }: { title: string; desc?: string; childr
 }
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [moduleState, setModuleState] = useState<NotificationModuleState>('unknown');
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [total, setTotal] = useState(0);
@@ -125,6 +128,15 @@ export default function Notifications() {
     } else {
       toast.error(result.message);
     }
+  };
+
+  const handleGoToNotification = async (n: ApiNotification) => {
+    const link = getNotificationDashboardLink(n.data);
+    if (!link) return;
+    if (!n.isRead) {
+      await handleMarkRead(n.id);
+    }
+    navigate(link);
   };
 
   const channelItems = useMemo(() => [
@@ -340,16 +352,27 @@ export default function Notifications() {
                           {formatNotificationDate(n.createdAt)}
                         </td>
                         <td className="py-3">
-                          {!n.isRead && (
-                            <button
-                              type="button"
-                              disabled={markingId === n.id}
-                              onClick={() => void handleMarkRead(n.id)}
-                              className="text-[12px] font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
-                            >
-                              {markingId === n.id ? '…' : 'Okundu'}
-                            </button>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {getNotificationDashboardLink(n.data) && (
+                              <button
+                                type="button"
+                                onClick={() => void handleGoToNotification(n)}
+                                className="text-[12px] font-medium text-indigo-600 hover:text-indigo-700"
+                              >
+                                Git
+                              </button>
+                            )}
+                            {!n.isRead && (
+                              <button
+                                type="button"
+                                disabled={markingId === n.id}
+                                onClick={() => void handleMarkRead(n.id)}
+                                className="text-[12px] font-medium text-slate-600 hover:text-slate-800 disabled:opacity-50"
+                              >
+                                {markingId === n.id ? '…' : 'Okundu'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
