@@ -9,6 +9,8 @@ type Props = {
   quote: StoreShippingQuote | null;
   quoteLoading?: boolean;
   quoteError?: string | null;
+  couponCode?: string | null;
+  couponDiscount?: number;
 };
 
 export function CheckoutOrderSummary({
@@ -17,12 +19,15 @@ export function CheckoutOrderSummary({
   quote,
   quoteLoading,
   quoteError,
+  couponCode,
+  couponDiscount = 0,
 }: Props) {
   const { subtotal, itemCount } = useStorefrontCart();
 
   const shippingTotal = quote?.shipping?.shippingTotal ?? 0;
   const codFee = quote?.fees?.cashOnDeliveryFee ?? 0;
-  const grandTotal = quote?.grandTotal ?? subtotal + shippingTotal + codFee;
+  const baseGrand = quote?.grandTotal ?? subtotal + shippingTotal + codFee;
+  const grandTotal = Math.max(0, baseGrand - couponDiscount);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 sticky top-24">
@@ -67,6 +72,13 @@ export function CheckoutOrderSummary({
         <div className="flex justify-between text-sm text-slate-600">
           <span>Kapıda ödeme ücreti</span>
           <span>{formatTry(codFee)}</span>
+        </div>
+      )}
+
+      {couponDiscount > 0 && (
+        <div className="flex justify-between text-sm text-emerald-700">
+          <span>Kupon{couponCode ? ` (${couponCode})` : ''}</span>
+          <span>−{formatTry(couponDiscount)}</span>
         </div>
       )}
 

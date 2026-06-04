@@ -5,20 +5,23 @@ import apiClient from './apiClient';
 export type CouponDiscountType = 'PERCENTAGE' | 'FIXED';
 
 export interface Coupon {
-  id:             string;
-  code:           string;
-  discountType:   CouponDiscountType;
-  value:          number;
-  minOrderAmount: number | null;
-  maxDiscount:    number | null;
-  usageLimit:     number | null;
-  usageCount:     number;
-  isActive:       boolean;
-  expiresAt:      string | null;
-  createdAt:      string;
-  updatedAt:      string;
-  remaining:      number | null;
-  isExpired:      boolean;
+  id:                    string;
+  code:                  string;
+  discountType:          CouponDiscountType;
+  value:                 number;
+  minOrderAmount:        number | null;
+  maxDiscount:           number | null;
+  usageLimit:            number | null;
+  usageLimitPerCustomer: number | null;
+  usageCount:            number;
+  isActive:              boolean;
+  startsAt:              string | null;
+  expiresAt:             string | null;
+  createdAt:             string;
+  updatedAt:             string;
+  remaining:             number | null;
+  isExpired:             boolean;
+  isNotStarted?:         boolean;
 }
 
 export interface CouponStats {
@@ -37,14 +40,16 @@ export interface CouponsResponse {
 }
 
 export interface CreateCouponDto {
-  code:            string;
-  discountType:    CouponDiscountType;
-  value:           number;
-  minOrderAmount?: number;
-  maxDiscount?:    number;
-  usageLimit?:     number | null;
-  isActive?:       boolean;
-  expiresAt?:      string | null;
+  code:                   string;
+  discountType:           CouponDiscountType;
+  value:                  number;
+  minOrderAmount?:        number;
+  maxDiscount?:           number;
+  usageLimit?:            number | null;
+  usageLimitPerCustomer?: number | null;
+  isActive?:              boolean;
+  startsAt?:              string | null;
+  expiresAt?:             string | null;
 }
 
 export interface GetCouponsQuery {

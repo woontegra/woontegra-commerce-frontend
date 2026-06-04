@@ -40,6 +40,10 @@ export type StorefrontProductDetail = {
   stock?: number;
   category: { id: string; name: string; slug: string } | null;
   variants?: StorefrontProductVariant[];
+  metaTitle?: string;
+  metaDescription?: string;
+  canonicalPath?: string;
+  ogImage?: string | null;
 };
 
 export type StorefrontCartLine = {
@@ -105,6 +109,7 @@ export type CreateStoreOrderPayload = {
     companyName?: string;
   };
   notes: string;
+  couponCode?: string;
   paymentProvider?: 'PAYTR' | 'IYZICO' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY';
   consents?: {
     kvkkConsent:      boolean;

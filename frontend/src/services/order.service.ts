@@ -113,6 +113,7 @@ export interface Order {
   shippingPrice:    number;
   discountAmount:   number;
   campaignDiscount: number;
+  coupon?:          { id: string; code: string; discountType: string; value: number } | null;
   currency:         string;
   notes?:           string | null;
   createdAt:        string;
@@ -224,7 +225,10 @@ export type OrderPaymentStatusFilter =
   | 'FAILED'
   | 'CANCELLED';
 
-export type OrderOperationFilter = 'invoice_missing' | 'tracking_missing';
+export type OrderOperationFilter =
+  | 'payment_pending'
+  | 'invoice_missing'
+  | 'tracking_missing';
 
 export interface GetOrdersQuery {
   page?:             number;

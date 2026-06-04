@@ -1315,7 +1315,12 @@ export default function OrderDetail() {
                 </div>
               )}
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500">Kupon indirimi</span>
+                <span className="text-slate-500">
+                  Kupon indirimi
+                  {order.coupon?.code ? (
+                    <span className="ml-1 font-mono text-xs text-indigo-600">({order.coupon.code})</span>
+                  ) : null}
+                </span>
                 <span className={`tabular-nums ${totals.couponDiscount > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
                   {totals.couponDiscount > 0
                     ? `−${fmtCurrency(totals.couponDiscount, order.currency)}`

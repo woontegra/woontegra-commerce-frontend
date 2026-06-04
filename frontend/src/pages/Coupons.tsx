@@ -65,6 +65,16 @@ function useDeleteCoupon() {
   });
 }
 
+function useUpdateCoupon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateCouponDto> }) =>
+      couponService.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: KEYS.all }); toast.success('Kupon güncellendi'); },
+    onError:   (e: any) => toast.error(e.response?.data?.error ?? 'Güncelleme başarısız.'),
+  });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
@@ -85,8 +95,9 @@ function discountLabel(type: CouponDiscountType, value: number) {
 // ── Status badge ────────────────────────────────────────────────────────────
 
 function CouponStatusBadge({ c }: { c: Coupon }) {
-  if (c.isExpired)  return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200">Süresi Doldu</span>;
-  if (!c.isActive)  return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200">Pasif</span>;
+  if (c.isExpired)     return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200">Süresi Doldu</span>;
+  if (c.isNotStarted)  return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">Başlamadı</span>;
+  if (!c.isActive)     return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200">Pasif</span>;
   if (c.remaining === 0) return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-600 border border-red-200">Limit Doldu</span>;
   return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">● Aktif</span>;
 }
@@ -208,38 +219,77 @@ function CouponValidator() {
 // ── Create form modal ───────────────────────────────────────────────────────
 
 interface CreateFormValues {
-  code:           string;
-  discountType:   CouponDiscountType;
-  value:          number;
-  minOrderAmount: string;
-  maxDiscount:    string;
-  usageLimit:     string;
-  isActive:       boolean;
-  expiresAt:      string;
+  code:                   string;
+  discountType:           CouponDiscountType;
+  value:                  number;
+  minOrderAmount:         string;
+  maxDiscount:            string;
+  usageLimit:             string;
+  usageLimitPerCustomer:  string;
+  isActive:               boolean;
+  startsAt:               string;
+  expiresAt:              string;
 }
 
-function CreateCouponModal({ onClose }: { onClose: () => void }) {
+function toDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function CouponFormModal({
+  onClose,
+  edit,
+}: {
+  onClose: () => void;
+  edit?: Coupon;
+}) {
   const createMut = useCreateCoupon();
+  const updateMut = useUpdateCoupon();
+  const isEdit = Boolean(edit);
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<CreateFormValues>({
-    defaultValues: {
-      discountType: 'PERCENTAGE',
-      isActive:     true,
-      expiresAt:    nextMonthStr(),
-    },
+    defaultValues: edit
+      ? {
+          code:                  edit.code,
+          discountType:          edit.discountType,
+          value:                 edit.value,
+          minOrderAmount:        edit.minOrderAmount != null ? String(edit.minOrderAmount) : '',
+          maxDiscount:           edit.maxDiscount != null ? String(edit.maxDiscount) : '',
+          usageLimit:            edit.usageLimit != null ? String(edit.usageLimit) : '',
+          usageLimitPerCustomer: edit.usageLimitPerCustomer != null ? String(edit.usageLimitPerCustomer) : '',
+          isActive:              edit.isActive,
+          startsAt:              toDateInput(edit.startsAt),
+          expiresAt:             toDateInput(edit.expiresAt),
+        }
+      : {
+          discountType: 'PERCENTAGE',
+          isActive:     true,
+          expiresAt:    nextMonthStr(),
+        },
   });
   const type = watch('discountType');
 
   const onSubmit = async (data: CreateFormValues) => {
-    await createMut.mutateAsync({
-      code:           data.code.trim().toUpperCase(),
-      discountType:   data.discountType,
-      value:          Number(data.value),
-      minOrderAmount: data.minOrderAmount ? Number(data.minOrderAmount) : undefined,
-      maxDiscount:    data.maxDiscount    ? Number(data.maxDiscount)    : undefined,
-      usageLimit:     data.usageLimit     ? Number(data.usageLimit)     : null,
-      isActive:       data.isActive,
-      expiresAt:      data.expiresAt      ? data.expiresAt              : null,
-    });
+    const payload = {
+      discountType:          data.discountType,
+      value:                 Number(data.value),
+      minOrderAmount:        data.minOrderAmount ? Number(data.minOrderAmount) : undefined,
+      maxDiscount:           data.maxDiscount ? Number(data.maxDiscount) : undefined,
+      usageLimit:            data.usageLimit ? Number(data.usageLimit) : null,
+      usageLimitPerCustomer: data.usageLimitPerCustomer ? Number(data.usageLimitPerCustomer) : null,
+      isActive:              data.isActive,
+      startsAt:              data.startsAt ? data.startsAt : null,
+      expiresAt:             data.expiresAt ? data.expiresAt : null,
+    };
+    if (isEdit && edit) {
+      await updateMut.mutateAsync({ id: edit.id, data: payload });
+    } else {
+      await createMut.mutateAsync({
+        code: data.code.trim().toUpperCase(),
+        ...payload,
+      });
+    }
     reset();
     onClose();
   };
@@ -252,7 +302,9 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Yeni Kupon Oluştur</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isEdit ? 'Kuponu Düzenle' : 'Yeni Kupon Oluştur'}
+            </h2>
             <p className="text-xs text-gray-400 mt-0.5">Sipariş sırasında uygulanacak indirim kuponu</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
@@ -263,26 +315,32 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
-          {/* Code */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kupon Kodu <span className="text-red-500">*</span>
-              <span className="text-xs text-gray-400 ml-1 font-normal">— büyük harf + rakam, 3-32 karakter</span>
-            </label>
-            <input
-              {...register('code', {
-                required: 'Kupon kodu zorunludur.',
-                minLength: { value: 3, message: 'En az 3 karakter.' },
-                maxLength: { value: 32, message: 'En fazla 32 karakter.' },
-                pattern: { value: /^[A-Z0-9_-]+$/i, message: 'Yalnızca harf, rakam, tire, alt çizgi.' },
-              })}
-              placeholder="YAZA50, HOSGELDIN, VIP20..."
-              className={`w-full px-3 py-2 text-sm font-mono tracking-wider border rounded-lg
-                focus:outline-none focus:ring-2 focus:ring-indigo-400 uppercase ${errors.code ? 'border-red-400' : 'border-gray-200'}`}
-              style={{ textTransform: 'uppercase' }}
-            />
-            {errors.code && <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>}
-          </div>
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Kupon Kodu <span className="text-red-500">*</span>
+                <span className="text-xs text-gray-400 ml-1 font-normal">— büyük harf + rakam, 3-32 karakter</span>
+              </label>
+              <input
+                {...register('code', {
+                  required: 'Kupon kodu zorunludur.',
+                  minLength: { value: 3, message: 'En az 3 karakter.' },
+                  maxLength: { value: 32, message: 'En fazla 32 karakter.' },
+                  pattern: { value: /^[A-Z0-9_-]+$/i, message: 'Yalnızca harf, rakam, tire, alt çizgi.' },
+                })}
+                placeholder="YAZA50, HOSGELDIN, VIP20..."
+                className={`w-full px-3 py-2 text-sm font-mono tracking-wider border rounded-lg
+                  focus:outline-none focus:ring-2 focus:ring-indigo-400 uppercase ${errors.code ? 'border-red-400' : 'border-gray-200'}`}
+                style={{ textTransform: 'uppercase' }}
+              />
+              {errors.code && <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>}
+            </div>
+          )}
+          {isEdit && edit && (
+            <p className="text-sm text-gray-600">
+              Kod: <span className="font-mono font-semibold text-indigo-700">{edit.code}</span>
+            </p>
+          )}
 
           {/* Type + Value */}
           <div className="grid grid-cols-2 gap-4">
@@ -356,11 +414,11 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          {/* Usage limit + Expiry */}
+          {/* Usage limits */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kullanım Limiti
+                Maks. Kullanım Sayısı
                 <span className="text-gray-400 text-xs ml-1">(boş = sınırsız)</span>
               </label>
               <input
@@ -371,7 +429,33 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Son Kullanım Tarihi
+                Müşteri Başına Limit
+                <span className="text-gray-400 text-xs ml-1">(boş = sınırsız)</span>
+              </label>
+              <input
+                {...register('usageLimitPerCustomer', { min: { value: 1, message: 'En az 1 olmalıdır.' } })}
+                type="number" min="1" placeholder="Sınırsız"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Başlangıç Tarihi
+                <span className="text-gray-400 text-xs ml-1">(opsiyonel)</span>
+              </label>
+              <input
+                {...register('startsAt')}
+                type="date"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bitiş Tarihi
                 <span className="text-gray-400 text-xs ml-1">(opsiyonel)</span>
               </label>
               <input
@@ -400,17 +484,21 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
               İptal
             </button>
             <button
-              type="submit" disabled={createMut.isPending}
+              type="submit" disabled={createMut.isPending || updateMut.isPending}
               className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700
                          rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {createMut.isPending && (
+              {(createMut.isPending || updateMut.isPending) && (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                 </svg>
               )}
-              {createMut.isPending ? 'Kaydediliyor...' : 'Kupon Oluştur'}
+              {createMut.isPending || updateMut.isPending
+                ? 'Kaydediliyor...'
+                : isEdit
+                  ? 'Kaydet'
+                  : 'Kupon Oluştur'}
             </button>
           </div>
         </form>
@@ -421,7 +509,15 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
 
 // ── Coupon row ──────────────────────────────────────────────────────────────
 
-function CouponRow({ c, onDelete }: { c: Coupon; onDelete: () => void }) {
+function CouponRow({
+  c,
+  onDelete,
+  onEdit,
+}: {
+  c: Coupon;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
   const toggleMut = useToggleCoupon();
 
   const usagePct = c.usageLimit != null && c.usageLimit > 0
@@ -470,9 +566,12 @@ function CouponRow({ c, onDelete }: { c: Coupon; onDelete: () => void }) {
         )}
       </td>
 
-      {/* Expiry */}
+      {/* Dates */}
       <td className="px-5 py-4 text-sm text-gray-600">
-        {c.expiresAt ? fmtDate(c.expiresAt) : <span className="text-gray-400">—</span>}
+        <div>{c.startsAt ? fmtDate(c.startsAt) : <span className="text-gray-400">—</span>}</div>
+        <div className="text-xs text-gray-400">
+          → {c.expiresAt ? fmtDate(c.expiresAt) : 'Süresiz'}
+        </div>
       </td>
 
       {/* Status */}
@@ -483,6 +582,16 @@ function CouponRow({ c, onDelete }: { c: Coupon; onDelete: () => void }) {
       {/* Actions */}
       <td className="px-5 py-4">
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onEdit}
+            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+            title="Düzenle"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
           <button
             onClick={() => toggleMut.mutate(c.id)}
             disabled={toggleMut.isPending}
@@ -521,6 +630,7 @@ export default function Coupons() {
   const [searchInput,   setSearchInput]  = useState('');
   const [search,        setSearch]       = useState('');
   const [showCreate,    setShowCreate]   = useState(false);
+  const [editCoupon,    setEditCoupon]   = useState<Coupon | null>(null);
   const [deleteId,      setDeleteId]     = useState<string | null>(null);
 
   const query: GetCouponsQuery = useMemo(() => ({
@@ -632,14 +742,19 @@ export default function Coupons() {
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Kod</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">İndirim</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Kullanım</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Son Tarih</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tarih Aralığı</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Durum</th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
                     {coupons.map(c => (
-                      <CouponRow key={c.id} c={c} onDelete={() => setDeleteId(c.id)}/>
+                      <CouponRow
+                        key={c.id}
+                        c={c}
+                        onDelete={() => setDeleteId(c.id)}
+                        onEdit={() => setEditCoupon(c)}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -713,7 +828,10 @@ export default function Coupons() {
       </div>
 
       {/* Create modal */}
-      {showCreate && <CreateCouponModal onClose={() => setShowCreate(false)}/>}
+      {showCreate && <CouponFormModal onClose={() => setShowCreate(false)} />}
+      {editCoupon && (
+        <CouponFormModal edit={editCoupon} onClose={() => setEditCoupon(null)} />
+      )}
 
       {/* Delete confirm */}
       {deleteId && (

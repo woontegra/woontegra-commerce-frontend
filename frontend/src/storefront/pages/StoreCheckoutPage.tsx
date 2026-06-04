@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStorefrontTenant } from '../hooks/useStorefrontTenant';
+import { useStorefrontNoIndex } from '../hooks/useStorefrontSeo';
 import { useStorefrontCart } from '../hooks/StorefrontCartProvider';
 import { useStorefrontAuth } from '../hooks/StorefrontAuthProvider';
 import { createMyAddress, fetchMyAddresses, type CustomerAddress } from '../services/storefrontAccountApi';
 import { CheckoutOrderSummary } from '../components/CheckoutOrderSummary';
 import { createStoreOrder } from '../services/storefrontOrderApi';
+import { validateStoreCoupon, type StoreCouponValidation } from '../services/storefrontCouponApi';
 import { calculateStoreShipping } from '../services/storefrontShippingApi';
 import type { StoreShippingQuote } from '../../types/shippingSettings.types';
 import { startPaytrPayment } from '../services/storefrontPaytrApi';
@@ -42,6 +44,7 @@ const emptyForm: StorefrontCheckoutForm = {
 
 export default function StoreCheckoutPage() {
   const { tenant, storeLink } = useStorefrontTenant();
+  useStorefrontNoIndex(`Ödeme · ${tenant?.name ?? 'Mağaza'}`, tenant ?? undefined);
   const navigate = useNavigate();
   const { lines, clearCart } = useStorefrontCart();
   const { customer, isAuthenticated } = useStorefrontAuth();
@@ -56,6 +59,9 @@ export default function StoreCheckoutPage() {
   const [shippingQuote, setShippingQuote] = useState<StoreShippingQuote | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<StoreCouponValidation | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   useEffect(() => {
     if (!customer) return;
@@ -270,6 +276,9 @@ export default function StoreCheckoutPage() {
               }),
         },
         notes: '',
+        ...(appliedCoupon?.valid && form.couponCode.trim()
+          ? { couponCode: form.couponCode.trim().toUpperCase() }
+          : {}),
         paymentProvider: provider,
         ...((!isAuthenticated || form.marketingConsent)
           ? {
@@ -562,6 +571,90 @@ export default function StoreCheckoutPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+            <h2 className="font-semibold text-slate-900">Kupon kodu</h2>
+            {appliedCoupon?.valid ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm">
+                <div className="text-emerald-800">
+                  <span className="font-mono font-semibold">{appliedCoupon.coupon?.code}</span>
+                  {' '}uygulandı —{' '}
+                  <strong>
+                    {appliedCoupon.discountAmount.toLocaleString('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    })}
+                  </strong>{' '}
+                  indirim
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponError(null);
+                    update({ couponCode: '' });
+                  }}
+                  className="text-xs font-medium text-emerald-900 hover:underline"
+                >
+                  Kaldır
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  placeholder="Kupon kodu"
+                  value={form.couponCode}
+                  onChange={e => {
+                    update({ couponCode: e.target.value.toUpperCase() });
+                    setCouponError(null);
+                  }}
+                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono uppercase"
+                />
+                <button
+                  type="button"
+                  disabled={validatingCoupon || !form.couponCode.trim() || lines.length === 0}
+                  onClick={async () => {
+                    if (!tenant?.slug || !form.couponCode.trim()) return;
+                    setValidatingCoupon(true);
+                    setCouponError(null);
+                    try {
+                      const result = await validateStoreCoupon(tenant.slug, {
+                        code: form.couponCode.trim(),
+                        items: lines.map(l => ({
+                          productId: l.productId,
+                          variantId: l.variantId ?? null,
+                          quantity:  l.quantity,
+                        })),
+                      });
+                      if (!result.valid) {
+                        setAppliedCoupon(null);
+                        setCouponError(result.error ?? 'Geçersiz kupon.');
+                        return;
+                      }
+                      setAppliedCoupon(result);
+                    } catch (e: unknown) {
+                      setAppliedCoupon(null);
+                      setCouponError(
+                        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                          (e as Error)?.message ??
+                          'Kupon doğrulanamadı.',
+                      );
+                    } finally {
+                      setValidatingCoupon(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {validatingCoupon ? 'Kontrol…' : 'Uygula'}
+                </button>
+              </div>
+            )}
+            {couponError && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {couponError}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
             <h2 className="font-semibold text-slate-900">Ödeme yöntemi</h2>
             {methodsLoading && (
               <p className="text-sm text-slate-500">Ödeme yöntemleri yükleniyor…</p>
@@ -671,6 +764,8 @@ export default function StoreCheckoutPage() {
             quote={shippingQuote}
             quoteLoading={shippingLoading}
             quoteError={shippingError}
+            couponCode={appliedCoupon?.valid ? appliedCoupon.coupon?.code ?? form.couponCode : null}
+            couponDiscount={appliedCoupon?.valid ? appliedCoupon.discountAmount : 0}
           />
         </div>
       </form>
