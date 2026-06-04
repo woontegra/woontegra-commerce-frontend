@@ -164,6 +164,14 @@ export interface UpdateOrderInvoiceDto {
   invoiceUrl?:    string | null;
 }
 
+export interface BulkUpdateOrderStatusResult {
+  updatedCount: number;
+  skippedCount: number;
+  failedCount:  number;
+  skippedIds?:   string[];
+  failures?:    Array<{ id: string; error: string }>;
+}
+
 export interface OrderStats {
   total:              number;
   pending:            number;
@@ -274,6 +282,17 @@ class OrderService {
 
   async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const res = await apiClient.patch<{ data: Order }>(`${this.base}/${id}/status`, { status });
+    return res.data.data;
+  }
+
+  async bulkUpdateStatus(
+    orderIds: string[],
+    status: OrderStatus,
+  ): Promise<BulkUpdateOrderStatusResult> {
+    const res = await apiClient.patch<{ data: BulkUpdateOrderStatusResult }>(
+      `${this.base}/bulk/status`,
+      { orderIds, status },
+    );
     return res.data.data;
   }
 

@@ -4,6 +4,7 @@ import {
   useOrders,
   useOrderStats,
   useUpdateOrderStatus,
+  useBulkUpdateOrderStatus,
   useCancelOrder,
   useSyncTrendyolOrders,
 } from '../hooks/useOrders';
@@ -44,6 +45,13 @@ const STATUS_LABELS: Record<string, string> = {
   DELIVERED:  'Teslim Edildi',
   CANCELLED:  'İptal',
 };
+
+const BULK_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
+  { value: 'PROCESSING', label: 'Hazırlanıyor' },
+  { value: 'SHIPPED',    label: 'Kargoda' },
+  { value: 'DELIVERED',  label: 'Teslim Edildi' },
+  { value: 'CANCELLED',  label: 'İptal Edildi' },
+];
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:    'bg-amber-100 text-amber-700 border border-amber-200',
@@ -572,6 +580,8 @@ export default function Orders() {
   const { data: result, isLoading, isFetching } = useOrders(apiQuery);
   const { data: stats }                          = useOrderStats();
   const syncTrendyolOrders                       = useSyncTrendyolOrders();
+  const bulkUpdateStatus                         = useBulkUpdateOrderStatus();
+  const [bulkStatusChoice, setBulkStatusChoice]  = useState<OrderStatus | ''>('');
 
   const countSnapshotQuery: GetOrdersQuery = useMemo(
     () => ({
@@ -706,6 +716,53 @@ export default function Orders() {
   }, []);
 
   const selectedCount = selectedOrderIds.size;
+
+  const bulkEligibleIds = useMemo(() => {
+    const byId = new Map(displayOrders.map((o) => [o.id, o]));
+    return [...selectedOrderIds].filter((id) => {
+      const o = byId.get(id);
+      return o && o.source !== 'TRENDYOL' && o.canEditStatus !== false;
+    });
+  }, [selectedOrderIds, displayOrders]);
+
+  const handleBulkStatusChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const status = e.target.value as OrderStatus | '';
+      setBulkStatusChoice(status);
+      if (!status) return;
+
+      if (bulkEligibleIds.length === 0) {
+        window.alert('Seçili siparişlerden durumu güncellenebilir mağaza siparişi yok.');
+        setBulkStatusChoice('');
+        return;
+      }
+
+      const label =
+        BULK_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+      if (
+        !window.confirm(
+          `Seçili ${bulkEligibleIds.length} siparişin durumu ${label} yapılacak. Devam edilsin mi?`,
+        )
+      ) {
+        setBulkStatusChoice('');
+        return;
+      }
+
+      bulkUpdateStatus.mutate(
+        { orderIds: bulkEligibleIds, status },
+        {
+          onSuccess: () => {
+            clearSelection();
+            setBulkStatusChoice('');
+          },
+          onError: () => {
+            setBulkStatusChoice('');
+          },
+        },
+      );
+    },
+    [bulkEligibleIds, bulkUpdateStatus, clearSelection],
+  );
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -1044,15 +1101,39 @@ export default function Orders() {
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2.5 border-b border-indigo-100 bg-indigo-50/70">
               <span className="text-[13px] font-medium text-indigo-900">
                 {selectedCount} sipariş seçildi
+                {bulkEligibleIds.length > 0 && bulkEligibleIds.length < selectedCount && (
+                  <span className="text-indigo-600/90 font-normal">
+                    {' '}
+                    ({bulkEligibleIds.length} güncellenebilir)
+                  </span>
+                )}
               </span>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="text-[12px] font-medium text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded-lg
-                           hover:bg-indigo-100/80 transition-colors"
-              >
-                Seçimi temizle
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={bulkStatusChoice}
+                  onChange={handleBulkStatusChange}
+                  disabled={bulkUpdateStatus.isPending || bulkEligibleIds.length === 0}
+                  aria-label="Seçili siparişlerin durumunu güncelle"
+                  className="text-[12px] font-medium text-indigo-900 bg-white border border-indigo-200
+                             rounded-lg px-2.5 py-1.5 min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed
+                             focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                >
+                  <option value="">Durumu Güncelle</option>
+                  {BULK_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="text-[12px] font-medium text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded-lg
+                             hover:bg-indigo-100/80 transition-colors"
+                >
+                  Seçimi temizle
+                </button>
+              </div>
             </div>
           )}
 

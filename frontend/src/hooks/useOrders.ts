@@ -94,6 +94,37 @@ export function useUpdateOrderStatus() {
   });
 }
 
+export function useBulkUpdateOrderStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderIds, status }: { orderIds: string[]; status: OrderStatus }) =>
+      orderService.bulkUpdateStatus(orderIds, status),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.stats() });
+      if (data.updatedCount > 0) {
+        toast.success(`${data.updatedCount} sipariş güncellendi`);
+      }
+      if (data.skippedCount > 0) {
+        toast.error(
+          `${data.skippedCount} sipariş güncellenmedi (bulunamadı veya bu mağazaya ait değil).`,
+        );
+      }
+      if (data.failedCount > 0) {
+        const detail = data.failures?.[0]?.error;
+        toast.error(
+          detail
+            ? `${data.failedCount} sipariş güncellenemedi: ${detail}`
+            : `${data.failedCount} sipariş güncellenemedi.`,
+        );
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error ?? 'Toplu durum güncellenemedi.');
+    },
+  });
+}
+
 export function useConfirmOrderPayment() {
   const qc = useQueryClient();
   return useMutation({
