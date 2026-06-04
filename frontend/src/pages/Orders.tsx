@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   useOrders,
@@ -280,6 +280,95 @@ const SOURCE_OPTIONS: { value: OrderSourceFilter | ''; label: string }[] = [
   { value: 'trendyol', label: 'Trendyol' },
 ];
 
+// ── Hızlı operasyon filtreleri (yalnızca frontend) ─────────────────────────
+
+type QuickOpFilter =
+  | 'all'
+  | 'payment_pending'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled'
+  | 'invoice_missing'
+  | 'tracking_missing';
+
+const QUICK_OP_PARAM = 'op';
+
+const VALID_QUICK_OPS = new Set<string>([
+  'all',
+  'payment_pending',
+  'processing',
+  'shipped',
+  'delivered',
+  'cancelled',
+  'invoice_missing',
+  'tracking_missing',
+]);
+
+/** Client-side; TODO(server-side): invoice_missing ve tracking_missing ileride API query parametresi olmalı. */
+const CLIENT_SIDE_QUICK_OPS = new Set<QuickOpFilter>([
+  'payment_pending',
+  'invoice_missing',
+  'tracking_missing',
+]);
+
+const ORDER_ROW_CHECKBOX_CLASS =
+  'h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer';
+
+const QUICK_FILTER_BUTTONS: { id: QuickOpFilter; label: string }[] = [
+  { id: 'all',              label: 'Tümü' },
+  { id: 'payment_pending',  label: 'Ödeme Bekliyor' },
+  { id: 'processing',       label: 'Hazırlanıyor' },
+  { id: 'shipped',          label: 'Kargoda' },
+  { id: 'delivered',        label: 'Teslim Edildi' },
+  { id: 'cancelled',        label: 'İptal Edildi' },
+  { id: 'invoice_missing',  label: 'Fatura Eksik' },
+  { id: 'tracking_missing', label: 'Kargo Takip Eksik' },
+];
+
+const QUICK_OP_COUNT_CAP = 50;
+
+function parseQuickOp(searchParams: URLSearchParams): QuickOpFilter | '' {
+  const raw = searchParams.get(QUICK_OP_PARAM)?.trim();
+  if (!raw || raw === 'all') return raw === 'all' ? 'all' : '';
+  return VALID_QUICK_OPS.has(raw) ? (raw as QuickOpFilter) : '';
+}
+
+function buildOrdersPageParams(state: OrderListUrlState, op?: QuickOpFilter | ''): URLSearchParams {
+  const params = buildOrderListSearchParams(state);
+  if (op && op !== 'all') params.set(QUICK_OP_PARAM, op);
+  return params;
+}
+
+function applyQuickOpToUrlState(op: QuickOpFilter, state: OrderListUrlState): OrderListUrlState {
+  const base: OrderListUrlState = { ...state, page: 1 };
+
+  switch (op) {
+    case 'all':
+      return { ...base, status: '', paymentStatus: '' };
+    case 'processing':
+      return { ...base, status: 'PROCESSING', paymentStatus: '' };
+    case 'shipped':
+      return { ...base, status: 'SHIPPED', paymentStatus: '' };
+    case 'delivered':
+      return { ...base, status: 'DELIVERED', paymentStatus: '' };
+    case 'cancelled':
+      return { ...base, status: 'CANCELLED', paymentStatus: '' };
+    case 'payment_pending':
+      return { ...base, status: '', paymentStatus: '' };
+    case 'invoice_missing':
+    case 'tracking_missing':
+      return {
+        ...base,
+        status: '',
+        paymentStatus: '',
+        source: state.source === 'trendyol' ? '' : (state.source || 'storefront'),
+      };
+    default:
+      return base;
+  }
+}
+
 const PAYMENT_PROVIDER_COLORS: Record<string, string> = {
   PAYTR:            'bg-indigo-50 text-indigo-700 border border-indigo-100',
   BANK_TRANSFER:    'bg-sky-50 text-sky-700 border border-sky-100',
@@ -339,6 +428,39 @@ function listPaymentStatusLabel(order: Order): string {
   return LIST_PAYMENT_STATUS_LABELS[key] ?? key;
 }
 
+function orderFulfillmentStatus(order: Order): string {
+  return String(order.fulfillmentStatus ?? order.status).toUpperCase();
+}
+
+function matchesQuickOp(order: Order, op: QuickOpFilter): boolean {
+  switch (op) {
+    case 'all':
+      return true;
+    case 'payment_pending': {
+      if (order.source === 'TRENDYOL') return false;
+      if (orderFulfillmentStatus(order) === 'CANCELLED') return false;
+      const ps = resolvePaymentStatusKey(order);
+      return ps === 'PENDING' || ps === 'WAITING_BANK_TRANSFER';
+    }
+    case 'processing':
+      return orderFulfillmentStatus(order) === 'PROCESSING';
+    case 'shipped':
+      return orderFulfillmentStatus(order) === 'SHIPPED';
+    case 'delivered':
+      return orderFulfillmentStatus(order) === 'DELIVERED';
+    case 'cancelled':
+      return orderFulfillmentStatus(order) === 'CANCELLED';
+    case 'invoice_missing':
+      if (order.source === 'TRENDYOL') return false;
+      return !hasStoreInvoice(order);
+    case 'tracking_missing':
+      if (order.source === 'TRENDYOL') return false;
+      return !hasStoreTracking(order);
+    default:
+      return true;
+  }
+}
+
 function PaymentProviderBadge({ order }: { order: Order }) {
   if (order.source === 'TRENDYOL') {
     return (
@@ -386,6 +508,8 @@ function PaymentStatusBadge({ order }: { order: Order }) {
 export default function Orders() {
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const activeOp = useMemo(() => parseQuickOp(searchParams), [searchParams]);
+
   const { state: urlState, needsReplace } = useMemo(
     () => parseOrderListSearchParams(searchParams),
     [searchParams],
@@ -393,9 +517,9 @@ export default function Orders() {
 
   useEffect(() => {
     if (needsReplace) {
-      setSearchParams(buildOrderListSearchParams(urlState), { replace: true });
+      setSearchParams(buildOrdersPageParams(urlState, activeOp || undefined), { replace: true });
     }
-  }, [needsReplace, urlState, setSearchParams]);
+  }, [needsReplace, urlState, setSearchParams, activeOp]);
 
   const [searchInput, setSearchInput] = useState(urlState.search);
   const [manualOrderOpen, setManualOrderOpen] = useState(false);
@@ -404,39 +528,184 @@ export default function Orders() {
     setSearchInput(urlState.search);
   }, [urlState.search]);
 
-  const applyUrlState = useCallback(
-    (next: OrderListUrlState, opts?: { replace?: boolean }) => {
-      setSearchParams(buildOrderListSearchParams(next), { replace: opts?.replace ?? false });
+  const setListParams = useCallback(
+    (next: OrderListUrlState, op: QuickOpFilter | '' = '', opts?: { replace?: boolean }) => {
+      setSearchParams(buildOrdersPageParams(next, op || undefined), {
+        replace: opts?.replace ?? false,
+      });
     },
     [setSearchParams],
   );
 
   const patchFilters = useCallback(
     (patch: Partial<OrderListUrlState>, resetPage = true) => {
-      applyUrlState({
-        ...urlState,
-        ...patch,
-        page: resetPage ? 1 : (patch.page ?? urlState.page),
-      });
+      setListParams(
+        {
+          ...urlState,
+          ...patch,
+          page: resetPage ? 1 : (patch.page ?? urlState.page),
+        },
+        '',
+      );
     },
-    [urlState, applyUrlState],
+    [urlState, setListParams],
   );
 
-  const apiQuery: GetOrdersQuery = useMemo(
-    () => orderListStateToApiQuery(urlState),
-    [urlState],
+  const applyQuickOp = useCallback(
+    (op: QuickOpFilter) => {
+      setListParams(applyQuickOpToUrlState(op, urlState), op);
+    },
+    [urlState, setListParams],
   );
+
+  const needsClientQuickOp =
+    !!activeOp && CLIENT_SIDE_QUICK_OPS.has(activeOp as QuickOpFilter);
+
+  const apiQuery: GetOrdersQuery = useMemo(() => {
+    const q = orderListStateToApiQuery(urlState);
+    if (needsClientQuickOp) {
+      return { ...q, page: 1, limit: QUICK_OP_COUNT_CAP };
+    }
+    return q;
+  }, [urlState, needsClientQuickOp]);
 
   const { data: result, isLoading, isFetching } = useOrders(apiQuery);
   const { data: stats }                          = useOrderStats();
   const syncTrendyolOrders                       = useSyncTrendyolOrders();
 
+  const countSnapshotQuery: GetOrdersQuery = useMemo(
+    () => ({
+      page:  1,
+      limit: QUICK_OP_COUNT_CAP,
+      ...(urlState.source && urlState.source !== 'all' ? { source: urlState.source } : {}),
+    }),
+    [urlState.source],
+  );
+
+  const { data: countSnapshot } = useOrders(countSnapshotQuery);
+
   const orders     = result?.orders     ?? [];
-  const total      = result?.total      ?? 0;
-  const totalPages = result?.totalPages ?? 1;
   const page       = urlState.page;
   const limit      = urlState.limit;
   const search     = urlState.search;
+
+  const {
+    displayOrders,
+    listTotal,
+    listTotalPages,
+  } = useMemo(() => {
+    if (!needsClientQuickOp || !activeOp) {
+      return {
+        displayOrders: orders,
+        listTotal:       result?.total      ?? 0,
+        listTotalPages:  result?.totalPages ?? 1,
+      };
+    }
+
+    const filtered = orders.filter((o) => matchesQuickOp(o, activeOp as QuickOpFilter));
+    const start    = (page - 1) * limit;
+    return {
+      displayOrders:  filtered.slice(start, start + limit),
+      listTotal:      filtered.length,
+      listTotalPages: Math.max(1, Math.ceil(filtered.length / limit)),
+    };
+  }, [needsClientQuickOp, activeOp, orders, result?.total, result?.totalPages, page, limit]);
+
+  const quickOpCounts = useMemo(() => {
+    const snapshot = countSnapshot?.orders ?? [];
+    const cap = countSnapshot?.total != null && countSnapshot.total > QUICK_OP_COUNT_CAP;
+
+    const countFromSnapshot = (op: QuickOpFilter) => {
+      const n = snapshot.filter((o) => matchesQuickOp(o, op)).length;
+      return cap ? `${n}+` : String(n);
+    };
+
+    return {
+      all:              String(stats?.totalCount ?? stats?.total ?? countSnapshot?.total ?? '—'),
+      payment_pending:  countFromSnapshot('payment_pending'),
+      processing:       countFromSnapshot('processing'),
+      shipped:          countFromSnapshot('shipped'),
+      delivered:        countFromSnapshot('delivered'),
+      cancelled:        countFromSnapshot('cancelled'),
+      invoice_missing:  countFromSnapshot('invoice_missing'),
+      tracking_missing: countFromSnapshot('tracking_missing'),
+    } as Record<QuickOpFilter, string>;
+  }, [countSnapshot, stats]);
+
+  const activeQuickCount = useMemo(() => {
+    if (!activeOp || activeOp === 'all') return null;
+    if (needsClientQuickOp) {
+      const n = listTotal;
+      const capped = (result?.total ?? 0) > QUICK_OP_COUNT_CAP;
+      return capped ? `${n}+` : String(n);
+    }
+    return String(listTotal);
+  }, [activeOp, needsClientQuickOp, listTotal, result?.total]);
+
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(() => new Set());
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
+  const rowNumberBase = (page - 1) * limit;
+
+  const pageOrderIds = useMemo(
+    () => displayOrders.map((o) => o.id),
+    [displayOrders],
+  );
+
+  const selectedOnPageCount = useMemo(
+    () => pageOrderIds.filter((id) => selectedOrderIds.has(id)).length,
+    [pageOrderIds, selectedOrderIds],
+  );
+
+  const allPageSelected =
+    displayOrders.length > 0 && selectedOnPageCount === displayOrders.length;
+  const somePageSelected =
+    selectedOnPageCount > 0 && selectedOnPageCount < displayOrders.length;
+
+  useEffect(() => {
+    const el = headerCheckboxRef.current;
+    if (el) el.indeterminate = somePageSelected;
+  }, [somePageSelected]);
+
+  useEffect(() => {
+    setSelectedOrderIds(new Set());
+  }, [
+    urlState.page,
+    urlState.limit,
+    urlState.search,
+    urlState.status,
+    urlState.paymentProvider,
+    urlState.paymentStatus,
+    urlState.source,
+    activeOp,
+  ]);
+
+  const toggleOrderSelection = useCallback((id: string) => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllPage = useCallback(() => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageOrderIds.forEach((id) => next.delete(id));
+      } else {
+        pageOrderIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [allPageSelected, pageOrderIds]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedOrderIds(new Set());
+  }, []);
+
+  const selectedCount = selectedOrderIds.size;
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -459,9 +728,20 @@ export default function Orders() {
     patchFilters({ source: v, page: 1 });
   };
 
+  const patchPage = useCallback(
+    (nextPage: number) => {
+      if (activeOp && activeOp !== 'all') {
+        setListParams({ ...urlState, page: nextPage }, activeOp);
+      } else {
+        patchFilters({ page: nextPage }, false);
+      }
+    },
+    [activeOp, urlState, setListParams, patchFilters],
+  );
+
   const handleClear = () => {
     setSearchInput('');
-    setSearchParams(buildOrderListSearchParams(ORDER_LIST_DEFAULT_STATE), { replace: true });
+    setListParams(ORDER_LIST_DEFAULT_STATE, '', { replace: true });
   };
 
   const hasFilter =
@@ -469,7 +749,8 @@ export default function Orders() {
     || !!urlState.status
     || !!urlState.paymentProvider
     || !!urlState.paymentStatus
-    || !!urlState.source;
+    || !!urlState.source
+    || (!!activeOp && activeOp !== 'all');
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -584,6 +865,58 @@ export default function Orders() {
         />
       </div>
 
+      {/* Hızlı operasyon filtreleri */}
+      <Card className="p-3 sm:p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2.5">
+          Hızlı filtreler
+        </p>
+        <div
+          className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin"
+          role="tablist"
+          aria-label="Sipariş hızlı filtreleri"
+        >
+          {QUICK_FILTER_BUTTONS.map((f) => {
+            const isActive =
+              f.id === 'all' ? !activeOp || activeOp === 'all' : activeOp === f.id;
+            const count = quickOpCounts[f.id];
+            return (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => applyQuickOp(f.id)}
+                className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium
+                  border transition-colors ${
+                  isActive
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200 hover:text-indigo-700'
+                }`}
+              >
+                <span>{f.label}</span>
+                {count && count !== '—' && (
+                  <span
+                    className={`inline-flex min-w-[1.25rem] justify-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {isActive && activeQuickCount != null ? activeQuickCount : count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {needsClientQuickOp && (result?.total ?? 0) > QUICK_OP_COUNT_CAP && (
+          <p className="text-[11px] text-amber-700 mt-2 leading-relaxed">
+            Fatura ve takip filtreleri son {QUICK_OP_COUNT_CAP} sipariş örneğine göre sayılır; tüm kayıtlar için detaylı arama kullanın.
+            {/* TODO(server-side): invoice_missing / tracking_missing API parametresi ile tüm kayıt kümesinde filtrelenmeli. */}
+          </p>
+        )}
+      </Card>
+
       {/* Filter bar */}
       <Card className="p-4">
         <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
@@ -681,7 +1014,7 @@ export default function Orders() {
       {/* Table */}
       {isLoading ? (
         <TableSkeleton />
-      ) : orders.length === 0 ? (
+      ) : displayOrders.length === 0 ? (
         <Card>
           <EmptyState
             icon={
@@ -707,18 +1040,48 @@ export default function Orders() {
             </div>
           )}
 
+          {selectedCount > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2.5 border-b border-indigo-100 bg-indigo-50/70">
+              <span className="text-[13px] font-medium text-indigo-900">
+                {selectedCount} sipariş seçildi
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-[12px] font-medium text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded-lg
+                           hover:bg-indigo-100/80 transition-colors"
+              >
+                Seçimi temizle
+              </button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="w-10 px-2 sm:px-3 py-3 text-center">
+                    <input
+                      ref={headerCheckboxRef}
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={toggleSelectAllPage}
+                      disabled={displayOrders.length === 0}
+                      aria-label="Sayfadaki tüm siparişleri seç"
+                      className={ORDER_ROW_CHECKBOX_CLASS}
+                    />
+                  </th>
+                  <th className="w-11 px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    #
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
+                    Müşteri
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
                     Sipariş
                   </th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                     Kaynak
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Müşteri
                   </th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
                     Ödeme Yöntemi
@@ -741,8 +1104,14 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {orders.map((order) => (
-                  <OrderRow key={order.id} order={order} />
+                {displayOrders.map((order, index) => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    rowNumber={rowNumberBase + index + 1}
+                    isSelected={selectedOrderIds.has(order.id)}
+                    onToggleSelect={() => toggleOrderSelection(order.id)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -752,12 +1121,22 @@ export default function Orders() {
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/40">
             <div className="flex items-center gap-3 text-sm text-gray-500">
               <span>
-                {total} sipariş
+                {listTotal} sipariş
                 {search && ` • "${search}" araması`}
+                {activeOp && activeOp !== 'all' && (
+                  <> • {QUICK_FILTER_BUTTONS.find((f) => f.id === activeOp)?.label}</>
+                )}
               </span>
               <select
                 value={limit}
-                onChange={(e) => patchFilters({ limit: Number(e.target.value), page: 1 })}
+                onChange={(e) => {
+                  const nextLimit = Number(e.target.value);
+                  if (activeOp && activeOp !== 'all') {
+                    setListParams({ ...urlState, limit: nextLimit, page: 1 }, activeOp);
+                  } else {
+                    patchFilters({ limit: nextLimit, page: 1 });
+                  }
+                }}
                 className="py-1 pl-2 pr-6 text-xs border border-gray-200 rounded bg-white focus:outline-none
                            focus:ring-1 focus:ring-indigo-400"
               >
@@ -769,7 +1148,7 @@ export default function Orders() {
 
             <div className="flex items-center gap-1">
               <button
-                onClick={() => patchFilters({ page: Math.max(1, page - 1) }, false)}
+                onClick={() => patchPage(Math.max(1, page - 1))}
                 disabled={page <= 1}
                 className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-100
                            disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -777,11 +1156,11 @@ export default function Orders() {
                 ‹ Önceki
               </button>
               <span className="px-3 py-1.5 text-sm font-medium text-gray-700">
-                {page} / {totalPages}
+                {page} / {listTotalPages}
               </span>
               <button
-                onClick={() => patchFilters({ page: Math.min(totalPages, page + 1) }, false)}
-                disabled={page >= totalPages}
+                onClick={() => patchPage(Math.min(listTotalPages, page + 1))}
+                disabled={page >= listTotalPages}
                 className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-100
                            disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
@@ -802,7 +1181,17 @@ export default function Orders() {
 
 // ── Order row ──────────────────────────────────────────────────────────────
 
-function OrderRow({ order }: { order: Order }) {
+function OrderRow({
+  order,
+  rowNumber,
+  isSelected,
+  onToggleSelect,
+}: {
+  order: Order;
+  rowNumber: number;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+}) {
   const customerName = order.customerName
     ?? (order.customer
       ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
@@ -813,14 +1202,45 @@ function OrderRow({ order }: { order: Order }) {
   const isTrendyol = order.source === 'TRENDYOL';
 
   const shippingPrice = order.admin?.totals.shippingPrice ?? order.shippingPrice ?? 0;
+  const customerEmail = order.customer?.email ?? order.customerEmail ?? '';
+  const customerPhone = order.customer?.phone?.trim() || '';
 
   return (
-    <tr className="hover:bg-gray-50/60 transition-colors group">
-      <td className="px-5 py-4">
-        <div className="text-sm font-semibold text-gray-900">{displayNumber}</div>
-        {order.admin?.isStorefrontOrder && !isTrendyol && (
-          <div className="text-[10px] text-indigo-600 font-medium mt-0.5">Vitrin</div>
+    <tr
+      className={`transition-colors group ${
+        isSelected ? 'bg-indigo-50/50 hover:bg-indigo-50/70' : 'hover:bg-gray-50/60'
+      }`}
+    >
+      <td className="w-10 px-2 sm:px-3 py-4 text-center">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          aria-label={`${displayNumber} siparişini seç`}
+          className={ORDER_ROW_CHECKBOX_CLASS}
+        />
+      </td>
+      <td className="w-11 px-2 py-4 text-center text-xs font-medium text-slate-500 tabular-nums">
+        {rowNumber}
+      </td>
+
+      <td className="px-5 py-4 min-w-[140px]">
+        <div className="text-sm font-medium text-gray-900 leading-snug">{customerName}</div>
+        {customerEmail && (
+          <div className="text-xs text-gray-500 mt-1 break-all leading-relaxed">{customerEmail}</div>
         )}
+        {customerPhone && (
+          <div className="text-xs text-gray-500 mt-0.5 tabular-nums">{customerPhone}</div>
+        )}
+      </td>
+
+      <td className="px-5 py-4 min-w-[120px]">
+        <div className="text-sm font-semibold text-gray-900">{displayNumber}</div>
+        {isTrendyol ? (
+          <div className="text-[10px] text-orange-600 font-medium mt-0.5">Trendyol</div>
+        ) : order.admin?.isStorefrontOrder ? (
+          <div className="text-[10px] text-indigo-600 font-medium mt-0.5">Vitrin</div>
+        ) : null}
         <div className="flex flex-wrap gap-1 mt-1.5 sm:hidden">
           <SourceBadge order={order} />
           <InvoiceBadge order={order} />
@@ -838,11 +1258,6 @@ function OrderRow({ order }: { order: Order }) {
           <InvoiceBadge order={order} />
           <TrackingBadge order={order} />
         </div>
-      </td>
-
-      <td className="px-5 py-4">
-        <div className="text-sm font-medium text-gray-900">{customerName}</div>
-        <div className="text-xs text-gray-400 mt-0.5">{order.customer?.email ?? order.customerEmail}</div>
       </td>
 
       <td className="px-5 py-4 hidden md:table-cell">
