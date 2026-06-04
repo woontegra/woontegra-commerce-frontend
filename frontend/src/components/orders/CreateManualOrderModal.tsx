@@ -12,6 +12,9 @@ import { useCreateOrder } from '../../hooks/useOrders';
 
 type ManualPaymentMethod = 'BANK_TRANSFER' | 'CASH_ON_DELIVERY' | 'MANUAL_PAID';
 
+const BLOCKED_CUSTOMER_MANUAL_ORDER_MSG =
+  'Bu müşteri engelli olduğu için manuel sipariş oluşturulamaz.';
+
 const PAYMENT_OPTIONS: { value: ManualPaymentMethod; label: string }[] = [
   { value: 'BANK_TRANSFER',    label: 'Havale / EFT' },
   { value: 'CASH_ON_DELIVERY', label: 'Kapıda Ödeme' },
@@ -84,6 +87,9 @@ async function resolveCustomerId(input: {
   );
 
   if (match) {
+    if (match.isBlocked) {
+      throw new Error(BLOCKED_CUSTOMER_MANUAL_ORDER_MSG);
+    }
     await customerService.update(match.id, {
       firstName,
       lastName,
@@ -131,11 +137,17 @@ export default function CreateManualOrderModal({
   const [paymentMethod, setPaymentMethod]     = useState<ManualPaymentMethod>('BANK_TRANSFER');
   const [orderNote, setOrderNote]             = useState('');
   const [formError, setFormError]             = useState<string | null>(null);
+  const [debouncedEmail, setDebouncedEmail]   = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(productSearch.trim()), 300);
     return () => clearTimeout(t);
   }, [productSearch]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedEmail(email.trim().toLowerCase()), 400);
+    return () => clearTimeout(t);
+  }, [email]);
 
   const { data: productResult, isFetching: productsLoading } = useQuery({
     queryKey: ['manual-order-products', debouncedSearch],
@@ -151,6 +163,17 @@ export default function CreateManualOrderModal({
   });
 
   const products = productResult?.items ?? [];
+
+  const { data: customerByEmail } = useQuery({
+    queryKey: ['manual-order-customer-block', debouncedEmail],
+    queryFn:  async () => {
+      const res = await customerService.getAll({ search: debouncedEmail, limit: 10 });
+      return res.customers.find((c) => c.email.toLowerCase() === debouncedEmail) ?? null;
+    },
+    enabled: isOpen && debouncedEmail.length >= 3,
+  });
+
+  const customerIsBlocked = customerByEmail?.isBlocked === true;
 
   const lineTotal = useMemo(() => {
     if (!selectedProduct) return 0;
@@ -171,6 +194,7 @@ export default function CreateManualOrderModal({
     setPaymentMethod('BANK_TRANSFER');
     setOrderNote('');
     setFormError(null);
+    setDebouncedEmail('');
   }, []);
 
   const handleClose = () => {
@@ -213,6 +237,10 @@ export default function CreateManualOrderModal({
     }
     if (selectedProduct.price <= 0) {
       setFormError('Seçilen ürünün geçerli bir fiyatı yok.');
+      return;
+    }
+    if (customerIsBlocked) {
+      setFormError(BLOCKED_CUSTOMER_MANUAL_ORDER_MSG);
       return;
     }
 
@@ -280,7 +308,7 @@ export default function CreateManualOrderModal({
           <button
             type="submit"
             form="manual-order-form"
-            disabled={createOrder.isPending}
+            disabled={createOrder.isPending || customerIsBlocked}
             className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-60"
           >
             {createOrder.isPending ? 'Oluşturuluyor...' : 'Siparişi Oluştur'}
@@ -292,6 +320,15 @@ export default function CreateManualOrderModal({
         {formError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {formError}
+          </div>
+        )}
+
+        {customerIsBlocked && (
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            role="alert"
+          >
+            {BLOCKED_CUSTOMER_MANUAL_ORDER_MSG}
           </div>
         )}
 
