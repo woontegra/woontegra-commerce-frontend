@@ -17,6 +17,10 @@ export interface Customer {
   kvkkConsentAt?:       string | null;
   marketingConsent?:    boolean;
   marketingConsentAt?:  string | null;
+  internalNote?:         string | null;
+  isRisky?:              boolean;
+  isBlocked?:            boolean;
+  blockedReason?:        string | null;
   createdAt:   string;
   updatedAt:   string;
   orderCount:  number;
@@ -46,7 +50,12 @@ export interface CreateCustomerDto {
   zipCode?:  string;
 }
 
-export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {}
+export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {
+  internalNote?:   string | null;
+  isRisky?:        boolean;
+  isBlocked?:      boolean;
+  blockedReason?:  string | null;
+}
 
 export interface GetCustomersQuery {
   page?:   number;

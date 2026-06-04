@@ -559,6 +559,20 @@ function CustomerRow({
             >
               {customer.firstName} {customer.lastName}
             </Link>
+            {(customer.isRisky || customer.isBlocked) && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {customer.isRisky && (
+                  <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-100">
+                    Riskli
+                  </span>
+                )}
+                {customer.isBlocked && (
+                  <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-700 border border-red-100">
+                    Engelli
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </td>

@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useCustomer } from '../hooks/useCustomers';
+import { useCustomer, useUpdateCustomer } from '../hooks/useCustomers';
 import { useCustomerOrders } from '../hooks/useOrders';
 import type { Order, OrderStatus } from '../services/order.service';
+import type { Customer } from '../services/customer.service';
 import Card from '../components/ui/Card';
 import EmptyState from '../components/EmptyState';
 import { TableSkeleton } from '../components/Skeleton';
@@ -81,6 +82,117 @@ function formatConsentDate(at: string | null | undefined): string {
   return fmtDateTime(at);
 }
 
+function CustomerNotesPanel({ customer }: { customer: Customer }) {
+  const updateCustomer = useUpdateCustomer();
+  const [internalNote, setInternalNote] = useState('');
+  const [isRisky, setIsRisky] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
+
+  useEffect(() => {
+    setInternalNote(customer.internalNote ?? '');
+    setIsRisky(customer.isRisky ?? false);
+    setIsBlocked(customer.isBlocked ?? false);
+    setBlockedReason(customer.blockedReason ?? '');
+  }, [customer]);
+
+  const handleSave = () => {
+    updateCustomer.mutate({
+      id: customer.id,
+      data: {
+        internalNote:  internalNote.trim() || null,
+        isRisky,
+        isBlocked,
+        blockedReason: isBlocked ? (blockedReason.trim() || null) : null,
+      },
+    });
+  };
+
+  const busy = updateCustomer.isPending;
+
+  return (
+    <Card className="p-5 space-y-5">
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900">Müşteri notları</h2>
+        <p className="text-xs text-gray-500 mt-1">
+          Yalnızca satıcı panelinde görünür. Müşteri bu notu göremez.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1.5">İç not</label>
+        <textarea
+          value={internalNote}
+          onChange={e => setInternalNote(e.target.value)}
+          rows={4}
+          maxLength={2000}
+          placeholder="Örn. sık iade talebi, özel indirim notu, iletişim geçmişi…"
+          disabled={busy}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900
+                     placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                     disabled:opacity-60 resize-y min-h-[96px]"
+        />
+      </div>
+
+      <div className="space-y-3 pt-1 border-t border-gray-100">
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isRisky}
+            onChange={e => setIsRisky(e.target.checked)}
+            disabled={busy}
+            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+          />
+          <span>
+            <span className="font-medium text-gray-900">Riskli müşteri</span>
+            <span className="block text-xs text-gray-500">Liste ve detayda uyarı badge&apos;i gösterilir.</span>
+          </span>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isBlocked}
+            onChange={e => setIsBlocked(e.target.checked)}
+            disabled={busy}
+            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+          />
+          <span>
+            <span className="font-medium text-gray-900">Engellenen müşteri</span>
+            <span className="block text-xs text-gray-500">
+              Checkout/giriş engeli sonraki adımda eklenecek; işaret şimdiden kaydedilir.
+            </span>
+          </span>
+        </label>
+
+        {isBlocked && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Engelleme sebebi</label>
+            <input
+              type="text"
+              value={blockedReason}
+              onChange={e => setBlockedReason(e.target.value)}
+              maxLength={500}
+              placeholder="Örn. sahte sipariş, ödeme sorunu"
+              disabled={busy}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={busy}
+        className="btn btn-primary text-sm disabled:opacity-60"
+      >
+        {busy ? 'Kaydediliyor…' : 'Not ve durumu kaydet'}
+      </button>
+    </Card>
+  );
+}
+
 export default function CustomerDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const { data: customer, isLoading, isError, error } = useCustomer(id);
@@ -144,8 +256,24 @@ export default function CustomerDetail() {
           </Link>
           <h1 className="text-2xl font-semibold text-gray-900 mt-2">{fullName}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{customer.email}</p>
+          {(customer.isRisky || customer.isBlocked) && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {customer.isRisky && (
+                <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-100">
+                  Riskli
+                </span>
+              )}
+              {customer.isBlocked && (
+                <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                  Engelli
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      <CustomerNotesPanel customer={customer} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Sipariş sayısı" value={String(customer.orderCount)} />
