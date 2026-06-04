@@ -95,6 +95,50 @@ function StatusBadge({ status, label }: { status: string; label?: string }) {
   );
 }
 
+function hasStoreInvoice(order: Order): boolean {
+  return Boolean(order.invoiceNumber?.trim() || order.invoiceUrl?.trim());
+}
+
+function hasStoreTracking(order: Order): boolean {
+  return Boolean(
+    order.shippingTrackingNumber?.trim() || order.shippingTrackingUrl?.trim(),
+  );
+}
+
+function TrackingBadge({ order }: { order: Order }) {
+  if (order.source === 'TRENDYOL') return null;
+  const hasTracking = hasStoreTracking(order);
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        hasTracking
+          ? 'bg-purple-50 text-purple-700 border border-purple-100'
+          : 'bg-slate-50 text-slate-500 border border-slate-200'
+      }`}
+      title={hasTracking ? 'Kargo takip no veya link kayıtlı' : 'Kargo takip bilgisi girilmemiş'}
+    >
+      {hasTracking ? 'Takip var' : 'Takip yok'}
+    </span>
+  );
+}
+
+function InvoiceBadge({ order }: { order: Order }) {
+  if (order.source === 'TRENDYOL') return null;
+  const hasInvoice = hasStoreInvoice(order);
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        hasInvoice
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+          : 'bg-slate-50 text-slate-500 border border-slate-200'
+      }`}
+      title={hasInvoice ? 'Fatura no veya link kayıtlı' : 'Fatura bilgisi girilmemiş'}
+    >
+      {hasInvoice ? 'Fatura var' : 'Fatura yok'}
+    </span>
+  );
+}
+
 function SourceBadge({ order }: { order: Order }) {
   const isTrendyol = order.source === 'TRENDYOL';
   const label = order.sourceLabel ?? (isTrendyol ? 'Trendyol' : 'Woontegra');
@@ -250,27 +294,67 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   PAID:                  'bg-green-50 text-green-700 border border-green-100',
   APPROVED:              'bg-emerald-50 text-emerald-700 border border-emerald-100',
   FAILED:                'bg-red-50 text-red-700 border border-red-100',
+  REFUNDED:              'bg-violet-50 text-violet-700 border border-violet-100',
   CANCELLED:             'bg-gray-100 text-gray-600 border border-gray-200',
 };
+
+/** Sipariş listesi — kısa ödeme etiketleri (filtre dropdown’ları ayrı kalır). */
+const LIST_PAYMENT_PROVIDER_LABELS: Record<string, string> = {
+  PAYTR:            'PayTR',
+  BANK_TRANSFER:    'Havale/EFT',
+  CASH_ON_DELIVERY: 'Kapıda ödeme',
+  IYZICO:           'iyzico',
+  BANK_POS:         'Manuel/POS',
+};
+
+const LIST_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PAID:                  'Ödendi',
+  PENDING:               'Ödeme bekliyor',
+  WAITING_BANK_TRANSFER: 'Ödeme bekliyor',
+  FAILED:                'Başarısız',
+  REFUNDED:              'İade edildi',
+  APPROVED:              'Onaylandı',
+  CANCELLED:             'İptal',
+};
+
+function resolvePaymentProviderKey(order: Order): string | null {
+  const key = order.payment?.provider ?? order.paymentProvider ?? order.admin?.payment.provider;
+  return key ? String(key).toUpperCase() : null;
+}
+
+function resolvePaymentStatusKey(order: Order): string | null {
+  const key = order.payment?.status ?? order.paymentStatus;
+  return key ? String(key).toUpperCase() : null;
+}
+
+function listPaymentProviderLabel(order: Order): string {
+  const key = resolvePaymentProviderKey(order);
+  if (!key) return 'Belirtilmemiş';
+  return LIST_PAYMENT_PROVIDER_LABELS[key] ?? key;
+}
+
+function listPaymentStatusLabel(order: Order): string {
+  const key = resolvePaymentStatusKey(order);
+  if (!key) return 'Belirsiz';
+  return LIST_PAYMENT_STATUS_LABELS[key] ?? key;
+}
 
 function PaymentProviderBadge({ order }: { order: Order }) {
   if (order.source === 'TRENDYOL') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-700 border border-orange-100">
         Pazaryeri
       </span>
     );
   }
-  const label = order.payment?.providerLabel
-    ?? order.admin?.payment.methodLabel
-    ?? 'Belirtilmemiş';
-  const key = order.payment?.provider ?? order.paymentProvider ?? order.admin?.payment.provider;
+  const key = resolvePaymentProviderKey(order);
+  const label = listPaymentProviderLabel(order);
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium max-w-[140px] truncate ${
-        key ? (PAYMENT_PROVIDER_COLORS[key] ?? 'bg-gray-100 text-gray-600 border border-gray-200') : 'bg-gray-100 text-gray-500 border border-gray-200'
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        key ? (PAYMENT_PROVIDER_COLORS[key] ?? 'bg-gray-100 text-gray-600 border border-gray-200') : 'bg-gray-100 text-gray-500 border border-slate-200'
       }`}
-      title={label}
+      title={order.payment?.providerLabel ?? order.admin?.payment.methodLabel ?? label}
     >
       {label}
     </span>
@@ -280,23 +364,21 @@ function PaymentProviderBadge({ order }: { order: Order }) {
 function PaymentStatusBadge({ order }: { order: Order }) {
   if (order.source === 'TRENDYOL') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-700 border border-orange-100">
         Pazaryeri
       </span>
     );
   }
-  const label = order.payment?.statusLabel
-    ?? order.admin?.payment.statusLabel
-    ?? 'Belirsiz';
-  const key = order.payment?.status ?? order.paymentStatus;
-  const display = label === '—' ? 'Belirsiz' : label;
+  const key = resolvePaymentStatusKey(order);
+  const label = listPaymentStatusLabel(order);
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-        key ? (PAYMENT_STATUS_COLORS[key] ?? 'bg-gray-100 text-gray-600 border border-gray-200') : 'bg-gray-100 text-gray-500 border border-gray-200'
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        key ? (PAYMENT_STATUS_COLORS[key] ?? 'bg-gray-100 text-gray-600 border border-gray-200') : 'bg-gray-100 text-gray-500 border border-slate-200'
       }`}
+      title={order.payment?.statusLabel ?? order.admin?.payment.statusLabel ?? label}
     >
-      {display}
+      {label}
     </span>
   );
 }
@@ -741,6 +823,8 @@ function OrderRow({ order }: { order: Order }) {
         )}
         <div className="flex flex-wrap gap-1 mt-1.5 sm:hidden">
           <SourceBadge order={order} />
+          <InvoiceBadge order={order} />
+          <TrackingBadge order={order} />
         </div>
         <div className="flex flex-wrap gap-1 mt-1.5 md:hidden">
           <PaymentProviderBadge order={order} />
@@ -749,7 +833,11 @@ function OrderRow({ order }: { order: Order }) {
       </td>
 
       <td className="px-5 py-4 hidden sm:table-cell">
-        <SourceBadge order={order} />
+        <div className="flex flex-col items-start gap-1">
+          <SourceBadge order={order} />
+          <InvoiceBadge order={order} />
+          <TrackingBadge order={order} />
+        </div>
       </td>
 
       <td className="px-5 py-4">

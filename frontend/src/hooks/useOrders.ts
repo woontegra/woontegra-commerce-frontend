@@ -145,6 +145,27 @@ export function useUpdateOrderInvoice() {
   });
 }
 
+const INVOICE_PDF_MAX_BYTES = 5 * 1024 * 1024;
+
+export function useUploadOrderInvoicePdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) =>
+      orderService.uploadInvoicePdf(id, file),
+    onSuccess: (order) => {
+      qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      qc.invalidateQueries({ queryKey: orderKeys.history(order.id) });
+      toast.success('Fatura PDF yüklendi.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error ?? 'Fatura PDF yüklenemedi.');
+    },
+  });
+}
+
+export { INVOICE_PDF_MAX_BYTES };
+
 export function useCancelOrder() {
   const qc = useQueryClient();
   return useMutation({

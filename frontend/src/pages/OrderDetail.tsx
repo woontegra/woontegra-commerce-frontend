@@ -2,7 +2,17 @@ import { useEffect, useState, useCallback } from 'react';
 import { useBranding } from '../context/BrandingContext';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useOrder, useOrderHistory, useUpdateOrderStatus, useUpdateOrderShipping, useUpdateOrderInvoice, useCancelOrder, useConfirmOrderPayment } from '../hooks/useOrders';
+import {
+  useOrder,
+  useOrderHistory,
+  useUpdateOrderStatus,
+  useUpdateOrderShipping,
+  useUpdateOrderInvoice,
+  useUploadOrderInvoicePdf,
+  INVOICE_PDF_MAX_BYTES,
+  useCancelOrder,
+  useConfirmOrderPayment,
+} from '../hooks/useOrders';
 import type {
   UpdateOrderShippingDto,
   OrderStatus,
@@ -872,6 +882,7 @@ export default function OrderDetail() {
   const updateStatus   = useUpdateOrderStatus();
   const updateShipping = useUpdateOrderShipping();
   const updateInvoice  = useUpdateOrderInvoice();
+  const uploadInvoicePdf = useUploadOrderInvoicePdf();
   const cancelOrder    = useCancelOrder();
   const confirmPayment = useConfirmOrderPayment();
 
@@ -883,6 +894,8 @@ export default function OrderDetail() {
   const [invoiceNumber, setInvoiceNumber]           = useState('');
   const [invoiceUrl, setInvoiceUrl]                 = useState('');
   const [invoiceUrlWarning, setInvoiceUrlWarning]   = useState('');
+  const [invoicePdfFile, setInvoicePdfFile]         = useState<File | null>(null);
+  const [invoicePdfError, setInvoicePdfError]       = useState<string | null>(null);
   const [returnRequests, setReturnRequests]         = useState<ReturnRequest[]>([]);
 
   useEffect(() => {
@@ -1006,6 +1019,36 @@ export default function OrderDetail() {
     });
   };
 
+  const validateInvoicePdfFile = (file: File | null): string | null => {
+    if (!file) return 'PDF dosyası seçin.';
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.pdf') && file.type !== 'application/pdf') {
+      return 'Yalnızca PDF dosyası yüklenebilir.';
+    }
+    if (file.size > INVOICE_PDF_MAX_BYTES) {
+      return 'Dosya boyutu en fazla 5 MB olabilir.';
+    }
+    return null;
+  };
+
+  const handleUploadInvoicePdf = () => {
+    const err = validateInvoicePdfFile(invoicePdfFile);
+    if (err) {
+      setInvoicePdfError(err);
+      return;
+    }
+    setInvoicePdfError(null);
+    uploadInvoicePdf.mutate(
+      { id: order!.id, file: invoicePdfFile! },
+      {
+        onSuccess: (updated) => {
+          setInvoiceUrl(updated.invoiceUrl ?? '');
+          setInvoicePdfFile(null);
+        },
+      },
+    );
+  };
+
   const validateTrackingUrl = (url: string): boolean => {
     const t = url.trim();
     if (!t) {
@@ -1054,7 +1097,7 @@ export default function OrderDetail() {
     );
   };
 
-  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending || updateInvoice.isPending || confirmPayment.isPending;
+  const busy           = updateStatus.isPending || cancelOrder.isPending || updateShipping.isPending || updateInvoice.isPending || uploadInvoicePdf.isPending || confirmPayment.isPending;
   const shippingLocked_ = shippingLocked(order.status);
   const showConfirmPayment = canConfirmBankTransferPayment(order);
   const paymentLabel   = admin?.payment.statusLabel ?? '—';
@@ -1594,9 +1637,45 @@ export default function OrderDetail() {
 
           <Panel title="Fatura bilgileri">
             <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">
-              Mağaza siparişi için kesilen faturanın numarasını ve PDF veya paylaşım linkini kaydedin.
+              Mağaza siparişi için fatura numarası, PDF yükleme veya harici link kaydedin.
             </p>
             <div className="space-y-3">
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                <label className="wn-label">PDF fatura yükle</label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  disabled={busy}
+                  onChange={e => {
+                    const file = e.target.files?.[0] ?? null;
+                    setInvoicePdfFile(file);
+                    setInvoicePdfError(file ? validateInvoicePdfFile(file) : null);
+                  }}
+                  className="block w-full text-[12px] text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[12px] file:font-medium file:bg-white file:text-indigo-700 hover:file:bg-indigo-50"
+                />
+                <p className="text-[11px] text-slate-400">Yalnızca PDF · en fazla 5 MB</p>
+                {invoicePdfError && (
+                  <p className="text-[11px] text-red-700">{invoicePdfError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleUploadInvoicePdf}
+                  disabled={busy || !invoicePdfFile}
+                  className="btn btn-secondary w-full text-[13px]"
+                >
+                  {uploadInvoicePdf.isPending ? 'Yükleniyor…' : 'PDF yükle'}
+                </button>
+                {order.invoiceUrl?.trim() && (
+                  <a
+                    href={order.invoiceUrl.trim()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    Yüklenen faturayı görüntüle →
+                  </a>
+                )}
+              </div>
               <div>
                 <label className="wn-label">Fatura numarası</label>
                 <input
@@ -1610,7 +1689,7 @@ export default function OrderDetail() {
                 />
               </div>
               <div>
-                <label className="wn-label">Fatura PDF / link</label>
+                <label className="wn-label">Fatura linki (elle gir)</label>
                 <input
                   type="url"
                   value={invoiceUrl}

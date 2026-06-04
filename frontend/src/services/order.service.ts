@@ -292,6 +292,15 @@ class OrderService {
     return res.data.data;
   }
 
+  async uploadInvoicePdf(id: string, file: File): Promise<Order> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await apiClient.post<{ data: Order }>(`${this.base}/${id}/invoice/upload`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data;
+  }
+
   async cancel(id: string): Promise<Order> {
     return this.updateStatus(id, 'CANCELLED');
   }
