@@ -8,6 +8,14 @@ export function buildStorefrontProductUrl(tenantSlug: string, productSlug: strin
   return `/store/urun/${encodeURIComponent(productSlug)}?tenant=${encodeURIComponent(tenantSlug)}`;
 }
 
+export function buildStorefrontCategoryUrl(tenantSlug: string, categorySlug: string): string {
+  return `/store/kategori/${encodeURIComponent(categorySlug)}?tenant=${encodeURIComponent(tenantSlug)}`;
+}
+
+export function buildStorefrontHomeUrl(tenantSlug: string): string {
+  return `/store?tenant=${encodeURIComponent(tenantSlug)}`;
+}
+
 function frontendOrigin(): string {
   const env = import.meta.env.VITE_FRONTEND_URL as string | undefined;
   if (env?.trim()) return env.trim().replace(/\/$/, '');

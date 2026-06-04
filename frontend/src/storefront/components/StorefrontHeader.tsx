@@ -15,6 +15,8 @@ import {
   StorefrontHeaderMobile,
   type StorefrontHeaderMobileOptions,
 } from './StorefrontHeaderMobile';
+import { useStorefrontNavigation } from '../hooks/StorefrontNavigationProvider';
+import { StorefrontNavLinks } from './StorefrontNavLinks';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -40,6 +42,7 @@ function LegacyStorefrontHeader({
   storeLink,
   logoSettings,
 }: Omit<Props, 'settings' | 'preview'> & { logoSettings: HeaderSettings }) {
+  const { headerItems } = useStorefrontNavigation();
   const cart = useStorefrontCartOptional();
   const auth = useStorefrontAuthOptional();
   const navigate = useNavigate();
@@ -98,20 +101,26 @@ function LegacyStorefrontHeader({
             )}
           </Link>
 
-          <nav className="store-header-nav hidden xl:flex items-center">
-            <NavLink
-              to={home}
-              className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
-              end
-            >
-              Ana sayfa
-            </NavLink>
-            <NavLink
-              to={products}
-              className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
-            >
-              Ürünler
-            </NavLink>
+          <nav className="store-header-nav hidden xl:flex items-center gap-4">
+            {headerItems.length > 0 ? (
+              <StorefrontNavLinks items={headerItems} linkClassName="store-header-nav-link" />
+            ) : (
+              <>
+                <NavLink
+                  to={home}
+                  className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
+                  end
+                >
+                  Ana sayfa
+                </NavLink>
+                <NavLink
+                  to={products}
+                  className={({ isActive }) => `store-header-nav-link ${isActive ? 'active' : ''}`}
+                >
+                  Ürünler
+                </NavLink>
+              </>
+            )}
           </nav>
 
           <form onSubmit={onSearch} className="store-header-search-col hidden md:block min-w-0">
@@ -254,6 +263,7 @@ function ConfiguredStorefrontHeader({
 }) {
   const cart = useStorefrontCartOptional();
   const auth = useStorefrontAuthOptional();
+  const { headerItems } = useStorefrontNavigation();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
 
@@ -320,12 +330,21 @@ function ConfiguredStorefrontHeader({
   };
 
   const menuLinks = !isMinimal && (
-    <>
-      <NavItem to={home} end>
-        Ana sayfa
-      </NavItem>
-      <NavItem to={products}>Ürünler</NavItem>
-    </>
+    headerItems.length > 0 ? (
+      <StorefrontNavLinks
+        items={headerItems}
+        preview={preview}
+        linkClassName="font-medium hover:opacity-100 opacity-80 transition-opacity"
+        activeStyle={activeStyle}
+      />
+    ) : (
+      <>
+        <NavItem to={home} end>
+          Ana sayfa
+        </NavItem>
+        <NavItem to={products}>Ürünler</NavItem>
+      </>
+    )
   );
 
   const accountLinks = settings.showAccount && (

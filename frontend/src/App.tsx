@@ -56,6 +56,9 @@ const Integrations = lazy(() => import('./pages/Integrations'));
 const PageBuilder = lazy(() => import('./pages/PageBuilder'));
 const StorefrontBuilder = lazy(() => import('./pages/StorefrontBuilder'));
 const BlogManagement = lazy(() => import('./pages/BlogManagement'));
+const PagesManagement = lazy(() => import('./pages/PagesManagement'));
+const MenusManagement = lazy(() => import('./pages/MenusManagement'));
+const StoreContentPage = lazy(() => import('./pages/store/StoreContentPage'));
 const MediaLibrary = lazy(() => import('./pages/MediaLibrary'));
 const AbandonedCarts = lazy(() => import('./pages/AbandonedCarts'));
 const DiscountRules = lazy(() => import('./pages/DiscountRules'));
@@ -245,6 +248,7 @@ function App() {
                     <Route path="order-confirmation/:id" element={<OrderConfirmation />} />
                     <Route path="blog" element={<Blog />} />
                     <Route path="blog/:slug" element={<BlogPost />} />
+                    <Route path="sayfa/:slug" element={<StoreContentPage />} />
                   </Route>
 
                   <Route path="/p/:slug" element={<TenantStorefrontLayout />}>
@@ -298,6 +302,9 @@ function App() {
           <Route path="page-builder" element={<PageBuilder />} />
           <Route path="storefront-builder" element={<StorefrontBuilder />} />
           <Route path="blog-management" element={<BlogManagement />} />
+          <Route path="pages" element={<PagesManagement />} />
+          <Route path="menus" element={<MenusManagement />} />
+          <Route path="pages-management" element={<Navigate to="/dashboard/pages" replace />} />
           <Route path="media" element={<MediaLibrary />} />
           <Route path="cart-management" element={<Navigate to="/dashboard/abandoned-carts" replace />} />
           <Route path="product-variants" element={<Navigate to="/dashboard/products" replace />} />

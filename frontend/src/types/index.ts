@@ -67,6 +67,26 @@ export interface Customer {
   zipCode?: string;
 }
 
+export interface ContentPage {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string | null;
+  coverImageUrl?: string | null;
+  status: 'draft' | 'published' | string;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  showInHeader: boolean;
+  showInFooter: boolean;
+  sortOrder: number;
+  isPublished: boolean;
+  publishedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canonicalPath?: string;
+}
+
 export interface Post {
   id: string;
   title: string;

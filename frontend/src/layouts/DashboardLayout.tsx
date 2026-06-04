@@ -70,6 +70,8 @@ const IC = {
   marketplace:  'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
   developer:    'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
   blog:         'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z',
+  pages:        'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  menus:        'M4 6h16M4 12h16M4 18h16',
   seo:          ['M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'],
   billing:      'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
   storeSettings:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
@@ -135,6 +137,8 @@ const NAV: NavGroup[] = [
     id: 'content', label: 'İçerik', defaultOpen: false,
     items: [
       { label: 'Blog', to: '/dashboard/blog-management', icon: IC.blog },
+      { label: 'Sayfalar', to: '/dashboard/pages', icon: IC.pages },
+      { label: 'Menüler', to: '/dashboard/menus', icon: IC.menus },
       { label: 'Medya Kütüphanesi', to: '/dashboard/media', icon: IC.media },
       { label: 'SEO',  to: '/dashboard/seo',             icon: IC.seo  },
     ],

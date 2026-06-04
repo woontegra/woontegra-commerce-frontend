@@ -15,6 +15,8 @@ import {
   type FooterSettings,
 } from '../../utils/footerSettingsHelpers';
 import { useStoreLogo } from '../hooks/useStoreLogo';
+import { useStorefrontNavigation } from '../hooks/StorefrontNavigationProvider';
+import { StorefrontFooterNavList } from './StorefrontNavLinks';
 
 type Props = {
   tenant: StorefrontTenantInfo;
@@ -33,6 +35,7 @@ function LegacyStorefrontFooter({
   settings: StorefrontThemeSettings;
   storeLink?: (path: string) => string;
 }) {
+  const { footerItems } = useStorefrontNavigation();
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
   const { logoSrc, onLogoError } = useStoreLogo(tenant.logoUrl);
@@ -85,16 +88,20 @@ function LegacyStorefrontFooter({
           </div>
 
           <div className="lg:col-span-2">
-            <h3 className="store-footer-col-title">Mağaza</h3>
-            <ul className="space-y-2.5">
-              {quickLinks.map(link => (
-                <li key={link.to}>
-                  <Link to={link.to} className="store-footer-link">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h3 className="store-footer-col-title">{footerItems.length > 0 ? 'Menü' : 'Mağaza'}</h3>
+            {footerItems.length > 0 ? (
+              <StorefrontFooterNavList items={footerItems} storeLink={storeLink} />
+            ) : (
+              <ul className="space-y-2.5">
+                {quickLinks.map(link => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="store-footer-link">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="lg:col-span-3">
@@ -221,6 +228,7 @@ function ConfiguredStorefrontFooter({
   storeLink?: (path: string) => string;
   preview?: boolean;
 }) {
+  const { footerItems } = useStorefrontNavigation();
   const year = new Date().getFullYear();
   const displayName = displayStorefrontName(tenant.name);
   const rawLogoUrl = resolveFooterLogoUrl(settings, tenant.logoUrl);
@@ -311,6 +319,19 @@ function ConfiguredStorefrontFooter({
             }`}
           >
             {brandBlock}
+            {footerItems.length > 0 && (
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold mb-3" style={{ color: settings.headingColor }}>
+                  Menü
+                </h3>
+                <StorefrontFooterNavList
+                  items={footerItems}
+                  storeLink={storeLink}
+                  preview={preview}
+                  textColor={settings.textColor}
+                />
+              </div>
+            )}
             {visibleColumns.map(col => (
               <FooterColumnBlock
                 key={col.id}

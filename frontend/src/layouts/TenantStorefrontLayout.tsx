@@ -7,6 +7,7 @@ import { StorefrontCompareProvider } from '../storefront/hooks/StorefrontCompare
 import { StorefrontQuickViewProvider } from '../storefront/hooks/StorefrontQuickViewProvider';
 import { resolveTheme } from '../themes/registry';
 import { StorefrontGlobalThemeProvider } from '../storefront/hooks/StorefrontGlobalThemeProvider';
+import { StorefrontNavigationProvider } from '../storefront/hooks/StorefrontNavigationProvider';
 import { useStorefrontDocumentBranding } from '../storefront/hooks/useStorefrontDocumentBranding';
 
 function Shell() {
@@ -47,11 +48,13 @@ function Shell() {
 
   const Theme = resolveTheme(tenant.theme);
   return (
-    <StorefrontGlobalThemeProvider>
-      <Theme.Layout tenant={tenant} storeLink={storeLink}>
-        <Outlet />
-      </Theme.Layout>
-    </StorefrontGlobalThemeProvider>
+    <StorefrontNavigationProvider>
+      <StorefrontGlobalThemeProvider>
+        <Theme.Layout tenant={tenant} storeLink={storeLink}>
+          <Outlet />
+        </Theme.Layout>
+      </StorefrontGlobalThemeProvider>
+    </StorefrontNavigationProvider>
   );
 }
 
