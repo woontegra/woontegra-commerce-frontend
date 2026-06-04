@@ -153,6 +153,7 @@ const NAV: NavGroup[] = [
       { label: 'Mağaza Ayarları',to: '/dashboard/store-settings',icon: IC.storeSettings },
       { label: 'Ödeme Ayarları', to: '/dashboard/settings/payments', icon: IC.billing  },
       { label: 'Kargo Ayarları', to: '/dashboard/settings/shipping', icon: IC.shipping },
+      { label: 'E-posta Şablonları', to: '/dashboard/settings/email-templates', icon: IC.contactInbox },
       { label: 'Domain',         to: '/dashboard/domain',        icon: IC.domain        },
       { label: 'Görünüm Ayarları',  to: '/dashboard/settings',      icon: IC.settings      },
     ],

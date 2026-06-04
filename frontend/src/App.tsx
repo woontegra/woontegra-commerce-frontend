@@ -69,6 +69,7 @@ const MarketplaceQuestions = lazy(() => import('./pages/MarketplaceQuestions'));
 const StoreSettings   = lazy(() => import('./pages/StoreSettings'));
 const PaymentSettingsPage = lazy(() => import('./pages/PaymentSettingsPage'));
 const ShippingSettingsPage = lazy(() => import('./pages/ShippingSettingsPage'));
+const EmailTemplatesManagement = lazy(() => import('./pages/EmailTemplatesManagement'));
 const Notifications   = lazy(() => import('./pages/Notifications'));
 const SEOManagement   = lazy(() => import('./pages/SEOManagement'));
 const StockManagement = lazy(() => import('./pages/StockManagement'));
@@ -329,6 +330,7 @@ function App() {
           <Route path="settings"             element={<Settings />} />
           <Route path="settings/payments"     element={<PaymentSettingsPage />} />
           <Route path="settings/shipping"    element={<ShippingSettingsPage />} />
+          <Route path="settings/email-templates" element={<EmailTemplatesManagement />} />
           <Route path="billing"   element={<BillingDashboard />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="domain" element={<DomainSettings />} />
